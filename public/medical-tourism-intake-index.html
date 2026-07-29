@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light only">
+<title>Linkd by Royal — Medical Tourism Venture Discovery Intake</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    color-scheme:light only;
+    --navy:#0f1b2d; --navy-2:#16273d; --navy-3:#1d3350;
+    --gold:#c6a15b; --gold-soft:#e3cd9a;
+    --cream:#f8f6f0; --ink:#1c2430; --slate:#6b7480; --line:#e4ddce;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{background:var(--cream);color:var(--ink);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;}
+  h1,h2,h3{font-family:'Playfair Display',serif;}
+  .eyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);font-weight:600;}
+
+  header.app-header{background:var(--navy);color:#fff;padding:20px 24px 24px;position:sticky;top:0;z-index:50;}
+  .brandrow{display:flex;align-items:center;justify-content:space-between;max-width:960px;margin:0 auto 16px;gap:12px;}
+  .brandrow .brand{font-family:'Playfair Display',serif;font-size:19px;}
+  .brandrow .brand span{color:var(--gold-soft);}
+  .langswitch{display:flex;border:1px solid rgba(255,255,255,.25);border-radius:18px;overflow:hidden;}
+  .langswitch button{border:none;background:transparent;color:#9aa7b8;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;padding:6px 14px;cursor:pointer;}
+  .langswitch button.on{background:var(--gold);color:var(--navy);}
+  .route-wrap{max-width:960px;margin:0 auto;position:relative;}
+  .route-track{position:relative;height:42px;}
+  .route-line{position:absolute;left:12px;right:12px;top:19px;height:2px;background:rgba(255,255,255,.15);border-radius:2px;overflow:hidden;}
+  .route-line-fill{height:100%;background:linear-gradient(90deg,var(--gold-soft),var(--gold));width:0%;transition:width .5s ease;}
+  .route-dots{position:absolute;left:0;right:0;top:0;display:flex;justify-content:space-between;}
+  .route-dot{width:44px;display:flex;flex-direction:column;align-items:center;font-size:8.5px;letter-spacing:.03em;color:#7d8a9c;text-align:center;cursor:pointer;}
+  .route-dot .pip{width:9px;height:9px;border-radius:50%;background:var(--navy-2);border:2px solid rgba(255,255,255,.25);margin-bottom:5px;transition:all .3s;}
+  .route-dot.done .pip{background:var(--gold);border-color:var(--gold);}
+  .route-dot.current .pip{background:var(--navy);border-color:var(--gold);box-shadow:0 0 0 4px rgba(198,161,91,.25);}
+  .route-dot.current{color:var(--gold-soft);font-weight:600;}
+  .route-boat{position:absolute;top:11px;transform:translateX(-50%);transition:left .5s ease;font-size:13px;}
+  .progress-row{max-width:960px;margin:8px auto 0;font-size:11px;color:#8b98a9;letter-spacing:.06em;display:flex;justify-content:space-between;align-items:center;}
+  .progress-row button{background:none;border:none;color:#8b98a9;font-family:'Inter',sans-serif;font-size:11px;cursor:pointer;text-decoration:underline;padding:0;}
+  .progress-row button:hover{color:var(--gold-soft);}
+
+  main{max-width:740px;margin:0 auto;padding:44px 24px 160px;}
+  .panel{display:none;animation:fade .4s ease;}
+  .panel.active{display:block;}
+  @keyframes fade{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+  .panel h2{font-size:27px;font-weight:600;margin:6px 0;color:var(--navy);}
+  .panel .intro-text{color:var(--slate);font-size:15px;line-height:1.65;margin-bottom:30px;}
+
+  .field-group{margin-bottom:26px;}
+  .field-label{display:block;font-size:15.5px;font-weight:600;color:#fff !important;background:var(--navy);padding:10px 14px;border-radius:9px;margin-bottom:12px;line-height:1.45;}
+  .field-hint{font-size:12px;color:var(--slate);margin-top:6px;}
+  input[type=text],input[type=url],input[type=date],input[type=email],textarea,select{
+    width:100%;font-family:'Inter',sans-serif;font-size:15px;padding:13px 15px;
+    border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink);transition:border-color .2s;
+  }
+  textarea{min-height:88px;resize:vertical;}
+  input,textarea,select{background-color:#fff !important;color:var(--ink) !important;}
+  select option{background:#fff;color:var(--ink);}
+  ::placeholder{color:#9aa3ae;opacity:1;}
+  input:focus,textarea:focus,select:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px rgba(198,161,91,.15);}
+
+  .choice-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(185px,1fr));gap:10px;}
+  .choice{border:1px solid var(--line);background:#fff;border-radius:10px;padding:12px 14px;font-size:14.5px;display:flex;align-items:center;gap:9px;cursor:pointer;transition:all .15s;user-select:none;color:var(--ink);}
+  .choice:hover{border-color:var(--gold-soft);}
+  .choice input{accent-color:var(--gold);width:15px;height:15px;flex-shrink:0;}
+  .choice.checked{border-color:var(--gold);background:linear-gradient(0deg,#fff,#fdf9f0);box-shadow:0 0 0 1px var(--gold) inset;}
+
+  .yn-row{display:flex;align-items:center;justify-content:space-between;padding:13px 0;border-bottom:1px solid var(--line);gap:12px;}
+  .yn-label{font-size:14.5px;font-weight:600;color:#fff !important;background:var(--navy);padding:8px 13px;border-radius:9px;}
+  .switch{display:flex;border:1px solid var(--line);border-radius:20px;overflow:hidden;flex-shrink:0;}
+  .switch button{border:none;background:#fff;padding:6px 15px;font-size:12.5px;font-weight:600;cursor:pointer;color:var(--slate);font-family:'Inter',sans-serif;}
+  .switch button.on{background:var(--navy);color:#fff;}
+  .switch button.on.yes{background:var(--gold);color:var(--navy);}
+
+  .followup{margin-top:12px;padding:14px 16px;background:#fdf9f0;border:1px dashed var(--gold-soft);border-radius:10px;display:none;}
+  .followup.show{display:block;}
+
+  .rating-scale{display:flex;gap:4px;flex-wrap:wrap;}
+  .rating-scale button{width:30px;height:30px;border-radius:6px;border:1px solid var(--line);background:#fff;font-size:12.5px;color:var(--ink);cursor:pointer;}
+  .rating-scale button.on{background:var(--gold);border-color:var(--gold);color:var(--navy);font-weight:700;}
+
+  .matrix-row{padding:14px 0;border-bottom:1px solid var(--line);}
+  .matrix-row .obj{font-size:14.5px;font-weight:600;color:#fff !important;background:var(--navy);padding:8px 13px;border-radius:9px;display:inline-block;margin-bottom:10px;}
+  .matrix-scales{display:flex;gap:26px;flex-wrap:wrap;}
+  .matrix-scales .dim{display:flex;align-items:center;gap:10px;}
+  .matrix-scales .dim-label{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--slate);width:78px;font-weight:600;}
+
+  .navbar{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--line);padding:13px 24px;z-index:40;}
+  .navbar .inner{max-width:740px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;}
+  .btn{font-family:'Inter',sans-serif;font-size:13.5px;font-weight:600;padding:12px 22px;border-radius:9px;border:1px solid transparent;cursor:pointer;transition:opacity .15s;}
+  .btn-primary{background:var(--navy);color:#fff;}
+  .btn-primary:hover{opacity:.9;}
+  .btn-gold{background:var(--gold);color:var(--navy);}
+  .btn-ghost{background:transparent;color:var(--slate);border-color:var(--line);}
+  .btn:disabled{opacity:.35;cursor:not-allowed;}
+  .savestate{font-size:11px;color:var(--slate);}
+
+  .cover{text-align:center;padding:44px 10px 20px;}
+  .cover h1{font-size:34px;line-height:1.18;color:var(--navy);margin:18px 0 14px;}
+  .cover p{color:var(--slate);font-size:15px;max-width:520px;margin:0 auto 24px;line-height:1.7;}
+  .cover .meta{display:flex;gap:26px;justify-content:center;margin-top:26px;font-size:12px;color:var(--slate);flex-wrap:wrap;}
+  .cover .meta b{display:block;color:var(--navy);font-size:15px;font-family:'Playfair Display',serif;}
+  .cover .note{font-size:12px;color:var(--slate);margin-top:22px;}
+  .privacy-note{max-width:560px;margin:26px auto 0;background:#fff;border:1px solid var(--gold-soft);border-radius:12px;padding:16px 18px;font-size:13px;color:var(--ink);line-height:1.7;text-align:left;}
+  .privacy-note b{color:var(--navy);}
+
+  .finish{background:linear-gradient(135deg,var(--navy),var(--navy-3));border-radius:14px;padding:38px 28px;text-align:center;color:#fff;}
+  .finish h2{color:#fff;font-size:24px;margin:12px 0;}
+  .finish p{color:#b7c0cd;font-size:14px;max-width:480px;margin:0 auto 22px;line-height:1.75;}
+  .finish .btn-gold{font-size:14px;font-weight:700;padding:14px 30px;border:none;}
+  .finish .btn-gold:disabled{opacity:.6;cursor:wait;}
+  .loading-dots span{animation:blink 1.2s infinite;}
+  .loading-dots span:nth-child(2){animation-delay:.2s;}
+  .loading-dots span:nth-child(3){animation-delay:.4s;}
+  @keyframes blink{0%,80%,100%{opacity:.2;}40%{opacity:1;}}
+  .thanks{text-align:center;padding:60px 12px;}
+  .thanks .mark{font-size:46px;color:var(--gold);}
+  .thanks h1{font-size:32px;color:var(--navy);margin:16px 0 12px;}
+  .thanks p{color:var(--slate);font-size:15.5px;max-width:520px;margin:0 auto;line-height:1.8;}
+
+  @media(max-width:680px){
+    .route-dot{width:auto;font-size:0;}
+    .route-dot .pip{margin-bottom:0;}
+    .cover h1{font-size:26px;}
+    .matrix-scales{gap:10px;flex-direction:column;align-items:flex-start;}
+  }
+</style>
+</head>
+<body>
+
+<header class="app-header">
+  <div class="brandrow">
+    <div class="brand">Linkd <span>by Royal</span></div>
+    <div class="langswitch" id="langSwitch">
+      <button data-lang="nl">NL</button><button data-lang="en">EN</button>
+    </div>
+  </div>
+  <div class="route-wrap">
+    <div class="route-track">
+      <div class="route-line"><div class="route-line-fill" id="routeFill"></div></div>
+      <div class="route-boat" id="routeBoat">⛴</div>
+      <div class="route-dots" id="routeDots"></div>
+    </div>
+  </div>
+  <div class="progress-row">
+    <button id="resetBtn" type="button"></button>
+    <span id="progressPct"></span>
+  </div>
+</header>
+
+<main id="main"></main>
+
+<div class="navbar" id="navbar">
+  <div class="inner">
+    <button class="btn btn-ghost" id="prevBtn"></button>
+    <span class="savestate" id="saveState"></span>
+    <button class="btn btn-primary" id="nextBtn"></button>
+  </div>
+</div>
+
+<script>
+/* =================== I18N + FORM DEFINITION =================== */
+const STORAGE_KEY='lbr_medintake_v1';
+const SECTION_COUNT=9;
+let lang = localStorage.getItem('lbr_lang') || 'nl';
+let current = 0;
+let answers = {};
+let submitted = false;
+
+const UI = {
+  next:{nl:'Volgende',en:'Next'}, prev:{nl:'Vorige',en:'Back'},
+  saved:{nl:'Opgeslagen',en:'Saved'}, reset:{nl:'Opnieuw beginnen',en:'Start over'},
+  resetConfirm:{nl:'Alle antwoorden wissen en opnieuw beginnen?',en:'Clear all answers and start over?'},
+  progress:{nl:'% voltooid',en:'% completed'},
+  sectionWord:{nl:'Sectie',en:'Section'},
+  impact:{nl:'Impact',en:'Impact'}, effort:{nl:'Moeite',en:'Effort'},
+  choose:{nl:'Kies…',en:'Choose…'},
+  submit:{nl:'Verstuur intake',en:'Submit intake'},
+  submitting:{nl:'Versturen',en:'Submitting'},
+  submitFail:{nl:'Versturen is niet gelukt. Controleer uw internetverbinding en probeer het opnieuw; uw antwoorden zijn bewaard.',en:'Submission failed. Please check your internet connection and try again; your answers have been saved.'},
+  retry:{nl:'Probeer opnieuw',en:'Try again'}
+};
+const t = o => (o && (o[lang] ?? o.nl)) || '';
+
+const ROUTE_LABELS=[
+  {nl:'Start',en:'Start'},
+  {nl:'Bedrijf',en:'Company'},
+  {nl:'Model',en:'Model'},
+  {nl:'Doelgroep',en:'Audience'},
+  {nl:'Partners',en:'Partners'},
+  {nl:'Patiëntreis',en:'Journey'},
+  {nl:'Juridisch',en:'Legal'},
+  {nl:'Digitaal',en:'Digital'},
+  {nl:'Budget',en:'Budget'},
+  {nl:'Afronding',en:'Completion'},
+  {nl:'Klaar',en:'Done'}
+];
+
+const DEF=[
+{ // 1 Bedrijf & Identiteit
+ title:{nl:'Bedrijf & Identiteit',en:'Company & Identity'},
+ intro:{nl:'Wie zijn de initiatiefnemers en wat is het verhaal achter dit initiatief?',en:'Who are the founders and what is the story behind this initiative?'},
+ fields:[
+  {t:'tx',k:'bedrijfsnaam',l:{nl:'Bedrijfsnaam of naam van het initiatief',en:'Company or initiative name'}},
+  {t:'ta',k:'naamverhaal',l:{nl:'Wat is het idee, verhaal of de betekenis achter deze naam?',en:'What is the idea, story or meaning behind this name?'},ph:{nl:'Waarom is deze naam gekozen, wat moet hij uitstralen en wat moet een klant erbij voelen?',en:'Why was this name chosen, what should it represent and what should a client feel when hearing it?'}},
+  {t:'sel',k:'stadium',l:{nl:'Huidig stadium',en:'Current stage'},opts:[
+    {v:'Idee / conceptfase',nl:'Idee / conceptfase',en:'Idea / concept stage'},
+    {v:'Pre-launch',nl:'Pre-launch',en:'Pre-launch'},
+    {v:'Bestaande onderneming die uitbreidt',nl:'Bestaande onderneming die uitbreidt',en:'Existing company expanding'},
+    {v:'Reeds operationeel',nl:'Reeds operationeel',en:'Already operational'},
+    {v:'Anders',nl:'Anders',en:'Other'}]},
+  {t:'ta',k:'bedrijf_intro',l:{nl:'Korte omschrijving van het initiatief',en:'Brief description of the initiative'}},
+  {t:'ta',k:'waarom_venezuela',l:{nl:'Waarom Venezuela als eerste bestemming?',en:'Why Venezuela as the first destination?'}},
+  {t:'ta',k:'waarom_colombia',l:{nl:'Waarom Colombia als mogelijke fase 2?',en:'Why Colombia as a possible phase 2?'}},
+  {t:'tx',k:'startdatum',type:'date',l:{nl:'Beoogde startdatum van de pilot',en:'Intended start date of the pilot'}},
+  {t:'tx',k:'besluitvormers',l:{nl:'Wie zijn de belangrijkste beslissers?',en:'Who are the key decision-makers?'}},
+  {t:'tx',k:'implementatie_eigenaar',l:{nl:'Wie is intern verantwoordelijk voor uitvoering?',en:'Who is internally responsible for execution?'}}
+]},
+{ // 2 Doel & Businessmodel
+ title:{nl:'Doel & Businessmodel',en:'Purpose & Business Model'},
+ intro:{nl:'Wat gaat de organisatie doen en waar moet zij over 12 maanden staan?',en:'What will the organization do and where should it stand in 12 months?'},
+ fields:[
+  {t:'cg',k:'rol_organisatie',l:{nl:'Wat is de primaire rol van de organisatie?',en:'What is the primary role of the organization?'},opts:[
+    {v:'Medische facilitator',nl:'Medische facilitator',en:'Medical facilitator'},
+    {v:'Bemiddelaar tussen patiënt en kliniek',nl:'Bemiddelaar tussen patiënt en kliniek',en:'Intermediary between patient and clinic'},
+    {v:'Travel & care coordinator',nl:'Travel & care coordinator',en:'Travel & care coordinator'},
+    {v:'Concierge en lokale begeleiding',nl:'Concierge en lokale begeleiding',en:'Concierge and local guidance'},
+    {v:'Partnerplatform',nl:'Partnerplatform',en:'Partner platform'},
+    {v:'Combinatie',nl:'Combinatie',en:'Combination'}],
+   other:{nl:'Anders…',en:'Other…'}},
+  {t:'cg',k:'doelen_12mnd',l:{nl:'Wat moet binnen 12 maanden bereikt zijn?',en:'What should be achieved within 12 months?'},opts:[
+    {v:'Pilot succesvol lanceren',nl:'Pilot succesvol lanceren',en:'Launch a successful pilot'},
+    {v:'Eerste 10 patiënten begeleiden',nl:'Eerste 10 patiënten begeleiden',en:'Guide the first 10 patients'},
+    {v:'Partnerklinieken contracteren',nl:'Partnerklinieken contracteren',en:'Contract partner clinics'},
+    {v:'Online intake- en opvolgproces bouwen',nl:'Online intake- en opvolgproces bouwen',en:'Build an online intake and follow-up process'},
+    {v:'Rendabel businessmodel valideren',nl:'Rendabel businessmodel valideren',en:'Validate a profitable business model'},
+    {v:'Merk en website lanceren',nl:'Merk en website lanceren',en:'Launch brand and website'},
+    {v:'Colombia voorbereiden als fase 2',nl:'Colombia voorbereiden als fase 2',en:'Prepare Colombia as phase 2'}],
+   other:{nl:'Anders…',en:'Other…'}},
+  {t:'ta',k:'succescriteria',l:{nl:'Wat zijn de drie belangrijkste succescriteria?',en:'What are the three most important success criteria?'}},
+  {t:'cg',k:'diensten_fase1',l:{nl:'Welke diensten wilt u in fase 1 aanbieden?',en:'Which services do you want to offer in phase 1?'},opts:[
+    {v:'Kliniek- of specialistmatching',nl:'Kliniek- of specialistmatching',en:'Clinic or specialist matching'},
+    {v:'Coördinatie van medische afspraken',nl:'Coördinatie van medische afspraken',en:'Coordination of medical appointments'},
+    {v:'Videoconsult of pre-screening coördinatie',nl:'Videoconsult of pre-screening coördinatie',en:'Video consult or pre-screening coordination'},
+    {v:'Reis- en verblijfcoördinatie',nl:'Reis- en verblijfcoördinatie',en:'Travel and stay coordination'},
+    {v:'Luchthaven- en kliniektransfers',nl:'Luchthaven- en kliniektransfers',en:'Airport and clinic transfers'},
+    {v:'Tolken of lokale begeleiding',nl:'Tolken of lokale begeleiding',en:'Interpreters or local guidance'},
+    {v:'Nazorgcoördinatie',nl:'Nazorgcoördinatie',en:'Aftercare coordination'},
+    {v:'Familie- of begeleidersarrangement',nl:'Familie- of begeleidersarrangement',en:'Family or companion arrangement'}],
+   other:{nl:'Anders…',en:'Other…'}},
+  {t:'tx',k:'diensten_niet_fase1',l:{nl:'Welke diensten zijn bewust geen onderdeel van fase 1?',en:'Which services are deliberately not part of phase 1?'}},
+  {t:'sel',k:'besteding_per_patient',l:{nl:'Wat is de verwachte gemiddelde besteding per patiënt?',en:'What is the expected average spend per patient?'},opts:[
+    {v:'Onder €1.000',nl:'Onder €1.000',en:'Under €1,000'},
+    {v:'€1.000 tot €2.500',nl:'€1.000 tot €2.500',en:'€1,000 to €2,500'},
+    {v:'€2.500 tot €5.000',nl:'€2.500 tot €5.000',en:'€2,500 to €5,000'},
+    {v:'€5.000 tot €10.000',nl:'€5.000 tot €10.000',en:'€5,000 to €10,000'},
+    {v:'Boven €10.000',nl:'Boven €10.000',en:'Above €10,000'},
+    {v:'Nog onbekend',nl:'Nog onbekend',en:'Unknown yet'}]},
+  {t:'sel',k:'facturatie',l:{nl:'Wie factureert de patiënt?',en:'Who invoices the patient?'},opts:[
+    {v:'De kliniek rechtstreeks',nl:'De kliniek rechtstreeks',en:'The clinic directly'},
+    {v:'De facilitator',nl:'De facilitator',en:'The facilitator'},
+    {v:'Externe reis- of zorgpartner',nl:'Externe reis- of zorgpartner',en:'External travel or care partner'},
+    {v:'Combinatie',nl:'Combinatie',en:'Combination'},
+    {v:'Nog te bepalen',nl:'Nog te bepalen',en:'To be determined'}]}
+]},
+{ // 3 Patiëntdoelgroep & Markt
+ title:{nl:'Patiëntdoelgroep & Markt',en:'Patient Audience & Market'},
+ intro:{nl:'Voor wie is deze dienstverlening bedoeld?',en:'Who is this service intended for?'},
+ fields:[
+  {t:'cg',k:'doelgroep_markt',l:{nl:'Primaire herkomstmarkt',en:'Primary source market'},opts:[
+    {v:'Curaçao',nl:'Curaçao',en:'Curaçao'},
+    {v:'Caribisch gebied',nl:'Caribisch gebied',en:'Caribbean region'},
+    {v:'Nederland',nl:'Nederland',en:'Netherlands'},
+    {v:'Venezuela',nl:'Venezuela',en:'Venezuela'},
+    {v:'Colombia',nl:'Colombia',en:'Colombia'}],
+   other:{nl:'Anders…',en:'Other…'}},
+  {t:'cg',k:'patientgroep',l:{nl:'Primaire patiëntgroep',en:'Primary patient group'},opts:[
+    {v:'Self-pay patiënten',nl:'Self-pay patiënten',en:'Self-pay patients'},
+    {v:'Verzekerde patiënten',nl:'Verzekerde patiënten',en:'Insured patients'},
+    {v:'Diaspora',nl:'Diaspora',en:'Diaspora'},
+    {v:'Werkgevers',nl:'Werkgevers',en:'Employers'},
+    {v:'Referral via arts of zorgpartner',nl:'Referral via arts of zorgpartner',en:'Referral via doctor or care partner'},
+    {v:'Families',nl:'Families',en:'Families'}],
+   other:{nl:'Anders…',en:'Other…'}},
+  {t:'cg',k:'zorggebieden',l:{nl:'Welke zorggebieden of behandelingen hebben prioriteit in fase 1?',en:'Which care areas or treatments have priority in phase 1?'},opts:[
+    {v:'Tandheelkunde',nl:'Tandheelkunde',en:'Dentistry'},
+    {v:'Esthetische chirurgie',nl:'Esthetische chirurgie',en:'Aesthetic surgery'},
+    {v:'Orthopedie',nl:'Orthopedie',en:'Orthopedics'},
+    {v:'Diagnostiek',nl:'Diagnostiek',en:'Diagnostics'},
+    {v:'Vruchtbaarheidszorg',nl:'Vruchtbaarheidszorg',en:'Fertility care'},
+    {v:'Oogzorg',nl:'Oogzorg',en:'Eye care'},
+    {v:'Dermatologie',nl:'Dermatologie',en:'Dermatology'},
+    {v:'Bariatrie',nl:'Bariatrie',en:'Bariatrics'}],
+   other:{nl:'Anders…',en:'Other…'}},
+  {t:'cg',k:'talen',l:{nl:'Welke talen moeten minimaal worden ondersteund?',en:'Which languages must be supported at a minimum?'},opts:[
+    {v:'Nederlands',nl:'Nederlands',en:'Dutch'},
+    {v:'Engels',nl:'Engels',en:'English'},
+    {v:'Spaans',nl:'Spaans',en:'Spanish'},
+    {v:'Papiaments',nl:'Papiaments',en:'Papiamentu'}],
+   other:{nl:'Anders…',en:'Other…'}},
+  {t:'cg',k:'drempels',l:{nl:'Wat zijn volgens u de grootste drempels voor patiënten?',en:'What do you consider the biggest barriers for patients?'},opts:[
+    {v:'Vertrouwen',nl:'Vertrouwen',en:'Trust'},
+    {v:'Veiligheid',nl:'Veiligheid',en:'Safety'},
+    {v:'Prijs',nl:'Prijs',en:'Price'},
+    {v:'Taal',nl:'Taal',en:'Language'},
+    {v:'Kwaliteit van klinieken',nl:'Kwaliteit van klinieken',en:'Quality of clinics'},
+    {v:'Reisplanning',nl:'Reisplanning',en:'Travel planning'},
+    {v:'Nazorg',nl:'Nazorg',en:'Aftercare'},
+    {v:'Betaling',nl:'Betaling',en:'Payment'},
+    {v:'Onzekerheid over aansprakelijkheid',nl:'Onzekerheid over aansprakelijkheid',en:'Uncertainty about liability'}],
+   other:{nl:'Anders…',en:'Other…'}},
+  {t:'ta',k:'concurrenten',l:{nl:'Noem maximaal drie mogelijke concurrenten of voorbeeldbedrijven',en:'Name up to three possible competitors or example companies'},ph:{nl:'Eén per regel',en:'One per line'}}
+]},
+{ // 4 Medische Partners & Klinieknetwerk
+ title:{nl:'Medische Partners & Klinieknetwerk',en:'Medical Partners & Clinic Network'},
+ intro:{nl:'De kwaliteit en verificatie van partnerklinieken bepalen of een pilot verantwoord kan starten.',en:'The quality and verification of partner clinics determine whether a pilot can start responsibly.'},
+ fields:[
+  {t:'sel',k:'partners_geidentificeerd',l:{nl:'Zijn er al klinieken, artsen of specialisten geïdentificeerd?',en:'Have clinics, doctors or specialists already been identified?'},opts:[
+    {v:'Ja',nl:'Ja',en:'Yes'},{v:'Gedeeltelijk',nl:'Gedeeltelijk',en:'Partially'},{v:'Nee',nl:'Nee',en:'No'}]},
+  {t:'cg',k:'partner_landen',l:{nl:'In welke landen bevinden deze partners zich?',en:'In which countries are these partners located?'},opts:[
+    {v:'Venezuela',nl:'Venezuela',en:'Venezuela'},{v:'Colombia',nl:'Colombia',en:'Colombia'},{v:'Curaçao',nl:'Curaçao',en:'Curaçao'}],
+   other:{nl:'Anders…',en:'Other…'}},
+  {t:'cg',k:'partner_informatie',l:{nl:'Welke partnerinformatie is al beschikbaar?',en:'Which partner information is already available?'},opts:[
+    {v:'Klinieklicentie of registratie',nl:'Klinieklicentie of registratie',en:'Clinic license or registration'},
+    {v:'Artsregistratie of kwalificaties',nl:'Artsregistratie of kwalificaties',en:'Physician registration or qualifications'},
+    {v:'Behandelprijzen',nl:'Behandelprijzen',en:'Treatment prices'},
+    {v:'Beschikbaarheid en wachttijden',nl:'Beschikbaarheid en wachttijden',en:'Availability and waiting times'},
+    {v:'Verzekering',nl:'Verzekering',en:'Insurance'},
+    {v:'Referenties of reviews',nl:'Referenties of reviews',en:'References or reviews'},
+    {v:'Schriftelijke samenwerkingsovereenkomst',nl:'Schriftelijke samenwerkingsovereenkomst',en:'Written partnership agreement'},
+    {v:'Service Level Agreement',nl:'Service Level Agreement',en:'Service Level Agreement'},
+    {v:'Nog niets geverifieerd',nl:'Nog niets geverifieerd',en:'Nothing verified yet'}]},
+  {t:'sel',k:'medische_beoordeling',l:{nl:'Wie voert de medische beoordeling uit voordat een patiënt aan een kliniek wordt gekoppeld?',en:'Who performs the medical assessment before a patient is matched to a clinic?'},opts:[
+    {v:'Bevoegde arts of medisch specialist',nl:'Bevoegde arts of medisch specialist',en:'Licensed doctor or medical specialist'},
+    {v:'Partnerkliniek',nl:'Partnerkliniek',en:'Partner clinic'},
+    {v:'Externe medisch adviseur',nl:'Externe medisch adviseur',en:'External medical advisor'},
+    {v:'Nog te bepalen',nl:'Nog te bepalen',en:'To be determined'}]},
+  {t:'tx',k:'kwaliteitscontrole',l:{nl:'Wie controleert kwaliteit, bevoegdheden en partnerdocumentatie?',en:'Who verifies quality, credentials and partner documentation?'}},
+  {t:'sel',k:'lokale_contactpersoon',l:{nl:'Is er een lokale contactpersoon voor spoed of escalaties?',en:'Is there a local contact for emergencies or escalations?'},opts:[
+    {v:'Ja',nl:'Ja',en:'Yes'},{v:'Nee',nl:'Nee',en:'No'},{v:'Nog te bepalen',nl:'Nog te bepalen',en:'To be determined'}]},
+  {t:'sel',k:'partnerafspraken_vastgelegd',l:{nl:'Zijn partnerrollen, commissies, betalingen en verantwoordelijkheden schriftelijk vastgelegd?',en:'Are partner roles, commissions, payments and responsibilities documented in writing?'},opts:[
+    {v:'Ja',nl:'Ja',en:'Yes'},{v:'Gedeeltelijk',nl:'Gedeeltelijk',en:'Partially'},{v:'Nee',nl:'Nee',en:'No'},{v:'Nog te bepalen',nl:'Nog te bepalen',en:'To be determined'}]}
+]},
+{ // 5 Patiëntreis & Operatie
+ title:{nl:'Patiëntreis & Operatie',en:'Patient Journey & Operations'},
+ intro:{nl:'Hoe verloopt de reis van eerste contact tot nazorg, en wie is waarvoor verantwoordelijk?',en:'How does the journey run from first contact to aftercare, and who is responsible for what?'},
+ fields:[
+  {t:'cg',k:'lead_kanalen',l:{nl:'Via welke kanalen komen potentiële patiënten binnen?',en:'Through which channels do potential patients come in?'},opts:[
+    {v:'Website',nl:'Website',en:'Website'},{v:'WhatsApp',nl:'WhatsApp',en:'WhatsApp'},
+    {v:'Instagram',nl:'Instagram',en:'Instagram'},{v:'Referral',nl:'Referral',en:'Referral'},
+    {v:'Arts of zorgpartner',nl:'Arts of zorgpartner',en:'Doctor or care partner'},
+    {v:'Bestaande klant',nl:'Bestaande klant',en:'Existing client'},
+    {v:'Advertenties',nl:'Advertenties',en:'Advertising'}],
+   other:{nl:'Anders…',en:'Other…'}},
+  {t:'tx',k:'eerste_intake',l:{nl:'Wie doet de eerste commerciële intake?',en:'Who handles the first commercial intake?'}},
+  {t:'ta',k:'patientreis',l:{nl:'Beschrijf kort de gewenste patiëntreis',en:'Briefly describe the desired patient journey'},ph:{nl:'Bijvoorbeeld: lead → intake → medische beoordeling → kliniekvoorstel → betaling → reis → behandeling → nazorg',en:'For example: lead → intake → medical assessment → clinic proposal → payment → travel → treatment → aftercare'}},
+  {t:'tx',k:'communicatie_eigenaar',l:{nl:'Wie is eigenaar van communicatie vóór, tijdens en na de reis?',en:'Who owns communication before, during and after the journey?'}},
+  {t:'sel',k:'escalatieplan',l:{nl:'Is er een 24/7 contact- of escalatieplan?',en:'Is there a 24/7 contact or escalation plan?'},opts:[
+    {v:'Ja',nl:'Ja',en:'Yes'},{v:'Gedeeltelijk',nl:'Gedeeltelijk',en:'Partially'},{v:'Nee',nl:'Nee',en:'No'}]},
+  {t:'cg',k:'procesrisicos',l:{nl:'Welke drie procesrisico\u2019s verwacht u het meest?',en:'Which three process risks do you expect most?'},opts:[
+    {v:'Vertraging',nl:'Vertraging',en:'Delay'},{v:'Annulering',nl:'Annulering',en:'Cancellation'},
+    {v:'Complicatie',nl:'Complicatie',en:'Complication'},{v:'Taalbarrière',nl:'Taalbarrière',en:'Language barrier'},
+    {v:'Betalingsprobleem',nl:'Betalingsprobleem',en:'Payment issue'},
+    {v:'Trage reactie van partnerkliniek',nl:'Trage reactie van partnerkliniek',en:'Slow response from partner clinic'},
+    {v:'Ontbrekende documentatie',nl:'Ontbrekende documentatie',en:'Missing documentation'},
+    {v:'Reisproblemen',nl:'Reisproblemen',en:'Travel problems'},
+    {v:'Klacht',nl:'Klacht',en:'Complaint'}],
+   other:{nl:'Anders…',en:'Other…'}}
+]},
+{ // 6 Juridisch, Privacy & Veiligheid
+ title:{nl:'Juridisch, Privacy & Veiligheid',en:'Legal, Privacy & Safety'},
+ intro:{nl:'Deze onderwerpen bepalen de aansprakelijkheid en het vertrouwen van patiënten. Antwoord naar beste weten; ontbrekende zaken zijn juist waardevolle informatie.',en:'These topics determine liability and patient trust. Answer to the best of your knowledge; gaps are valuable information in themselves.'},
+ fields:[
+  {t:'tx',k:'juridische_entiteit',l:{nl:'In welke juridische entiteit en vanuit welk land wordt de dienstverlening uitgevoerd?',en:'Through which legal entity and from which country will the service operate?'}},
+  {t:'sel',k:'juridisch_advies',l:{nl:'Is juridisch advies beschikbaar?',en:'Is legal advice available?'},opts:[
+    {v:'Ja, via vast juridisch kantoor of jurist',nl:'Ja, via vast juridisch kantoor of jurist',en:'Yes, via a regular law firm or lawyer'},
+    {v:'Incidenteel',nl:'Incidenteel',en:'Occasionally'},
+    {v:'Nog niet',nl:'Nog niet',en:'Not yet'}]},
+  {t:'cg',k:'documenten_aanwezig',l:{nl:'Welke documenten zijn al aanwezig?',en:'Which documents are already in place?'},opts:[
+    {v:'Algemene voorwaarden',nl:'Algemene voorwaarden',en:'General terms and conditions'},
+    {v:'Privacyverklaring',nl:'Privacyverklaring',en:'Privacy statement'},
+    {v:'Partnerovereenkomst',nl:'Partnerovereenkomst',en:'Partner agreement'},
+    {v:'Klachtenprocedure',nl:'Klachtenprocedure',en:'Complaints procedure'},
+    {v:'Annulerings- en refundvoorwaarden',nl:'Annulerings- en refundvoorwaarden',en:'Cancellation and refund terms'},
+    {v:'Aansprakelijkheidsverzekering',nl:'Aansprakelijkheidsverzekering',en:'Liability insurance'},
+    {v:'Crisis- of escalatieprotocol',nl:'Crisis- of escalatieprotocol',en:'Crisis or escalation protocol'},
+    {v:'Verwerkersovereenkomst of privacyprocedure',nl:'Verwerkersovereenkomst of privacyprocedure',en:'Data processing agreement or privacy procedure'},
+    {v:'Nog geen documenten',nl:'Nog geen documenten',en:'No documents yet'}]},
+  {t:'sel',k:'medische_documenten_aanlevering',l:{nl:'Hoe worden medische documenten later veilig aangeleverd?',en:'How will medical documents be supplied securely later on?'},opts:[
+    {v:'Beveiligd patiëntenportaal',nl:'Beveiligd patiëntenportaal',en:'Secure patient portal'},
+    {v:'Beveiligde cloudomgeving',nl:'Beveiligde cloudomgeving',en:'Secure cloud environment'},
+    {v:'Versleutelde e-mail',nl:'Versleutelde e-mail',en:'Encrypted email'},
+    {v:'WhatsApp',nl:'WhatsApp',en:'WhatsApp'},
+    {v:'Nog te bepalen',nl:'Nog te bepalen',en:'To be determined'}]},
+  {t:'tx',k:'toegang_medische_gegevens',l:{nl:'Wie mag toegang hebben tot medische patiëntgegevens?',en:'Who may have access to medical patient data?'}},
+  {t:'sel',k:'verantwoordelijkheid_duidelijk',l:{nl:'Is duidelijk wie verantwoordelijk is bij complicaties, annuleringen of klachten?',en:'Is it clear who is responsible in case of complications, cancellations or complaints?'},opts:[
+    {v:'Ja',nl:'Ja',en:'Yes'},{v:'Gedeeltelijk',nl:'Gedeeltelijk',en:'Partially'},{v:'Nee',nl:'Nee',en:'No'}]},
+  {t:'ta',k:'compliance_risicos',l:{nl:'Welke compliance-, veiligheids- of aansprakelijkheidsrisico\u2019s ziet u zelf?',en:'Which compliance, safety or liability risks do you see yourself?'}}
+]},
+{ // 7 Digitale Basis & Automatisering
+ title:{nl:'Digitale Basis & Automatisering',en:'Digital Foundation & Automation'},
+ intro:{nl:'Wat staat er al, en wat mag nooit zonder menselijke controle gebeuren?',en:'What is already in place, and what should never happen without human oversight?'},
+ fields:[
+  {t:'sel',k:'website',l:{nl:'Website aanwezig?',en:'Website in place?'},opts:[
+    {v:'Ja',nl:'Ja',en:'Yes'},{v:'Nee',nl:'Nee',en:'No'},{v:'In ontwikkeling',nl:'In ontwikkeling',en:'In development'}]},
+  {t:'sel',k:'crm',l:{nl:'CRM aanwezig?',en:'CRM in place?'},opts:[
+    {v:'Ja',nl:'Ja',en:'Yes'},{v:'Nee',nl:'Nee',en:'No'},{v:'Nog te kiezen',nl:'Nog te kiezen',en:'Still to choose'}]},
+  {t:'yn',k:'whatsapp',l:{nl:'WhatsApp Business aanwezig?',en:'WhatsApp Business in place?'}},
+  {t:'sel',k:'betalingen',l:{nl:'Online betalingen mogelijk?',en:'Online payments possible?'},opts:[
+    {v:'Ja',nl:'Ja',en:'Yes'},{v:'Nee',nl:'Nee',en:'No'},{v:'Nog te kiezen',nl:'Nog te kiezen',en:'Still to choose'}]},
+  {t:'cg',k:'automatiseringen_prioriteit',l:{nl:'Welke automatiseringen hebben eerste prioriteit?',en:'Which automations have first priority?'},opts:[
+    {v:'Leadregistratie',nl:'Leadregistratie',en:'Lead registration'},
+    {v:'CRM-opvolging',nl:'CRM-opvolging',en:'CRM follow-up'},
+    {v:'WhatsApp opvolging',nl:'WhatsApp opvolging',en:'WhatsApp follow-up'},
+    {v:'Afspraakreminders',nl:'Afspraakreminders',en:'Appointment reminders'},
+    {v:'Documentchecklist',nl:'Documentchecklist',en:'Document checklist'},
+    {v:'Offerteflow',nl:'Offerteflow',en:'Quote flow'},
+    {v:'Betalingsherinneringen',nl:'Betalingsherinneringen',en:'Payment reminders'},
+    {v:'Partnercommunicatie',nl:'Partnercommunicatie',en:'Partner communication'},
+    {v:'Nazorgcheck-ins',nl:'Nazorgcheck-ins',en:'Aftercare check-ins'},
+    {v:'KPI-dashboard',nl:'KPI-dashboard',en:'KPI dashboard'},
+    {v:'Managementrapportage',nl:'Managementrapportage',en:'Management reporting'}]},
+  {t:'cg',k:'nooit_ai',l:{nl:'Welke handelingen mogen nooit volledig door AI of automatisering worden uitgevoerd?',en:'Which actions should never be performed fully by AI or automation?'},opts:[
+    {v:'Medische beoordeling',nl:'Medische beoordeling',en:'Medical assessment'},
+    {v:'Diagnose of behandeladvies',nl:'Diagnose of behandeladvies',en:'Diagnosis or treatment advice'},
+    {v:'Definitieve kliniekselectie',nl:'Definitieve kliniekselectie',en:'Final clinic selection'},
+    {v:'Besluit bij spoed of complicatie',nl:'Besluit bij spoed of complicatie',en:'Decision in emergency or complication'},
+    {v:'Versturen van medische gegevens zonder menselijke controle',nl:'Versturen van medische gegevens zonder menselijke controle',en:'Sending medical data without human review'},
+    {v:'Refund- of claimbesluit',nl:'Refund- of claimbesluit',en:'Refund or claim decision'},
+    {v:'Definitieve prijsafwijking bij complexe cases',nl:'Definitieve prijsafwijking bij complexe cases',en:'Final price deviation in complex cases'}],
+   other:{nl:'Anders…',en:'Other…'}},
+  {t:'sel',k:'ai_comfort',l:{nl:'Huidig comfortniveau met AI en automatisering',en:'Current comfort level with AI and automation'},opts:[
+    {v:'Geen ervaring',nl:'Geen ervaring',en:'No experience'},{v:'Basis',nl:'Basis',en:'Basic'},
+    {v:'Gemiddeld',nl:'Gemiddeld',en:'Average'},{v:'Sterk',nl:'Sterk',en:'Strong'}]},
+  {t:'tx',k:'huidige_systemen',l:{nl:'Welke systemen worden nu al gebruikt?',en:'Which systems are already in use?'}}
+]},
+{ // 8 Budget, Planning & Prioriteiten
+ title:{nl:'Budget, Planning & Prioriteiten',en:'Budget, Planning & Priorities'},
+ intro:{nl:'Beoordeel in de matrix per onderdeel de impact en de verwachte moeite (1 = laag, 5 = hoog).',en:'In the matrix, rate each item on impact and expected effort (1 = low, 5 = high).'},
+ fields:[
+  {t:'sel',k:'budget',l:{nl:'Beschikbaar budget voor de eerste 12 maanden',en:'Available budget for the first 12 months'},opts:[
+    {v:'Onder €10.000',nl:'Onder €10.000',en:'Under €10,000'},
+    {v:'€10.000 tot €25.000',nl:'€10.000 tot €25.000',en:'€10,000 to €25,000'},
+    {v:'€25.000 tot €50.000',nl:'€25.000 tot €50.000',en:'€25,000 to €50,000'},
+    {v:'€50.000 tot €100.000',nl:'€50.000 tot €100.000',en:'€50,000 to €100,000'},
+    {v:'Boven €100.000',nl:'Boven €100.000',en:'Above €100,000'},
+    {v:'Nog onbekend',nl:'Nog onbekend',en:'Unknown yet'}]},
+  {t:'sel',k:'team_tijd',l:{nl:'Hoeveel tijd kan het kernteam per week vrijmaken?',en:'How much time can the core team free up per week?'},opts:[
+    {v:'Minder dan 5 uur',nl:'Minder dan 5 uur',en:'Less than 5 hours'},
+    {v:'5 tot 10 uur',nl:'5 tot 10 uur',en:'5 to 10 hours'},
+    {v:'10 tot 20 uur',nl:'10 tot 20 uur',en:'10 to 20 hours'},
+    {v:'Meer dan 20 uur',nl:'Meer dan 20 uur',en:'More than 20 hours'}]},
+  {t:'ta',k:'doelen_90dagen',l:{nl:'Wat moet binnen 90 dagen gerealiseerd zijn?',en:'What must be realized within 90 days?'}},
+  {t:'matrix'}
+]},
+{ // 9 Afronding
+ title:{nl:'Afronding',en:'Completion'},
+ intro:{nl:'',en:''},
+ fields:[
+  {t:'ta',k:'verwachting_lbr',l:{nl:'Wat verwacht u concreet van Linkd by Royal?',en:'What do you concretely expect from Linkd by Royal?'}},
+  {t:'ta',k:'zorgen',l:{nl:'Wat zijn de grootste zorgen, blokkades of risico\u2019s?',en:'What are the biggest concerns, blockers or risks?'}},
+  {t:'sel',k:'risicobereidheid',l:{nl:'Risicobereidheid',en:'Risk appetite'},opts:[
+    {v:'Voorzichtig: eerst bewijzen, daarna opschalen',nl:'Voorzichtig: eerst bewijzen, daarna opschalen',en:'Cautious: prove first, then scale'},
+    {v:'Gebalanceerd',nl:'Gebalanceerd',en:'Balanced'},
+    {v:'Ambitieus: bereid om vooraf te investeren',nl:'Ambitieus: bereid om vooraf te investeren',en:'Ambitious: willing to invest upfront'}]},
+  {t:'tx',k:'contact_naam',l:{nl:'Naam contactpersoon',en:'Contact person name'}},
+  {t:'tx',k:'contact_email',type:'email',l:{nl:'E-mailadres contactpersoon',en:'Contact person email address'}}
+]}
+];
+
+const PRIORITY_ITEMS=[
+  ['prio_partnerverificatie',{nl:'Kliniek- en partnerverificatie',en:'Clinic and partner verification'}],
+  ['prio_juridisch',{nl:'Juridische structuur en voorwaarden',en:'Legal structure and terms'}],
+  ['prio_privacy',{nl:'Privacy en veilige documentverwerking',en:'Privacy and secure document handling'}],
+  ['prio_patientreis',{nl:'Patiëntreis en crisisprotocol',en:'Patient journey and crisis protocol'}],
+  ['prio_website',{nl:'Website en lead intake',en:'Website and lead intake'}],
+  ['prio_crm',{nl:'CRM en WhatsApp opvolging',en:'CRM and WhatsApp follow-up'}],
+  ['prio_marketing',{nl:'Marketing en leadgeneratie',en:'Marketing and lead generation'}],
+  ['prio_ai_dashboard',{nl:'AI en rapportagedashboard',en:'AI and reporting dashboard'}]
+];
+
+const COVER={
+  eyebrow:{nl:'Strategische intake voor initiatiefnemers en besluitvormers',en:'Strategic intake for founders and decision-makers'},
+  h1:{nl:'Medical Tourism Venture Discovery Intake',en:'Medical Tourism Venture Discovery Intake'},
+  p:{nl:'Deze intake vormt de basis voor een haalbaar, veilig en schaalbaar medisch-toerismeconcept vanuit Curaçao.',en:'This intake forms the foundation for a feasible, safe and scalable medical tourism concept from Curaçao.'},
+  m1:{nl:'secties',en:'sections'}, m2:{nl:'minuten',en:'minutes'},
+  privacy:{nl:'<b>Belangrijk:</b> deel via deze strategische intake geen patiëntgegevens, medische documenten, diagnoses, paspoortkopieën of identiteitsdocumenten. Voor medische dossiers wordt later een aparte beveiligde procedure ingericht.',en:'<b>Important:</b> do not share patient data, medical documents, diagnoses, passport copies or identity documents through this strategic intake. A separate secure process will be established for medical records later.'},
+  note:{nl:'Uw antwoorden worden lokaal opgeslagen totdat ze worden verstuurd. U kunt dit venster sluiten en later verdergaan.',en:'Your answers are stored locally until submitted. You can close this window and continue later.'}
+};
+const FINISH={
+  eyebrow:{nl:'Laatste stap',en:'Final step'},
+  h2:{nl:'Klaar om te versturen',en:'Ready to submit'},
+  p:{nl:'Controleer of u niets vergeten bent; via de balk bovenin kunt u terug naar elke sectie. Met de knop hieronder verstuurt u uw intake veilig naar Linkd by Royal.',en:'Please check that you have not missed anything; use the bar at the top to return to any section. The button below securely submits your intake to Linkd by Royal.'}
+};
+const THANKS={
+  h1:{nl:'Hartelijk dank!',en:'Thank you!'},
+  p:{nl:'Uw intake is succesvol verzonden naar Linkd by Royal. We nemen uw antwoorden zorgvuldig door en bereiden een strategische analyse voor. U hoort binnen twee werkdagen van ons om het strategiegesprek in te plannen. Tot snel!',en:'Your intake has been successfully submitted to Linkd by Royal. We will carefully review your answers and prepare a strategic analysis. We will contact you within two business days to schedule the strategy session. Speak soon!'}
+};
+
+/* =================== RENDER =================== */
+function fieldHtml(f){
+  const label=`<label class="field-label">${t(f.l)}</label>`;
+  const ph=f.ph?` placeholder="${t(f.ph)}"`:'';
+  if(f.t==='tx') return `<div class="field-group">${label}<input type="${f.type||'text'}" data-key="${f.k}"${ph}></div>`;
+  if(f.t==='ta') return `<div class="field-group">${label}<textarea data-key="${f.k}"${ph}></textarea></div>`;
+  if(f.t==='sel') return `<div class="field-group">${label}<select data-key="${f.k}"><option value="">${t(UI.choose)}</option>${f.opts.map(o=>`<option value="${o.v}">${t(o)}</option>`).join('')}</select></div>`;
+  if(f.t==='cg') return `<div class="field-group">${label}
+      <div class="choice-grid" data-checkgroup="${f.k}">${f.opts.map(o=>`<label class="choice"><input type="checkbox" value="${o.v}">${t(o)}</label>`).join('')}</div>
+      ${f.other?`<input style="margin-top:12px" type="text" placeholder="${t(f.other)}" data-key="${f.k}_anders">`:''}</div>`;
+  if(f.t==='yn'){
+    let h=`<div class="yn-row" data-ynrow="${f.k}"><span class="yn-label">${t(f.l)}</span>
+      <div class="switch"><button type="button" data-val="nee">${lang==='nl'?'Nee':'No'}</button><button type="button" data-val="ja">${lang==='nl'?'Ja':'Yes'}</button></div></div>`;
+    if(f.fu) h+=`<div class="followup" data-followup-for="${f.k}">${fieldHtml(f.fu)}</div>`;
+    return h;
+  }
+  if(f.t==='scale') return `<div class="field-group">${label}<div class="rating-scale" data-rating="${f.k}" data-max="${f.max}"></div></div>`;
+  if(f.t==='fuc') return `<div class="followup" data-followup-for-check="${f.forKey}:${f.forVal}">${fieldHtml(f.f)}</div>`;
+  if(f.t==='matrix') return `<div id="priorityMatrix"></div>`;
+  return '';
+}
+
+function buildPage(){
+  const main=document.getElementById('main');
+  let html=`
+  <section class="panel" data-panel="0">
+    <div class="cover">
+      <div class="eyebrow">${t(COVER.eyebrow)}</div>
+      <h1>${t(COVER.h1)}</h1>
+      <p>${t(COVER.p)}</p>
+      <div class="meta"><div><b>9</b>${t(COVER.m1)}</div><div><b>12-15</b>${t(COVER.m2)}</div></div>
+      <div class="privacy-note">${t(COVER.privacy)}</div>
+      <p class="note">${t(COVER.note)}</p>
+    </div>
+  </section>`;
+  DEF.forEach((s,i)=>{
+    const n=i+1;
+    html+=`<section class="panel" data-panel="${n}">
+      <div class="eyebrow">${t(UI.sectionWord)} ${n} / ${SECTION_COUNT}</div>
+      <h2>${t(s.title)}</h2>
+      ${t(s.intro)?`<p class="intro-text">${t(s.intro)}</p>`:''}
+      ${s.fields.map(fieldHtml).join('')}
+    </section>`;
+  });
+  html+=`
+  <section class="panel" data-panel="${SECTION_COUNT+1}">
+    <div id="finishBlock" class="finish">
+      <div class="eyebrow" style="color:var(--gold-soft);">${t(FINISH.eyebrow)}</div>
+      <h2>${t(FINISH.h2)}</h2>
+      <p>${t(FINISH.p)}</p>
+      <button id="submitBtn" type="button" class="btn-gold btn">${t(UI.submit)}</button>
+      <p id="submitError" style="display:none;color:#f0c9c9;margin-top:16px;font-size:13px;"></p>
+    </div>
+    <div id="thanksBlock" class="thanks" style="display:none;">
+      <div class="mark">✦</div>
+      <h1>${t(THANKS.h1)}</h1>
+      <p>${t(THANKS.p)}</p>
+    </div>
+  </section>`;
+  main.innerHTML=html;
+
+  const dots=document.getElementById('routeDots');
+  dots.innerHTML='';
+  ROUTE_LABELS.forEach((lbl,i)=>{
+    if(i===0||i===ROUTE_LABELS.length-1) return;
+    const d=document.createElement('div');
+    d.className='route-dot'; d.dataset.i=i;
+    d.innerHTML=`<div class="pip"></div><div>${t(lbl)}</div>`;
+    d.addEventListener('click',()=>{ if(!submitted) showPanel(i); });
+    dots.appendChild(d);
+  });
+
+  document.getElementById('prevBtn').textContent=t(UI.prev);
+  document.getElementById('nextBtn').textContent=t(UI.next);
+  document.getElementById('resetBtn').textContent=t(UI.reset);
+
+  attachBindings();
+  restoreAnswers();
+}
+
+/* =================== BINDINGS =================== */
+function persist(){
+  try{
+    localStorage.setItem(STORAGE_KEY,JSON.stringify({current,answers,submitted}));
+    const el=document.getElementById('saveState');
+    el.textContent=t(UI.saved);
+    clearTimeout(persist._t); persist._t=setTimeout(()=>{el.textContent='';},1500);
+  }catch(e){}
+}
+
+function attachBindings(){
+  document.querySelectorAll('[data-key]').forEach(el=>{
+    el.addEventListener('input',()=>{ answers[el.dataset.key]=el.value; persist(); });
+  });
+  document.querySelectorAll('[data-checkgroup]').forEach(group=>{
+    const key=group.dataset.checkgroup;
+    if(!answers[key]) answers[key]=[];
+    group.querySelectorAll('input[type=checkbox]').forEach(cb=>{
+      cb.addEventListener('change',()=>{
+        cb.closest('.choice').classList.toggle('checked',cb.checked);
+        answers[key]=Array.from(group.querySelectorAll('input:checked')).map(c=>c.value);
+        syncCheckFollowups(key); persist();
+      });
+    });
+  });
+  document.querySelectorAll('[data-ynrow]').forEach(row=>{
+    const key=row.dataset.ynrow;
+    row.querySelectorAll('.switch button').forEach(btn=>{
+      btn.addEventListener('click',()=>{ setYN(key,btn.dataset.val); persist(); });
+    });
+  });
+  document.querySelectorAll('[data-rating]').forEach(c=>buildScale(c,c.dataset.rating,parseInt(c.dataset.max||'10')));
+
+  const matrixEl=document.getElementById('priorityMatrix');
+  if(matrixEl){
+    matrixEl.innerHTML='';
+    PRIORITY_ITEMS.forEach(([key,lbl])=>{
+      const row=document.createElement('div');
+      row.className='matrix-row';
+      row.innerHTML=`<div class="obj">${t(lbl)}</div>
+        <div class="matrix-scales">
+          <div class="dim"><span class="dim-label">${t(UI.impact)}</span><div class="rating-scale" id="${key}_impact_scale"></div></div>
+          <div class="dim"><span class="dim-label">${t(UI.effort)}</span><div class="rating-scale" id="${key}_effort_scale"></div></div>
+        </div>`;
+      matrixEl.appendChild(row);
+      buildScale(document.getElementById(key+'_impact_scale'),key+'_impact',5);
+      buildScale(document.getElementById(key+'_effort_scale'),key+'_effort',5);
+    });
+  }
+  const sb=document.getElementById('submitBtn');
+  if(sb) sb.addEventListener('click',submitIntake);
+}
+
+function syncCheckFollowups(key){
+  document.querySelectorAll(`[data-followup-for-check^="${key}:"]`).forEach(fu=>{
+    const wanted=fu.dataset.followupForCheck.split(':')[1];
+    fu.classList.toggle('show',(answers[key]||[]).includes(wanted));
+  });
+}
+function setYN(key,val){
+  const row=document.querySelector(`[data-ynrow="${key}"]`);
+  if(!row) return;
+  answers[key]=val;
+  row.querySelectorAll('.switch button').forEach(b=>{
+    b.classList.toggle('on',b.dataset.val===val);
+    b.classList.toggle('yes',b.dataset.val===val&&val==='ja');
+  });
+  const fu=document.querySelector(`[data-followup-for="${key}"]`);
+  if(fu) fu.classList.toggle('show',val==='ja');
+}
+function buildScale(container,key,max){
+  container.innerHTML='';
+  for(let n=1;n<=max;n++){
+    const b=document.createElement('button');
+    b.type='button'; b.textContent=n;
+    b.addEventListener('click',()=>{ setScale(container,key,n); persist(); });
+    container.appendChild(b);
+  }
+}
+function setScale(container,key,n){
+  answers[key]=n;
+  Array.from(container.querySelectorAll('button')).forEach((b,i)=>b.classList.toggle('on',i+1===n));
+}
+
+function restoreAnswers(){
+  Object.entries(answers).forEach(([key,val])=>{
+    const el=document.querySelector(`[data-key="${key}"]`);
+    if(el&&typeof val==='string'){ el.value=val; return; }
+    const group=document.querySelector(`[data-checkgroup="${key}"]`);
+    if(group&&Array.isArray(val)){
+      group.querySelectorAll('input[type=checkbox]').forEach(cb=>{
+        cb.checked=val.includes(cb.value);
+        cb.closest('.choice').classList.toggle('checked',cb.checked);
+      });
+      syncCheckFollowups(key); return;
+    }
+    if(document.querySelector(`[data-ynrow="${key}"]`)){ setYN(key,val); return; }
+    if(typeof val==='number'){
+      const c=document.querySelector(`[data-rating="${key}"]`)||document.getElementById(key.replace(/_(impact|effort)$/,'_$1_scale'));
+      if(c) setScale(c,key,val);
+    }
+  });
+}
+
+/* =================== NAVIGATION =================== */
+function updateRoute(){
+  const last=SECTION_COUNT+1;
+  const clamped=Math.max(1,Math.min(current,SECTION_COUNT));
+  document.querySelectorAll('.route-dot').forEach(d=>{
+    const di=parseInt(d.dataset.i);
+    d.classList.toggle('done',di<clamped||current===last);
+    d.classList.toggle('current',di===clamped&&current>0&&current<last);
+  });
+  let pct=current===0?0:current>=last?100:Math.round((clamped/SECTION_COUNT)*100);
+  document.getElementById('routeFill').style.width=pct+'%';
+  document.getElementById('progressPct').textContent=pct+t(UI.progress);
+  document.getElementById('routeBoat').style.left=`calc(12px + ${pct} * (100% - 24px) / 100)`;
+}
+function showPanel(i){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  const p=document.querySelector(`.panel[data-panel="${i}"]`);
+  if(!p) return;
+  p.classList.add('active');
+  current=i; persist(); updateRoute();
+  const last=SECTION_COUNT+1;
+  document.getElementById('prevBtn').disabled=(i===0||submitted);
+  document.getElementById('nextBtn').style.display=(i===last)?'none':'inline-block';
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+document.getElementById('nextBtn').addEventListener('click',()=>{ if(current<SECTION_COUNT+1) showPanel(current+1); });
+document.getElementById('prevBtn').addEventListener('click',()=>{ if(current>0) showPanel(current-1); });
+document.getElementById('resetBtn').addEventListener('click',()=>{
+  if(confirm(t(UI.resetConfirm))){ localStorage.removeItem(STORAGE_KEY); location.reload(); }
+});
+
+/* =================== LANGUAGE SWITCH =================== */
+function setLang(l){
+  lang=l;
+  localStorage.setItem('lbr_lang',l);
+  document.documentElement.lang=l;
+  document.querySelectorAll('#langSwitch button').forEach(b=>b.classList.toggle('on',b.dataset.lang===l));
+  buildPage();
+  showPanel(submitted?SECTION_COUNT+1:current);
+  if(submitted) showThanks();
+}
+document.querySelectorAll('#langSwitch button').forEach(b=>{
+  b.addEventListener('click',()=>setLang(b.dataset.lang));
+});
+
+/* =================== SUBMIT =================== */
+function showThanks(){
+  const f=document.getElementById('finishBlock'), th=document.getElementById('thanksBlock');
+  if(f) f.style.display='none';
+  if(th) th.style.display='block';
+  document.getElementById('navbar').style.display='none';
+  updateRoute();
+}
+async function submitIntake(){
+  const btn=document.getElementById('submitBtn');
+  const errEl=document.getElementById('submitError');
+  btn.disabled=true;
+  btn.innerHTML=`${t(UI.submitting)}<span class="loading-dots">.<span>.</span><span>.</span></span>`;
+  errEl.style.display='none';
+  try{
+    const r=await fetch('/api/submit',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({answers,lang})
+    });
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    submitted=true; current=SECTION_COUNT+1; persist();
+    showThanks();
+  }catch(e){
+    console.error('Submit mislukt:',e);
+    btn.disabled=false;
+    btn.textContent=t(UI.retry);
+    errEl.textContent=t(UI.submitFail);
+    errEl.style.display='block';
+  }
+}
+
+/* =================== INIT =================== */
+(function init(){
+  try{
+    const saved=JSON.parse(localStorage.getItem(STORAGE_KEY));
+    if(saved){ answers=saved.answers||{}; current=saved.current||0; submitted=!!saved.submitted; }
+  }catch(e){}
+  document.querySelectorAll('#langSwitch button').forEach(b=>b.classList.toggle('on',b.dataset.lang===lang));
+  buildPage();
+  showPanel(submitted?SECTION_COUNT+1:Math.min(current,SECTION_COUNT+1));
+  if(submitted) showThanks();
+})();
+</script>
+</body>
+</html>
