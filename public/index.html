@@ -21,10 +21,12 @@
   .eyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);font-weight:600;}
 
   header.app-header{background:var(--navy);color:#fff;padding:20px 24px 24px;position:sticky;top:0;z-index:50;}
-  .brandrow{display:flex;align-items:baseline;justify-content:space-between;max-width:960px;margin:0 auto 16px;}
+  .brandrow{display:flex;align-items:center;justify-content:space-between;max-width:960px;margin:0 auto 16px;gap:12px;}
   .brandrow .brand{font-family:'Playfair Display',serif;font-size:19px;}
   .brandrow .brand span{color:var(--gold-soft);}
-  .brandrow .sub{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#9aa7b8;}
+  .langswitch{display:flex;border:1px solid rgba(255,255,255,.25);border-radius:18px;overflow:hidden;}
+  .langswitch button{border:none;background:transparent;color:#9aa7b8;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;padding:6px 14px;cursor:pointer;}
+  .langswitch button.on{background:var(--gold);color:var(--navy);}
   .route-wrap{max-width:960px;margin:0 auto;position:relative;}
   .route-track{position:relative;height:42px;}
   .route-line{position:absolute;left:12px;right:12px;top:19px;height:2px;background:rgba(255,255,255,.15);border-radius:2px;overflow:hidden;}
@@ -93,6 +95,7 @@
   .btn{font-family:'Inter',sans-serif;font-size:13.5px;font-weight:600;padding:12px 22px;border-radius:9px;border:1px solid transparent;cursor:pointer;transition:opacity .15s;}
   .btn-primary{background:var(--navy);color:#fff;}
   .btn-primary:hover{opacity:.9;}
+  .btn-gold{background:var(--gold);color:var(--navy);}
   .btn-ghost{background:transparent;color:var(--slate);border-color:var(--line);}
   .btn:disabled{opacity:.35;cursor:not-allowed;}
   .savestate{font-size:11px;color:var(--slate);}
@@ -104,53 +107,25 @@
   .cover .meta b{display:block;color:var(--navy);font-size:15px;font-family:'Playfair Display',serif;}
   .cover .note{font-size:12px;color:var(--slate);margin-top:26px;}
 
-  .score-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:22px 0 28px;}
-  .score-card{background:var(--navy);color:#fff;border-radius:12px;padding:18px 14px;text-align:center;}
-  .score-card .num{font-family:'Playfair Display',serif;font-size:30px;color:var(--gold-soft);}
-  .score-card .num small{font-size:14px;color:#9aa7b8;}
-  .score-card .lbl{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:#9aa7b8;margin-top:4px;}
-  .score-card .bench{font-size:10.5px;color:#8b98a9;margin-top:8px;line-height:1.5;}
-  .result-block{margin-bottom:26px;}
-  .result-block h3{font-size:15px;color:var(--navy);margin-bottom:10px;display:flex;align-items:center;gap:8px;}
-  .result-block h3::before{content:'';width:16px;height:1.5px;background:var(--gold);display:inline-block;}
-  .result-block ul{margin:0;padding-left:18px;font-size:13.5px;line-height:1.7;}
-  .result-block p{font-size:13.5px;line-height:1.7;margin:4px 0;}
-  .result-block h4{font-family:'Inter',sans-serif;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--slate);margin:14px 0 6px;}
-  .qw-card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:10px;font-size:13px;line-height:1.65;}
-  .qw-card b{color:var(--navy);}
-  table.cost{width:100%;border-collapse:collapse;font-size:13px;background:#fff;border:1px solid var(--line);border-radius:10px;overflow:hidden;}
-  table.cost th{background:var(--navy);color:#fff;font-weight:600;text-align:left;padding:9px 12px;font-size:12px;}
-  table.cost td{padding:9px 12px;border-top:1px solid var(--line);}
-  table.cost tr:last-child td{font-weight:700;color:var(--navy);}
-  .roadmap-item{border-left:2px solid var(--gold-soft);padding:2px 0 14px 16px;margin-left:4px;}
-  .roadmap-item .timeline{font-size:11px;color:var(--gold);letter-spacing:.04em;text-transform:uppercase;margin-bottom:3px;}
-  .roadmap-item .phase{font-weight:700;font-size:13.5px;color:var(--navy);}
-  .roadmap-item p{font-size:13px;color:var(--slate);margin:3px 0 0;line-height:1.6;}
-
-  .ai-cta{background:linear-gradient(135deg,var(--navy),var(--navy-3));border-radius:14px;padding:34px 26px;text-align:center;color:#fff;}
-  .ai-cta h2{color:#fff;font-size:23px;margin:10px 0;}
-  .ai-cta p{color:#b7c0cd;font-size:13.5px;max-width:460px;margin:0 auto 20px;line-height:1.7;}
-  .ai-cta button{background:var(--gold);color:var(--navy);border:none;font-family:'Inter',sans-serif;font-weight:700;font-size:14px;padding:14px 28px;border-radius:9px;cursor:pointer;}
-  .ai-cta button:disabled{opacity:.6;cursor:wait;}
+  .finish{background:linear-gradient(135deg,var(--navy),var(--navy-3));border-radius:14px;padding:38px 28px;text-align:center;color:#fff;}
+  .finish h2{color:#fff;font-size:24px;margin:12px 0;}
+  .finish p{color:#b7c0cd;font-size:14px;max-width:480px;margin:0 auto 22px;line-height:1.75;}
+  .finish .btn-gold{font-size:14px;font-weight:700;padding:14px 30px;border:none;}
+  .finish .btn-gold:disabled{opacity:.6;cursor:wait;}
   .loading-dots span{animation:blink 1.2s infinite;}
   .loading-dots span:nth-child(2){animation-delay:.2s;}
   .loading-dots span:nth-child(3){animation-delay:.4s;}
   @keyframes blink{0%,80%,100%{opacity:.2;}40%{opacity:1;}}
-  .print-btn{margin:20px 0 0;display:none;}
+  .thanks{text-align:center;padding:60px 12px;}
+  .thanks .mark{font-size:46px;color:var(--gold);}
+  .thanks h1{font-size:32px;color:var(--navy);margin:16px 0 12px;}
+  .thanks p{color:var(--slate);font-size:15.5px;max-width:520px;margin:0 auto;line-height:1.8;}
 
   @media(max-width:680px){
     .route-dot{width:auto;font-size:0;}
     .route-dot .pip{margin-bottom:0;}
     .cover h1{font-size:27px;}
-    .score-grid{grid-template-columns:1fr;}
     .matrix-scales{gap:10px;flex-direction:column;align-items:flex-start;}
-  }
-  @media print{
-    header.app-header,.navbar,.ai-cta,.print-btn{display:none !important;}
-    body{background:#fff;}
-    main{padding:0;max-width:100%;}
-    .panel{display:none;}
-    .panel[data-panel="15"]{display:block !important;}
   }
 </style>
 </head>
@@ -159,7 +134,9 @@
 <header class="app-header">
   <div class="brandrow">
     <div class="brand">Linkd <span>by Royal</span></div>
-    <div class="sub">Discovery &amp; Strategy Intake</div>
+    <div class="langswitch" id="langSwitch">
+      <button data-lang="nl">NL</button><button data-lang="en">EN</button>
+    </div>
   </div>
   <div class="route-wrap">
     <div class="route-track">
@@ -169,387 +146,425 @@
     </div>
   </div>
   <div class="progress-row">
-    <button id="resetBtn" type="button">Opnieuw beginnen</button>
-    <span id="progressPct">0% voltooid</span>
+    <button id="resetBtn" type="button"></button>
+    <span id="progressPct"></span>
   </div>
 </header>
 
 <main id="main"></main>
 
-<div class="navbar">
+<div class="navbar" id="navbar">
   <div class="inner">
-    <button class="btn btn-ghost" id="prevBtn">Vorige</button>
+    <button class="btn btn-ghost" id="prevBtn"></button>
     <span class="savestate" id="saveState"></span>
-    <button class="btn btn-primary" id="nextBtn">Volgende</button>
+    <button class="btn btn-primary" id="nextBtn"></button>
   </div>
 </div>
 
 <script>
-/* ============ SECTION DEFINITIONS ============ */
-const SECTIONS = [
-  {label:'Start'},{label:'Bedrijf'},{label:'Strategie'},{label:'Diensten'},{label:'Doelgroep'},
-  {label:'Team'},{label:'Financiën'},{label:'Processen'},{label:'Regelgeving'},{label:'Concurrentie'},
-  {label:'Branding'},{label:'Website'},{label:'AI'},{label:'Prioriteiten'},{label:'Verwachtingen'},{label:'Analyse'}
-];
-const STORAGE_KEY = 'lbr_intake_v2';
+/* =================== I18N + FORM DEFINITION =================== */
+const STORAGE_KEY='lbr_intake_v3';
+let lang = localStorage.getItem('lbr_lang') || 'nl';
 let current = 0;
 let answers = {};
+let submitted = false;
 
-/* ============ MARKUP ============ */
-const cg = (key, opts, other) => `
-  <div class="choice-grid" data-checkgroup="${key}">
-    ${opts.map(o=>`<label class="choice"><input type="checkbox" value="${o}">${o}</label>`).join('')}
-  </div>
-  ${other ? `<input style="margin-top:12px" type="text" placeholder="${other}" data-key="${key}_anders">` : ''}`;
+const UI = {
+  next:{nl:'Volgende',en:'Next'}, prev:{nl:'Vorige',en:'Back'},
+  saved:{nl:'Opgeslagen',en:'Saved'}, reset:{nl:'Opnieuw beginnen',en:'Start over'},
+  resetConfirm:{nl:'Alle antwoorden wissen en opnieuw beginnen?',en:'Clear all answers and start over?'},
+  progress:{nl:'% voltooid',en:'% completed'},
+  sectionWord:{nl:'Sectie',en:'Section'},
+  impact:{nl:'Impact',en:'Impact'}, effort:{nl:'Moeite',en:'Effort'},
+  choose:{nl:'Kies…',en:'Choose…'},
+  submit:{nl:'Verstuur intake',en:'Submit intake'},
+  submitting:{nl:'Versturen',en:'Submitting'},
+  submitFail:{nl:'Versturen is niet gelukt. Controleer uw internetverbinding en probeer het opnieuw; uw antwoorden zijn bewaard.',en:'Submission failed. Please check your internet connection and try again; your answers have been saved.'},
+  retry:{nl:'Probeer opnieuw',en:'Try again'}
+};
+const t = o => (o && (o[lang] ?? o.nl)) || '';
 
-const yn = (key,label) => `
-  <div class="yn-row" data-ynrow="${key}">
-    <span class="yn-label">${label}</span>
-    <div class="switch"><button type="button" data-val="nee">Nee</button><button type="button" data-val="ja">Ja</button></div>
-  </div>`;
+const ROUTE_LABELS=[
+  {nl:'Start',en:'Start'},{nl:'Bedrijf',en:'Company'},{nl:'Strategie',en:'Strategy'},{nl:'Diensten',en:'Services'},
+  {nl:'Doelgroep',en:'Audience'},{nl:'Team',en:'Team'},{nl:'Financiën',en:'Finance'},{nl:'Processen',en:'Processes'},
+  {nl:'Regelgeving',en:'Compliance'},{nl:'Concurrentie',en:'Competition'},{nl:'Branding',en:'Branding'},
+  {nl:'Website',en:'Website'},{nl:'AI',en:'AI'},{nl:'Prioriteiten',en:'Priorities'},{nl:'Afronden',en:'Finish'}
+];
 
-const ta = (key,label,ph='') => `
-  <div class="field-group"><label class="field-label">${label}</label><textarea data-key="${key}" placeholder="${ph}"></textarea></div>`;
+/* Field helper shorthands: type, key, label{nl,en}, extra */
+const DEF=[
+{ // 1
+ title:{nl:'Bedrijfsprofiel',en:'Company Profile'},
+ intro:{nl:'Vertel ons wie u bent en waarom deze route, van Curaçao naar Venezuela met Colombia als volgende stap, voor u de juiste is.',en:'Tell us who you are and why this route, from Curaçao to Venezuela with Colombia as the next step, is the right one for you.'},
+ fields:[
+  {t:'tx',k:'bedrijfsnaam',l:{nl:'Bedrijfsnaam',en:'Company name'}},
+  {t:'sel',k:'stadium',l:{nl:'Huidig stadium',en:'Current stage'},opts:[
+    {v:'Startup / pre-launch',nl:'Startup / pre-launch',en:'Startup / pre-launch'},
+    {v:'0-2 jaar operationeel',nl:'0-2 jaar operationeel',en:'0-2 years operational'},
+    {v:'2-5 jaar operationeel',nl:'2-5 jaar operationeel',en:'2-5 years operational'},
+    {v:'5+ jaar operationeel',nl:'5+ jaar operationeel',en:'5+ years operational'}]},
+  {t:'sel',k:'werknemers',l:{nl:'Aantal werknemers',en:'Number of employees'},opts:[
+    {v:'1 (solo)',nl:'1 (solo)',en:'1 (solo)'},{v:'2-5',nl:'2-5',en:'2-5'},{v:'6-15',nl:'6-15',en:'6-15'},
+    {v:'16-50',nl:'16-50',en:'16-50'},{v:'50+',nl:'50+',en:'50+'}]},
+  {t:'ta',k:'bedrijf_intro',l:{nl:'Korte omschrijving van uw bedrijf',en:'Brief description of your company'},ph:{nl:'Wie zijn jullie, wat doen jullie vandaag?',en:'Who are you, what do you do today?'}},
+  {t:'ta',k:'missie',l:{nl:'Wat is uw missie?',en:'What is your mission?'}},
+  {t:'ta',k:'visie',l:{nl:'Wat is uw visie voor de komende 5 jaar?',en:'What is your vision for the next 5 years?'}},
+  {t:'ta',k:'waarom_venezuela',l:{nl:'Waarom wilt u starten met reizen naar Venezuela?',en:'Why do you want to start offering trips to Venezuela?'}},
+  {t:'ta',k:'waarom_colombia',l:{nl:'Waarom staat Colombia als volgende stap op de planning?',en:'Why is Colombia planned as the next step?'}},
+  {t:'ta',k:'onderscheidend',l:{nl:'Wat maakt u anders dan bestaande reisorganisaties?',en:'What sets you apart from existing travel organizations?'}},
+  {t:'tx',k:'startdatum',type:'date',l:{nl:'Beoogde startdatum eerste reizen',en:'Intended start date of first trips'}}
+]},
+{ // 2
+ title:{nl:'Strategie & Doelstellingen',en:'Strategy & Goals'},
+ intro:{nl:'Wat moet dit project concreet opleveren?',en:'What should this project concretely deliver?'},
+ fields:[
+  {t:'cg',k:'doelstellingen',l:{nl:'Wat wilt u met dit project bereiken?',en:'What do you want to achieve with this project?'},opts:[
+    {v:'Meer boekingen',nl:'Meer boekingen',en:'More bookings'},
+    {v:'Professionele uitstraling',nl:'Professionele uitstraling',en:'Professional image'},
+    {v:'Volledig online boekingsproces',nl:'Volledig online boekingsproces',en:'Fully online booking process'},
+    {v:'Minder handmatig werk',nl:'Minder handmatig werk',en:'Less manual work'},
+    {v:'Meer automatisering',nl:'Meer automatisering',en:'More automation'},
+    {v:'Hogere klanttevredenheid',nl:'Hogere klanttevredenheid',en:'Higher customer satisfaction'},
+    {v:'Internationale uitbreiding',nl:'Internationale uitbreiding',en:'International expansion'}],
+   other:{nl:'Andere doelstelling…',en:'Other goal…'}},
+  {t:'scale',k:'ambitie_score',max:10,l:{nl:'Hoe ambitieus is de gewenste groei de komende 12 maanden? (1 = rustig, 10 = maximaal)',en:'How ambitious is your desired growth for the next 12 months? (1 = steady, 10 = maximum)'}},
+  {t:'ta',k:'visie_1jaar',l:{nl:'Waar ziet u uzelf over één jaar?',en:'Where do you see yourself in one year?'}}
+]},
+{ // 3
+ title:{nl:'Diensten & Aanbod',en:'Services & Offering'},
+ intro:{nl:'Welke diensten wilt u (op termijn) aanbieden?',en:'Which services do you want to offer (over time)?'},
+ fields:[
+  {t:'cg',k:'diensten',l:{nl:'Diensten',en:'Services'},opts:[
+    {v:'Ferry',nl:'Ferry',en:'Ferry'},{v:'Vluchten',nl:'Vluchten',en:'Flights'},{v:'Hotels',nl:'Hotels',en:'Hotels'},
+    {v:'Excursies',nl:'Excursies',en:'Excursions'},{v:'Transfers',nl:'Transfers',en:'Transfers'},
+    {v:'Autoverhuur',nl:'Autoverhuur',en:'Car rental'},{v:'Reisverzekering',nl:'Reisverzekering',en:'Travel insurance'},
+    {v:'Visa assistance',nl:'Visa assistance',en:'Visa assistance'},{v:'Medical Tourism',nl:'Medical Tourism',en:'Medical tourism'},
+    {v:'Business Travel',nl:'Business Travel',en:'Business travel'},{v:'VIP Travel',nl:'VIP Travel',en:'VIP travel'},
+    {v:'Groepsreizen',nl:'Groepsreizen',en:'Group travel'},{v:'Maatwerkreizen',nl:'Maatwerkreizen',en:'Custom trips'}],
+   other:{nl:'Andere dienst…',en:'Other service…'}},
+  {t:'ta',k:'usp',l:{nl:'Wat is uw unieke propositie? Waarom zou een klant bij u boeken?',en:'What is your unique proposition? Why would a customer book with you?'}}
+]},
+{ // 4
+ title:{nl:'Doelgroep & Markten',en:'Audience & Markets'},
+ intro:{nl:'Wie zijn uw ideale klanten?',en:'Who are your ideal customers?'},
+ fields:[
+  {t:'cg',k:'doelgroep_markt',l:{nl:'Herkomstmarkten',en:'Source markets'},opts:[
+    {v:'Curaçao',nl:'Curaçao',en:'Curaçao'},{v:'Nederland',nl:'Nederland',en:'Netherlands'},
+    {v:'Venezuela',nl:'Venezuela',en:'Venezuela'},{v:'Colombia',nl:'Colombia',en:'Colombia'}]},
+  {t:'cg',k:'doelgroep_segment',l:{nl:'Klantsegmenten',en:'Customer segments'},opts:[
+    {v:'Zakelijke klanten',nl:'Zakelijke klanten',en:'Business clients'},{v:'Families',nl:'Families',en:'Families'},
+    {v:'Studenten',nl:'Studenten',en:'Students'},{v:'Toeristen',nl:'Toeristen',en:'Tourists'},{v:'Expats',nl:'Expats',en:'Expats'}]},
+  {t:'ta',k:'ideale_klant',l:{nl:'Beschrijf uw ideale klant',en:'Describe your ideal customer'}}
+]},
+{ // 5
+ title:{nl:'Organisatie & Team',en:'Organization & Team'},
+ intro:{nl:'Wie voert dit uit en wie beslist?',en:'Who executes this and who decides?'},
+ fields:[
+  {t:'ta',k:'besluitvormers',l:{nl:'Wie zijn de besluitvormers in dit traject?',en:'Who are the decision-makers in this project?'},ph:{nl:'Namen en rollen',en:'Names and roles'}},
+  {t:'sel',k:'it_niveau',l:{nl:'Digitale en IT-vaardigheden binnen het team',en:'Digital and IT skills within the team'},opts:[
+    {v:'Beperkt',nl:'Beperkt',en:'Limited'},{v:'Basis',nl:'Basis',en:'Basic'},
+    {v:'Gemiddeld',nl:'Gemiddeld',en:'Average'},{v:'Sterk',nl:'Sterk',en:'Strong'}]},
+  {t:'tx',k:'implementatie_eigenaar',l:{nl:'Wie wordt intern verantwoordelijk voor de implementatie?',en:'Who will be internally responsible for implementation?'}},
+  {t:'ta',k:'team_beschikbaarheid',l:{nl:'Hoeveel tijd kan het team per week vrijmaken voor dit traject?',en:'How much time per week can the team free up for this project?'}}
+]},
+{ // 6
+ title:{nl:'Financiële Context',en:'Financial Context'},
+ intro:{nl:'Een realistisch budgetbeeld maakt de roadmap en kostenraming betrouwbaar.',en:'A realistic budget picture makes the roadmap and cost estimate reliable.'},
+ fields:[
+  {t:'sel',k:'omzet',l:{nl:'Jaarlijkse omzet (schatting)',en:'Annual revenue (estimate)'},opts:[
+    {v:'Nog geen omzet',nl:'Nog geen omzet',en:'No revenue yet'},{v:'Onder €50k',nl:'Onder €50k',en:'Under €50k'},
+    {v:'€50k-€250k',nl:'€50k-€250k',en:'€50k-€250k'},{v:'€250k-€1M',nl:'€250k-€1M',en:'€250k-€1M'},
+    {v:'€1M-€5M',nl:'€1M-€5M',en:'€1M-€5M'},{v:'€5M+',nl:'€5M+',en:'€5M+'}]},
+  {t:'sel',k:'budget',l:{nl:'Beschikbaar budget voor dit traject (12 maanden)',en:'Available budget for this project (12 months)'},opts:[
+    {v:'Onder €10k',nl:'Onder €10k',en:'Under €10k'},{v:'€10k-€25k',nl:'€10k-€25k',en:'€10k-€25k'},
+    {v:'€25k-€50k',nl:'€25k-€50k',en:'€25k-€50k'},{v:'€50k-€100k',nl:'€50k-€100k',en:'€50k-€100k'},
+    {v:'€100k+',nl:'€100k+',en:'€100k+'},{v:'Nog onbekend',nl:'Nog onbekend',en:'Unknown yet'}]},
+  {t:'ta',k:'financiering',l:{nl:'Zijn er financieringsmogelijkheden (investeerders, lening, subsidies)?',en:'Are there financing options (investors, loans, grants)?'}},
+  {t:'ta',k:'budget_beperkingen',l:{nl:'Zijn er budgetbeperkingen of voorwaarden waar we rekening mee moeten houden?',en:'Are there budget constraints or conditions we should take into account?'}}
+]},
+{ // 7
+ title:{nl:'Huidige Situatie & Processen',en:'Current Situation & Processes'},
+ intro:{nl:'Waar staat u vandaag operationeel?',en:'Where do you stand operationally today?'},
+ fields:[
+  {t:'yn',k:'website',l:{nl:'Website',en:'Website'},fu:{t:'tx',k:'website_url',type:'url',l:{nl:'URL van de huidige website',en:'URL of the current website'},ph:{nl:'https://',en:'https://'}}},
+  {t:'yn',k:'crm',l:{nl:'CRM',en:'CRM'},fu:{t:'tx',k:'crm_naam',l:{nl:'Welk CRM, en hoe tevreden bent u erover?',en:'Which CRM, and how satisfied are you with it?'}}},
+  {t:'yn',k:'whatsapp',l:{nl:'WhatsApp Business',en:'WhatsApp Business'}},
+  {t:'yn',k:'betalingen',l:{nl:'Online betalingen',en:'Online payments'},fu:{t:'tx',k:'betalingen_provider',l:{nl:'Welke betaalprovider(s)?',en:'Which payment provider(s)?'}}},
+  {t:'yn',k:'boekingssysteem',l:{nl:'Boekingssysteem',en:'Booking system'},fu:{t:'tx',k:'boekingssysteem_naam',l:{nl:'Welk systeem?',en:'Which system?'}}},
+  {t:'yn',k:'leveranciers',l:{nl:'Vaste leveranciers (ferry, hotels, transfers)',en:'Regular suppliers (ferry, hotels, transfers)'}},
+  {t:'yn',k:'contracten',l:{nl:'Bestaande contracten',en:'Existing contracts'}},
+  {t:'ta',k:'proces_huidig',l:{nl:'Beschrijf stap voor stap hoe een klant nu een reis boekt',en:'Describe step by step how a customer currently books a trip'}},
+  {t:'ta',k:'proces_knelpunten',l:{nl:'Waar loopt u nu tegenaan?',en:'What obstacles are you running into?'}},
+  {t:'ta',k:'proces_tijdrovend',l:{nl:'Welke processen kosten de meeste tijd?',en:'Which processes take the most time?'}}
+]},
+{ // 8
+ title:{nl:'Regelgeving & Compliance',en:'Regulations & Compliance'},
+ intro:{nl:'Internationale reizen tussen Curaçao, Venezuela en Colombia brengen vergunningen en regelgeving met zich mee.',en:'International travel between Curaçao, Venezuela and Colombia involves permits and regulations.'},
+ fields:[
+  {t:'ta',k:'vergunningen',l:{nl:'Welke vergunningen of licenties heeft u al, en welke ontbreken nog?',en:'Which permits or licenses do you already have, and which are still missing?'}},
+  {t:'ta',k:'compliance_uitdagingen',l:{nl:'Welke regelgevingskwesties of compliance-uitdagingen ziet u?',en:'Which regulatory or compliance challenges do you foresee?'}},
+  {t:'sel',k:'juridisch_advies',l:{nl:'Heeft u toegang tot juridisch advies?',en:'Do you have access to legal advice?'},opts:[
+    {v:'Ja, vaste jurist of kantoor',nl:'Ja, vaste jurist of kantoor',en:'Yes, a regular lawyer or firm'},
+    {v:'Incidenteel',nl:'Incidenteel',en:'Occasionally'},
+    {v:'Nee, nog niet',nl:'Nee, nog niet',en:'No, not yet'}]}
+]},
+{ // 9
+ title:{nl:'Concurrentie',en:'Competition'},
+ intro:{nl:'',en:''},
+ fields:[
+  {t:'ta',k:'concurrenten',l:{nl:'Noem maximaal vijf concurrenten',en:'Name up to five competitors'},ph:{nl:'Eén per regel',en:'One per line'}},
+  {t:'ta',k:'concurrenten_beter',l:{nl:'Welke concurrenten presteren beter dan u wilt, en waarin?',en:'Which competitors perform better than you would like, and in what way?'}},
+  {t:'ta',k:'voorbeeldbedrijven',l:{nl:'Welke bedrijven vindt u een voorbeeld, en waarom?',en:'Which companies do you consider role models, and why?'}}
+]},
+{ // 10
+ title:{nl:'Branding & Positionering',en:'Branding & Positioning'},
+ intro:{nl:'Hoe wilt u gezien worden?',en:'How do you want to be perceived?'},
+ fields:[
+  {t:'cg',k:'branding_positionering',l:{nl:'Gewenste positionering',en:'Desired positioning'},opts:[
+    {v:'Luxe',nl:'Luxe',en:'Luxury'},{v:'Betaalbaar',nl:'Betaalbaar',en:'Affordable'},{v:'Premium',nl:'Premium',en:'Premium'},
+    {v:'Familie',nl:'Familie',en:'Family'},{v:'Zakelijk',nl:'Zakelijk',en:'Business'},{v:'Medisch',nl:'Medisch',en:'Medical'},
+    {v:'All-in-one',nl:'All-in-one',en:'All-in-one'},{v:'Exclusief',nl:'Exclusief',en:'Exclusive'}],
+   other:{nl:'Anders…',en:'Other…'}},
+  {t:'cg',k:'branding_middelen',l:{nl:'Bestaande merkmiddelen',en:'Existing brand assets'},opts:[
+    {v:'Logo',nl:'Logo',en:'Logo'},{v:'Huisstijl',nl:'Huisstijl',en:'Corporate identity'},
+    {v:'Social media',nl:'Social media',en:'Social media'},{v:'Nog niets',nl:'Nog niets',en:'Nothing yet'}]},
+  {t:'ta',k:'merkpersoonlijkheid',l:{nl:'Beschrijf de gewenste merkpersoonlijkheid in drie woorden',en:'Describe the desired brand personality in three words'}}
+]},
+{ // 11
+ title:{nl:'Website & Digitale Kanalen',en:'Website & Digital Channels'},
+ intro:{nl:'Welke functies wilt u op de nieuwe website?',en:'Which features do you want on the new website?'},
+ fields:[
+  {t:'cg',k:'website_functies',l:{nl:'Gewenste functies',en:'Desired features'},opts:[
+    {v:'Online boeken',nl:'Online boeken',en:'Online booking'},{v:'Online betalen',nl:'Online betalen',en:'Online payments'},
+    {v:'WhatsApp',nl:'WhatsApp',en:'WhatsApp'},{v:'Live Chat',nl:'Live Chat',en:'Live chat'},
+    {v:'AI Chatbot',nl:'AI Chatbot',en:'AI chatbot'},{v:'Reviews',nl:'Reviews',en:'Reviews'},
+    {v:'Blog',nl:'Blog',en:'Blog'},{v:'Nieuws',nl:'Nieuws',en:'News'},
+    {v:'Klantportaal',nl:'Klantportaal',en:'Client portal'},{v:'Dashboard',nl:'Dashboard',en:'Dashboard'},
+    {v:'FAQ',nl:'FAQ',en:'FAQ'},{v:'Meertaligheid',nl:'Meertaligheid',en:'Multilingual'},
+    {v:'Offerte aanvragen',nl:'Offerte aanvragen',en:'Quote requests'},{v:'Reisplanner',nl:'Reisplanner',en:'Trip planner'},
+    {v:'Document upload',nl:'Document upload',en:'Document upload'}]},
+  {t:'fuc',forKey:'website_functies',forVal:'Online boeken',f:{t:'ta',k:'boekingsproces_wens',l:{nl:'Beschrijf de ideale boekingsflow in het kort',en:'Briefly describe the ideal booking flow'}}},
+  {t:'fuc',forKey:'website_functies',forVal:'Meertaligheid',f:{t:'tx',k:'talen_wens',l:{nl:'Welke talen zijn nodig?',en:'Which languages are needed?'},ph:{nl:'bijv. Nederlands, Engels, Spaans, Papiaments',en:'e.g. Dutch, English, Spanish, Papiamentu'}}},
+  {t:'cg',k:'communicatie_kanalen',l:{nl:'Via welke kanalen wilt u met klanten communiceren?',en:'Through which channels do you want to communicate with customers?'},opts:[
+    {v:'WhatsApp',nl:'WhatsApp',en:'WhatsApp'},{v:'E-mail',nl:'E-mail',en:'Email'},{v:'Telefoon',nl:'Telefoon',en:'Phone'},
+    {v:'Instagram',nl:'Instagram',en:'Instagram'},{v:'Facebook',nl:'Facebook',en:'Facebook'},
+    {v:'Live chat op website',nl:'Live chat op website',en:'Live chat on website'}]}
+]},
+{ // 12
+ title:{nl:'AI & Automatisering',en:'AI & Automation'},
+ intro:{nl:'Waar zou u AI willen inzetten?',en:'Where would you like to use AI?'},
+ fields:[
+  {t:'cg',k:'ai_toepassingen',l:{nl:'AI-toepassingen',en:'AI applications'},opts:[
+    {v:'Chatbot',nl:'Chatbot',en:'Chatbot'},{v:'Offertes',nl:'Offertes',en:'Quotes'},{v:'WhatsApp',nl:'WhatsApp',en:'WhatsApp'},
+    {v:'E-mail',nl:'E-mail',en:'Email'},{v:'Intake',nl:'Intake',en:'Intake'},{v:'FAQ',nl:'FAQ',en:'FAQ'},
+    {v:'Vertalingen',nl:'Vertalingen',en:'Translations'},{v:'Planning',nl:'Planning',en:'Planning'},
+    {v:'Documentcontrole',nl:'Documentcontrole',en:'Document checks'},{v:'Marketing',nl:'Marketing',en:'Marketing'},
+    {v:'Social Media',nl:'Social Media',en:'Social media'},{v:'Rapportages',nl:'Rapportages',en:'Reporting'},
+    {v:'Analytics',nl:'Analytics',en:'Analytics'},{v:'Automatiseringen',nl:'Automatiseringen',en:'Automations'}]},
+  {t:'sel',k:'ai_comfort',l:{nl:'Huidig comfortniveau met AI en automatisering in het team',en:'Current comfort level with AI and automation in the team'},opts:[
+    {v:'Geen ervaring',nl:'Geen ervaring',en:'No experience'},{v:'Beetje ervaring',nl:'Beetje ervaring',en:'A little experience'},
+    {v:'Gemiddelde ervaring',nl:'Gemiddelde ervaring',en:'Average experience'},{v:'Veel ervaring',nl:'Veel ervaring',en:'A lot of experience'}]},
+  {t:'ta',k:'ai_eerder',l:{nl:'Heeft u al eerder AI-tools gebruikt? Welke, en wat was de ervaring?',en:'Have you used AI tools before? Which ones, and what was the experience?'}}
+]},
+{ // 13
+ title:{nl:'Prioriteiten',en:'Priorities'},
+ intro:{nl:'Beoordeel per onderdeel de impact op uw bedrijf en de moeite die implementatie u naar verwachting kost (1 = laag, 5 = hoog).',en:'For each item, rate the impact on your business and the effort you expect implementation to take (1 = low, 5 = high).'},
+ fields:[{t:'matrix'}]
+},
+{ // 14
+ title:{nl:'Verwachtingen & Afronding',en:'Expectations & Completion'},
+ intro:{nl:'',en:''},
+ fields:[
+  {t:'ta',k:'verwachting_lbr',l:{nl:'Wat verwacht u van Linkd by Royal?',en:'What do you expect from Linkd by Royal?'}},
+  {t:'ta',k:'zorgen',l:{nl:"Welke risico's of zorgen heeft u over dit traject?",en:'What risks or concerns do you have about this project?'}},
+  {t:'sel',k:'risicobereidheid',l:{nl:'Hoe omschrijft u uw risicobereidheid?',en:'How would you describe your risk appetite?'},opts:[
+    {v:'Voorzichtig: eerst bewijzen, dan opschalen',nl:'Voorzichtig: eerst bewijzen, dan opschalen',en:'Cautious: prove first, then scale'},
+    {v:'Gebalanceerd',nl:'Gebalanceerd',en:'Balanced'},
+    {v:'Ambitieus: bereid om vooruit te investeren',nl:'Ambitieus: bereid om vooruit te investeren',en:'Ambitious: willing to invest ahead'}]},
+  {t:'tx',k:'contact_naam',l:{nl:'Uw naam',en:'Your name'}},
+  {t:'tx',k:'contact_email',type:'email',l:{nl:'Uw e-mailadres',en:'Your email address'}}
+]}
+];
 
-const tx = (key,label,ph='',type='text') => `
-  <div class="field-group"><label class="field-label">${label}</label><input type="${type}" data-key="${key}" placeholder="${ph}"></div>`;
+const PRIORITY_ITEMS=[
+  ['prio_website',{nl:'Nieuwe website & online boeken',en:'New website & online booking'}],
+  ['prio_crm',{nl:'CRM & klantbeheer',en:'CRM & client management'}],
+  ['prio_ai',{nl:'AI-chatbot & automatisering',en:'AI chatbot & automation'}],
+  ['prio_branding',{nl:'Merkidentiteit & branding',en:'Brand identity & branding'}],
+  ['prio_leveranciers',{nl:'Leverancierscontracten (ferry, hotels)',en:'Supplier contracts (ferry, hotels)'}],
+  ['prio_marketing',{nl:'Marketing & zichtbaarheid',en:'Marketing & visibility'}],
+  ['prio_compliance',{nl:'Vergunningen & compliance',en:'Permits & compliance'}]
+];
 
-const sel = (key,label,opts) => `
-  <div class="field-group"><label class="field-label">${label}</label>
-  <select data-key="${key}"><option value="">Kies…</option>${opts.map(o=>`<option>${o}</option>`).join('')}</select></div>`;
+const COVER={
+  eyebrow:{nl:'Consultancytraject',en:'Consulting Engagement'},
+  h1:{nl:'Discovery & Strategy Intake',en:'Discovery & Strategy Intake'},
+  p:{nl:'Deze intake vormt de basis van uw strategie, merkidentiteit, website, CRM en AI-automatisering. Hoe vollediger de antwoorden, hoe scherper het advies van Linkd by Royal.',en:'This intake forms the foundation of your strategy, brand identity, website, CRM and AI automation. The more complete your answers, the sharper the advice from Linkd by Royal.'},
+  m1:{nl:'secties',en:'sections'}, m2:{nl:'minuten',en:'minutes'},
+  note:{nl:'Uw antwoorden worden automatisch lokaal opgeslagen. U kunt dit venster sluiten en later verdergaan waar u gebleven was.',en:'Your answers are saved automatically on this device. You can close this window and continue later where you left off.'}
+};
+const FINISH={
+  eyebrow:{nl:'Laatste stap',en:'Final step'},
+  h2:{nl:'Klaar om te versturen',en:'Ready to submit'},
+  p:{nl:'Controleer of u niets vergeten bent (u kunt via de balk bovenin terug naar elke sectie). Met de knop hieronder verstuurt u uw intake veilig naar Linkd by Royal.',en:'Please check that you have not missed anything (use the bar at the top to return to any section). The button below securely submits your intake to Linkd by Royal.'}
+};
+const THANKS={
+  h1:{nl:'Hartelijk dank!',en:'Thank you!'},
+  p:{nl:'Uw intake is succesvol verzonden naar Linkd by Royal. We nemen uw antwoorden zorgvuldig door en bereiden een strategische analyse voor. U hoort binnen twee werkdagen van ons om het strategiegesprek in te plannen. Tot snel!',en:'Your intake has been successfully submitted to Linkd by Royal. We will carefully review your answers and prepare a strategic analysis. We will contact you within two business days to schedule the strategy session. Speak soon!'}
+};
 
-document.getElementById('main').innerHTML = `
-
-<section class="panel active" data-panel="0">
-  <div class="cover">
-    <div class="eyebrow">Consultancytraject</div>
-    <h1>Discovery &amp; Strategy Intake</h1>
-    <p>Deze intake vormt de basis van uw strategie, merkidentiteit, website, CRM en AI-automatisering. Hoe vollediger de antwoorden, hoe scherper de analyse en het advies van Linkd by Royal.</p>
-    <div class="meta">
-      <div><b>14</b>secties</div>
-      <div><b>±35</b>minuten</div>
-      <div><b>1</b>AI-strategieanalyse</div>
-    </div>
-    <p class="note">Uw antwoorden worden automatisch lokaal opgeslagen. U kunt dit venster sluiten en later verdergaan waar u gebleven was.</p>
-  </div>
-</section>
-
-<section class="panel" data-panel="1">
-  <div class="eyebrow">Sectie 1 / 14</div>
-  <h2>Bedrijfsprofiel</h2>
-  <p class="intro-text">Vertel ons wie u bent en waarom deze route, van Curaçao naar Venezuela met Colombia als volgende stap, voor u de juiste is.</p>
-  ${tx('bedrijfsnaam','Bedrijfsnaam')}
-  ${sel('stadium','Huidig stadium',['Startup / pre-launch','0-2 jaar operationeel','2-5 jaar operationeel','5+ jaar operationeel'])}
-  ${sel('werknemers','Aantal werknemers',['1 (solo)','2-5','6-15','16-50','50+'])}
-  ${ta('bedrijf_intro','Korte omschrijving van uw bedrijf','Wie zijn jullie, wat doen jullie vandaag?')}
-  ${ta('missie','Wat is uw missie?')}
-  ${ta('visie','Wat is uw visie voor de komende 5 jaar?')}
-  ${ta('waarom_venezuela','Waarom wilt u starten met reizen naar Venezuela?')}
-  ${ta('waarom_colombia','Waarom staat Colombia als volgende stap op de planning?')}
-  ${ta('onderscheidend','Wat maakt u anders dan bestaande reisorganisaties?')}
-  ${tx('startdatum','Beoogde startdatum eerste reizen','', 'date')}
-</section>
-
-<section class="panel" data-panel="2">
-  <div class="eyebrow">Sectie 2 / 14</div>
-  <h2>Strategie &amp; Doelstellingen</h2>
-  <p class="intro-text">Wat moet dit project concreet opleveren?</p>
-  <div class="field-group">
-    <label class="field-label">Wat wilt u met dit project bereiken?</label>
-    ${cg('doelstellingen',['Meer boekingen','Professionele uitstraling','Volledig online boekingsproces','Minder handmatig werk','Meer automatisering','Hogere klanttevredenheid','Internationale uitbreiding'],'Andere doelstelling…')}
-  </div>
-  <div class="field-group">
-    <label class="field-label">Hoe ambitieus is de gewenste groei de komende 12 maanden? (1 = rustig, 10 = maximaal)</label>
-    <div class="rating-scale" data-rating="ambitie_score" data-max="10"></div>
-  </div>
-  ${ta('visie_1jaar','Waar ziet u uzelf over één jaar?')}
-</section>
-
-<section class="panel" data-panel="3">
-  <div class="eyebrow">Sectie 3 / 14</div>
-  <h2>Diensten &amp; Aanbod</h2>
-  <p class="intro-text">Welke diensten wilt u (op termijn) aanbieden?</p>
-  ${cg('diensten',['Ferry','Vluchten','Hotels','Excursies','Transfers','Autoverhuur','Reisverzekering','Visa assistance','Medical Tourism','Business Travel','VIP Travel','Groepsreizen','Maatwerkreizen'],'Andere dienst…')}
-  <div style="margin-top:24px;">${ta('usp','Wat is uw unieke propositie? Waarom zou een klant bij u boeken?')}</div>
-</section>
-
-<section class="panel" data-panel="4">
-  <div class="eyebrow">Sectie 4 / 14</div>
-  <h2>Doelgroep &amp; Markten</h2>
-  <div class="field-group">
-    <label class="field-label">Herkomstmarkten</label>
-    ${cg('doelgroep_markt',['Curaçao','Nederland','Venezuela','Colombia'])}
-  </div>
-  <div class="field-group">
-    <label class="field-label">Klantsegmenten</label>
-    ${cg('doelgroep_segment',['Zakelijke klanten','Families','Studenten','Toeristen','Expats'])}
-  </div>
-  ${ta('ideale_klant','Beschrijf uw ideale klant')}
-</section>
-
-<section class="panel" data-panel="5">
-  <div class="eyebrow">Sectie 5 / 14</div>
-  <h2>Organisatie &amp; Team</h2>
-  <p class="intro-text">Wie voert dit uit en wie beslist?</p>
-  ${ta('besluitvormers','Wie zijn de besluitvormers in dit traject?','Namen en rollen')}
-  ${sel('it_niveau','Digitale en IT-vaardigheden binnen het team',['Beperkt','Basis','Gemiddeld','Sterk'])}
-  ${tx('implementatie_eigenaar','Wie wordt intern verantwoordelijk voor de implementatie?')}
-  ${ta('team_beschikbaarheid','Hoeveel tijd kan het team per week vrijmaken voor dit traject?')}
-</section>
-
-<section class="panel" data-panel="6">
-  <div class="eyebrow">Sectie 6 / 14</div>
-  <h2>Financiële Context</h2>
-  <p class="intro-text">Een realistisch budgetbeeld maakt de roadmap en kostenraming betrouwbaar.</p>
-  ${sel('omzet','Jaarlijkse omzet (schatting)',['Nog geen omzet','Onder €50k','€50k-€250k','€250k-€1M','€1M-€5M','€5M+'])}
-  ${sel('budget','Beschikbaar budget voor dit traject (12 maanden)',['Onder €10k','€10k-€25k','€25k-€50k','€50k-€100k','€100k+','Nog onbekend'])}
-  ${ta('financiering','Zijn er financieringsmogelijkheden (investeerders, lening, subsidies)?')}
-  ${ta('budget_beperkingen','Zijn er budgetbeperkingen of voorwaarden waar we rekening mee moeten houden?')}
-</section>
-
-<section class="panel" data-panel="7">
-  <div class="eyebrow">Sectie 7 / 14</div>
-  <h2>Huidige Situatie &amp; Processen</h2>
-  <div class="yn-toggle-list">
-    ${yn('website','Website')}
-    <div class="followup" data-followup-for="website">
-      <label class="field-label">URL van de huidige website</label>
-      <input type="url" data-key="website_url" placeholder="https://">
-    </div>
-    ${yn('crm','CRM')}
-    <div class="followup" data-followup-for="crm">
-      <label class="field-label">Welk CRM, en hoe tevreden bent u erover?</label>
-      <input type="text" data-key="crm_naam">
-    </div>
-    ${yn('whatsapp','WhatsApp Business')}
-    ${yn('betalingen','Online betalingen')}
-    <div class="followup" data-followup-for="betalingen">
-      <label class="field-label">Welke betaalprovider(s)?</label>
-      <input type="text" data-key="betalingen_provider" placeholder="bijv. banktransfer, kaart, lokale provider">
-    </div>
-    ${yn('boekingssysteem','Boekingssysteem')}
-    <div class="followup" data-followup-for="boekingssysteem">
-      <label class="field-label">Welk systeem?</label>
-      <input type="text" data-key="boekingssysteem_naam">
-    </div>
-    ${yn('leveranciers','Vaste leveranciers (ferry, hotels, transfers)')}
-    ${yn('contracten','Bestaande contracten')}
-    <div class="followup" data-followup-for="contracten">
-      <label class="field-label">Upload relevante contracten (optioneel)</label>
-      <div class="upload-box">Blader naar bestanden<br><input type="file" data-key="contracten_bestand" multiple style="margin-top:8px;"></div>
-    </div>
-  </div>
-  <div style="margin-top:24px;">
-    ${ta('proces_huidig','Beschrijf stap voor stap hoe een klant nu een reis boekt')}
-    ${ta('proces_knelpunten','Waar loopt u nu tegenaan?')}
-    ${ta('proces_tijdrovend','Welke processen kosten de meeste tijd?')}
-  </div>
-</section>
-
-<section class="panel" data-panel="8">
-  <div class="eyebrow">Sectie 8 / 14</div>
-  <h2>Regelgeving &amp; Compliance</h2>
-  <p class="intro-text">Internationale reizen tussen Curaçao, Venezuela en Colombia brengen vergunningen en regelgeving met zich mee.</p>
-  ${ta('vergunningen','Welke vergunningen of licenties heeft u al, en welke ontbreken nog?','bijv. reisagent-licentie, ferry-vergunningen, IATA')}
-  ${ta('compliance_uitdagingen','Welke regelgevingskwesties of compliance-uitdagingen ziet u?','bijv. visumregels, valuta, verzekeringen, aansprakelijkheid')}
-  ${sel('juridisch_advies','Heeft u toegang tot juridisch advies?',['Ja, vaste jurist of kantoor','Incidenteel','Nee, nog niet'])}
-</section>
-
-<section class="panel" data-panel="9">
-  <div class="eyebrow">Sectie 9 / 14</div>
-  <h2>Concurrentie</h2>
-  ${ta('concurrenten','Noem maximaal vijf concurrenten','Eén per regel')}
-  ${ta('concurrenten_beter','Welke concurrenten presteren beter dan u wilt, en waarin?')}
-  ${ta('voorbeeldbedrijven','Welke bedrijven vindt u een voorbeeld, en waarom?')}
-</section>
-
-<section class="panel" data-panel="10">
-  <div class="eyebrow">Sectie 10 / 14</div>
-  <h2>Branding &amp; Positionering</h2>
-  <div class="field-group">
-    <label class="field-label">Hoe wilt u gezien worden?</label>
-    ${cg('branding_positionering',['Luxe','Betaalbaar','Premium','Familie','Zakelijk','Medisch','All-in-one','Exclusief'],'Anders…')}
-  </div>
-  <div class="field-group">
-    <label class="field-label">Bestaande merkmiddelen</label>
-    ${cg('branding_middelen',['Logo','Huisstijl','Social media','Nog niets'])}
-  </div>
-  ${ta('merkpersoonlijkheid','Beschrijf de gewenste merkpersoonlijkheid in drie woorden')}
-</section>
-
-<section class="panel" data-panel="11">
-  <div class="eyebrow">Sectie 11 / 14</div>
-  <h2>Website &amp; Digitale Kanalen</h2>
-  <div class="field-group">
-    <label class="field-label">Welke functies wilt u op de nieuwe website?</label>
-    ${cg('website_functies',['Online boeken','Online betalen','WhatsApp','Live Chat','AI Chatbot','Reviews','Blog','Nieuws','Klantportaal','Dashboard','FAQ','Meertaligheid','Offerte aanvragen','Reisplanner','Document upload'])}
-  </div>
-  <div class="followup" data-followup-for-check="website_functies:Online boeken">
-    <label class="field-label">Beschrijf de ideale boekingsflow in het kort</label>
-    <textarea data-key="boekingsproces_wens"></textarea>
-  </div>
-  <div class="followup" data-followup-for-check="website_functies:Meertaligheid" style="margin-top:14px;">
-    <label class="field-label">Welke talen zijn nodig?</label>
-    <input type="text" data-key="talen_wens" placeholder="bijv. Nederlands, Engels, Spaans, Papiaments">
-  </div>
-  <div style="margin-top:22px;">
-    ${cgLabeled('communicatie_kanalen','Via welke kanalen wilt u met klanten communiceren?',['WhatsApp','E-mail','Telefoon','Instagram','Facebook','Live chat op website'])}
-  </div>
-</section>
-
-<section class="panel" data-panel="12">
-  <div class="eyebrow">Sectie 12 / 14</div>
-  <h2>AI &amp; Automatisering</h2>
-  <div class="field-group">
-    <label class="field-label">Waar zou u AI willen inzetten?</label>
-    ${cg('ai_toepassingen',['Chatbot','Offertes','WhatsApp','E-mail','Intake','FAQ','Vertalingen','Planning','Documentcontrole','Marketing','Social Media','Rapportages','Analytics','Automatiseringen'])}
-  </div>
-  ${sel('ai_comfort','Huidig comfortniveau met AI en automatisering in het team',['Geen ervaring','Beetje ervaring','Gemiddelde ervaring','Veel ervaring'])}
-  ${ta('ai_eerder','Heeft u al eerder AI-tools gebruikt? Welke, en wat was de ervaring?')}
-</section>
-
-<section class="panel" data-panel="13">
-  <div class="eyebrow">Sectie 13 / 14</div>
-  <h2>Prioriteiten</h2>
-  <p class="intro-text">Beoordeel per onderdeel de impact op uw bedrijf en de moeite die implementatie u naar verwachting kost (1 = laag, 5 = hoog). Zo ontstaat een matrix van quick wins en grotere projecten.</p>
-  <div id="priorityMatrix"></div>
-</section>
-
-<section class="panel" data-panel="14">
-  <div class="eyebrow">Sectie 14 / 14</div>
-  <h2>Verwachtingen &amp; Risico's</h2>
-  ${ta('verwachting_lbr','Wat verwacht u van Linkd by Royal?')}
-  ${ta('zorgen','Welke risico\'s of zorgen heeft u over dit traject?')}
-  ${sel('risicobereidheid','Hoe omschrijft u uw risicobereidheid?',['Voorzichtig: eerst bewijzen, dan opschalen','Gebalanceerd','Ambitieus: bereid om vooruit te investeren'])}
-  ${tx('contact_email','E-mailadres voor de strategische analyse en het vervolg','', 'email')}
-</section>
-
-<section class="panel" data-panel="15">
-  <div class="eyebrow">Afronding</div>
-  <h2 style="margin-bottom:20px;">Strategische Analyse</h2>
-  <div id="aiCtaBlock" class="ai-cta">
-    <div class="eyebrow" style="color:var(--gold-soft);">Linkd by Royal Intelligence</div>
-    <h2>Genereer de analyse</h2>
-    <p>Op basis van alle antwoorden wordt een strategische analyse opgesteld: knelpunten en kansen per categorie, quick wins, een kostenraming, een gefaseerde roadmap, scores met branchevergelijking en een gespreksleidraad voor het strategiegesprek. Dit duurt 30 tot 60 seconden.</p>
-    <button id="generateBtn" type="button">Genereer strategische analyse</button>
-  </div>
-  <div id="aiResults" style="display:none;"></div>
-  <button class="btn btn-primary print-btn" id="printBtn" type="button" onclick="window.print()">Opslaan als PDF</button>
-</section>
-`;
-
-/* labeled checkgroup helper used above via template literal, define before innerHTML would be cleaner;
-   declared here as function hoisting handles it */
-function cgLabeled(key,label,opts){
-  return `<div class="field-group"><label class="field-label">${label}</label>${cg(key,opts)}</div>`;
+/* =================== RENDER =================== */
+function fieldHtml(f){
+  const label=`<label class="field-label">${t(f.l)}</label>`;
+  const ph=f.ph?` placeholder="${t(f.ph)}"`:'';
+  if(f.t==='tx') return `<div class="field-group">${label}<input type="${f.type||'text'}" data-key="${f.k}"${ph}></div>`;
+  if(f.t==='ta') return `<div class="field-group">${label}<textarea data-key="${f.k}"${ph}></textarea></div>`;
+  if(f.t==='sel') return `<div class="field-group">${label}<select data-key="${f.k}"><option value="">${t(UI.choose)}</option>${f.opts.map(o=>`<option value="${o.v}">${t(o)}</option>`).join('')}</select></div>`;
+  if(f.t==='cg') return `<div class="field-group">${label}
+      <div class="choice-grid" data-checkgroup="${f.k}">${f.opts.map(o=>`<label class="choice"><input type="checkbox" value="${o.v}">${t(o)}</label>`).join('')}</div>
+      ${f.other?`<input style="margin-top:12px" type="text" placeholder="${t(f.other)}" data-key="${f.k}_anders">`:''}</div>`;
+  if(f.t==='yn'){
+    let h=`<div class="yn-row" data-ynrow="${f.k}"><span class="yn-label">${t(f.l)}</span>
+      <div class="switch"><button type="button" data-val="nee">${lang==='nl'?'Nee':'No'}</button><button type="button" data-val="ja">${lang==='nl'?'Ja':'Yes'}</button></div></div>`;
+    if(f.fu) h+=`<div class="followup" data-followup-for="${f.k}">${fieldHtml(f.fu)}</div>`;
+    return h;
+  }
+  if(f.t==='scale') return `<div class="field-group">${label}<div class="rating-scale" data-rating="${f.k}" data-max="${f.max}"></div></div>`;
+  if(f.t==='fuc') return `<div class="followup" data-followup-for-check="${f.forKey}:${f.forVal}">${fieldHtml(f.f)}</div>`;
+  if(f.t==='matrix') return `<div id="priorityMatrix"></div>`;
+  return '';
 }
 
-/* ============ ROUTE / PROGRESS ============ */
-const routeDotsEl = document.getElementById('routeDots');
-SECTIONS.forEach((s,i)=>{
-  if(i===0 || i===15) return;
-  const d = document.createElement('div');
-  d.className='route-dot'; d.dataset.i=i;
-  d.innerHTML = `<div class="pip"></div><div>${s.label}</div>`;
-  d.addEventListener('click',()=>showPanel(i));
-  routeDotsEl.appendChild(d);
-});
-
-function updateRoute(){
-  const clamped = Math.max(1, Math.min(current, 14));
-  document.querySelectorAll('.route-dot').forEach(d=>{
-    const di=parseInt(d.dataset.i);
-    d.classList.toggle('done', di<clamped || current===15);
-    d.classList.toggle('current', di===clamped && current>0 && current<15);
+function buildPage(){
+  const main=document.getElementById('main');
+  let html=`
+  <section class="panel" data-panel="0">
+    <div class="cover">
+      <div class="eyebrow">${t(COVER.eyebrow)}</div>
+      <h1>${t(COVER.h1)}</h1>
+      <p>${t(COVER.p)}</p>
+      <div class="meta"><div><b>14</b>${t(COVER.m1)}</div><div><b>±35</b>${t(COVER.m2)}</div></div>
+      <p class="note">${t(COVER.note)}</p>
+    </div>
+  </section>`;
+  DEF.forEach((s,i)=>{
+    const n=i+1;
+    html+=`<section class="panel" data-panel="${n}">
+      <div class="eyebrow">${t(UI.sectionWord)} ${n} / 14</div>
+      <h2>${t(s.title)}</h2>
+      ${t(s.intro)?`<p class="intro-text">${t(s.intro)}</p>`:''}
+      ${s.fields.map(fieldHtml).join('')}
+    </section>`;
   });
-  let pct = current===0?0 : current===15?100 : Math.round((clamped/14)*100);
-  document.getElementById('routeFill').style.width=pct+'%';
-  document.getElementById('progressPct').textContent=pct+'% voltooid';
-  document.getElementById('routeBoat').style.left=`calc(12px + ${pct} * (100% - 24px) / 100)`;
+  html+=`
+  <section class="panel" data-panel="15">
+    <div id="finishBlock" class="finish">
+      <div class="eyebrow" style="color:var(--gold-soft);">${t(FINISH.eyebrow)}</div>
+      <h2>${t(FINISH.h2)}</h2>
+      <p>${t(FINISH.p)}</p>
+      <button id="submitBtn" type="button" class="btn-gold btn">${t(UI.submit)}</button>
+      <p id="submitError" style="display:none;color:#f0c9c9;margin-top:16px;font-size:13px;"></p>
+    </div>
+    <div id="thanksBlock" class="thanks" style="display:none;">
+      <div class="mark">✦</div>
+      <h1>${t(THANKS.h1)}</h1>
+      <p>${t(THANKS.p)}</p>
+    </div>
+  </section>`;
+  main.innerHTML=html;
+
+  // route dots
+  const dots=document.getElementById('routeDots');
+  dots.innerHTML='';
+  ROUTE_LABELS.forEach((lbl,i)=>{
+    if(i===0) return;
+    const d=document.createElement('div');
+    d.className='route-dot'; d.dataset.i=i;
+    d.innerHTML=`<div class="pip"></div><div>${t(lbl)}</div>`;
+    d.addEventListener('click',()=>{ if(!submitted) showPanel(i===14?14:i); });
+    dots.appendChild(d);
+  });
+
+  document.getElementById('prevBtn').textContent=t(UI.prev);
+  document.getElementById('nextBtn').textContent=t(UI.next);
+  document.getElementById('resetBtn').textContent=t(UI.reset);
+
+  attachBindings();
+  restoreAnswers();
 }
 
-function showPanel(i){
-  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
-  document.querySelector(`.panel[data-panel="${i}"]`).classList.add('active');
-  current=i;
-  persist();
-  updateRoute();
-  document.getElementById('prevBtn').disabled=(i===0);
-  document.getElementById('nextBtn').style.display=(i===15)?'none':'inline-block';
-  window.scrollTo({top:0,behavior:'smooth'});
-}
-document.getElementById('nextBtn').addEventListener('click',()=>{ if(current<15) showPanel(current+1); });
-document.getElementById('prevBtn').addEventListener('click',()=>{ if(current>0) showPanel(current-1); });
-
-/* ============ PERSISTENCE ============ */
-let saveTimer=null;
+/* =================== BINDINGS =================== */
 function persist(){
   try{
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({current, answers}));
+    localStorage.setItem(STORAGE_KEY,JSON.stringify({current,answers,submitted}));
     const el=document.getElementById('saveState');
-    el.textContent='Opgeslagen';
-    clearTimeout(saveTimer);
-    saveTimer=setTimeout(()=>{el.textContent='';},1500);
+    el.textContent=t(UI.saved);
+    clearTimeout(persist._t); persist._t=setTimeout(()=>{el.textContent='';},1500);
   }catch(e){}
 }
-document.getElementById('resetBtn').addEventListener('click',()=>{
-  if(confirm('Alle antwoorden wissen en opnieuw beginnen?')){
-    localStorage.removeItem(STORAGE_KEY);
-    location.reload();
-  }
-});
 
-/* ============ FIELD BINDINGS ============ */
-document.querySelectorAll('[data-key]').forEach(el=>{
-  el.addEventListener('input',()=>{
-    answers[el.dataset.key] = (el.type==='file')
-      ? Array.from(el.files).map(f=>f.name)
-      : el.value;
-    persist();
+function attachBindings(){
+  document.querySelectorAll('[data-key]').forEach(el=>{
+    el.addEventListener('input',()=>{ answers[el.dataset.key]=el.value; persist(); });
   });
-});
-
-document.querySelectorAll('[data-checkgroup]').forEach(group=>{
-  const key=group.dataset.checkgroup;
-  if(!answers[key]) answers[key]=[];
-  group.querySelectorAll('input[type=checkbox]').forEach(cb=>{
-    cb.addEventListener('change',()=>{
-      cb.closest('.choice').classList.toggle('checked',cb.checked);
-      answers[key]=Array.from(group.querySelectorAll('input:checked')).map(c=>c.value);
-      syncCheckFollowups(key);
-      persist();
+  document.querySelectorAll('[data-checkgroup]').forEach(group=>{
+    const key=group.dataset.checkgroup;
+    if(!answers[key]) answers[key]=[];
+    group.querySelectorAll('input[type=checkbox]').forEach(cb=>{
+      cb.addEventListener('change',()=>{
+        cb.closest('.choice').classList.toggle('checked',cb.checked);
+        answers[key]=Array.from(group.querySelectorAll('input:checked')).map(c=>c.value);
+        syncCheckFollowups(key); persist();
+      });
     });
   });
-});
+  document.querySelectorAll('[data-ynrow]').forEach(row=>{
+    const key=row.dataset.ynrow;
+    row.querySelectorAll('.switch button').forEach(btn=>{
+      btn.addEventListener('click',()=>{ setYN(key,btn.dataset.val); persist(); });
+    });
+  });
+  document.querySelectorAll('[data-rating]').forEach(c=>buildScale(c,c.dataset.rating,parseInt(c.dataset.max||'10')));
+
+  const matrixEl=document.getElementById('priorityMatrix');
+  if(matrixEl){
+    matrixEl.innerHTML='';
+    PRIORITY_ITEMS.forEach(([key,lbl])=>{
+      const row=document.createElement('div');
+      row.className='matrix-row';
+      row.innerHTML=`<div class="obj">${t(lbl)}</div>
+        <div class="matrix-scales">
+          <div class="dim"><span class="dim-label">${t(UI.impact)}</span><div class="rating-scale" id="${key}_impact_scale"></div></div>
+          <div class="dim"><span class="dim-label">${t(UI.effort)}</span><div class="rating-scale" id="${key}_effort_scale"></div></div>
+        </div>`;
+      matrixEl.appendChild(row);
+      buildScale(document.getElementById(key+'_impact_scale'),key+'_impact',5);
+      buildScale(document.getElementById(key+'_effort_scale'),key+'_effort',5);
+    });
+  }
+  const sb=document.getElementById('submitBtn');
+  if(sb) sb.addEventListener('click',submitIntake);
+}
+
 function syncCheckFollowups(key){
   document.querySelectorAll(`[data-followup-for-check^="${key}:"]`).forEach(fu=>{
     const wanted=fu.dataset.followupForCheck.split(':')[1];
     fu.classList.toggle('show',(answers[key]||[]).includes(wanted));
   });
 }
-
-document.querySelectorAll('[data-ynrow]').forEach(row=>{
-  const key=row.dataset.ynrow;
-  row.querySelectorAll('.switch button').forEach(btn=>{
-    btn.addEventListener('click',()=>{
-      setYN(key,btn.dataset.val);
-      persist();
-    });
-  });
-});
 function setYN(key,val){
   const row=document.querySelector(`[data-ynrow="${key}"]`);
   if(!row) return;
   answers[key]=val;
   row.querySelectorAll('.switch button').forEach(b=>{
-    b.classList.toggle('on', b.dataset.val===val);
-    b.classList.toggle('yes', b.dataset.val===val && val==='ja');
+    b.classList.toggle('on',b.dataset.val===val);
+    b.classList.toggle('yes',b.dataset.val===val&&val==='ja');
   });
   const fu=document.querySelector(`[data-followup-for="${key}"]`);
-  if(fu) fu.classList.toggle('show', val==='ja');
+  if(fu) fu.classList.toggle('show',val==='ja');
 }
-
 function buildScale(container,key,max){
+  container.innerHTML='';
   for(let n=1;n<=max;n++){
     const b=document.createElement('button');
     b.type='button'; b.textContent=n;
@@ -559,191 +574,115 @@ function buildScale(container,key,max){
 }
 function setScale(container,key,n){
   answers[key]=n;
-  Array.from(container.querySelectorAll('button')).forEach((b,i)=>b.classList.toggle('on', i+1===n));
+  Array.from(container.querySelectorAll('button')).forEach((b,i)=>b.classList.toggle('on',i+1===n));
 }
-document.querySelectorAll('[data-rating]').forEach(c=>buildScale(c,c.dataset.rating,parseInt(c.dataset.max||'10')));
 
-/* 2D priority matrix */
-const PRIORITY_ITEMS=[
-  ['prio_website','Nieuwe website & online boeken'],
-  ['prio_crm','CRM & klantbeheer'],
-  ['prio_ai','AI-chatbot & automatisering'],
-  ['prio_branding','Merkidentiteit & branding'],
-  ['prio_leveranciers','Leverancierscontracten (ferry, hotels)'],
-  ['prio_marketing','Marketing & zichtbaarheid'],
-  ['prio_compliance','Vergunningen & compliance'],
-];
-const matrixEl=document.getElementById('priorityMatrix');
-PRIORITY_ITEMS.forEach(([key,label])=>{
-  const row=document.createElement('div');
-  row.className='matrix-row';
-  row.innerHTML=`<div class="obj">${label}</div>
-    <div class="matrix-scales">
-      <div class="dim"><span class="dim-label">Impact</span><div class="rating-scale" id="${key}_impact_scale"></div></div>
-      <div class="dim"><span class="dim-label">Moeite</span><div class="rating-scale" id="${key}_effort_scale"></div></div>
-    </div>`;
-  matrixEl.appendChild(row);
-  buildScale(document.getElementById(key+'_impact_scale'), key+'_impact', 5);
-  buildScale(document.getElementById(key+'_effort_scale'), key+'_effort', 5);
-});
-
-/* ============ RESTORE SAVED SESSION ============ */
-(function restore(){
-  let saved=null;
-  try{ saved=JSON.parse(localStorage.getItem(STORAGE_KEY)); }catch(e){}
-  if(!saved){ updateRoute(); showPanel(0); return; }
-  answers=saved.answers||{};
+function restoreAnswers(){
   Object.entries(answers).forEach(([key,val])=>{
     const el=document.querySelector(`[data-key="${key}"]`);
-    if(el && el.type!=='file' && typeof val==='string'){ el.value=val; return; }
+    if(el&&typeof val==='string'){ el.value=val; return; }
     const group=document.querySelector(`[data-checkgroup="${key}"]`);
-    if(group && Array.isArray(val)){
+    if(group&&Array.isArray(val)){
       group.querySelectorAll('input[type=checkbox]').forEach(cb=>{
         cb.checked=val.includes(cb.value);
         cb.closest('.choice').classList.toggle('checked',cb.checked);
       });
-      syncCheckFollowups(key);
-      return;
+      syncCheckFollowups(key); return;
     }
     if(document.querySelector(`[data-ynrow="${key}"]`)){ setYN(key,val); return; }
-    const scale=document.querySelector(`[data-rating="${key}"]`) || document.getElementById(key+'_scale');
     if(typeof val==='number'){
-      const c=document.querySelector(`[data-rating="${key}"]`) || document.getElementById(key.replace(/_(impact|effort)$/, '_$1_scale'));
+      const c=document.querySelector(`[data-rating="${key}"]`)||document.getElementById(key+'_scale')||document.getElementById(key.replace(/_(impact|effort)$/,'_$1_scale'));
       if(c) setScale(c,key,val);
     }
   });
-  showPanel(Math.min(saved.current||0,15));
-})();
-
-/* ============ AI ANALYSIS ============ */
-document.getElementById('generateBtn').addEventListener('click', async ()=>{
-  const btn=document.getElementById('generateBtn');
-  btn.disabled=true;
-  btn.innerHTML='Analyseren<span class="loading-dots">.<span>.</span><span>.</span></span>';
-
-  const lines=Object.entries(answers)
-    .filter(([k,v])=>v!==''&&v!==null&&v!==undefined&&(Array.isArray(v)?v.length:true))
-    .map(([k,v])=>`${k}: ${Array.isArray(v)?v.join(', '):v}`).join('\n');
-
-  const systemPrompt=`Je bent een senior strategisch consultant met 15+ jaar ervaring in bedrijfsanalyse, digitale transformatie en operationele optimalisatie voor mkb-bedrijven, werkend namens consultancybureau Linkd by Royal. Je analyseert een Discovery Intake van een nieuwe reisonderneming (Curaçao naar Venezuela, later Colombia).
-
-Wees kritisch maar constructief, wees voorzichtig met aannames en maak ze expliciet, geef realistische tijdlijnen en marktconforme bedragen in euro's, en focus eerst op high-impact low-effort acties. Gebruik de prioriteitsmatrix-antwoorden (per onderdeel prio_*_impact en prio_*_effort, schaal 1-5) om quick wins te identificeren.
-
-Bereken drie scores op schaal 0-100 en vergelijk met een realistisch branchegemiddelde voor kleine reisorganisaties:
-- digitalMaturity: gebaseerd op aanwezigheid van website, CRM, online boeken/betalen, boekingssysteem en team-IT-niveau
-- aiReadiness: gebaseerd op AI-ervaring, team-comfort, budget en helderheid van use-cases
-- risk: gebaseerd op regelgeving, vergunningen, budget, teamcapaciteit en marktrisico (hoger = meer risico)
-
-Antwoord UITSLUITEND met geldige JSON, zonder markdown-codeblokken en zonder tekst ervoor of erna, exact in dit formaat:
-{
- "samenvatting":"3-5 zinnen managementsamenvatting incl. waarom nu actie nodig is",
- "knelpunten":{"operationeel":["..."],"digitaal":["..."],"regelgeving":["..."]},
- "kansen":{"groei":["..."],"automatisering":["..."]},
- "quickWins":[{"actie":"...","waarom":"...","kosten":"€...","impact":"...","tijdlijn":"..."}],
- "kostenraming":[{"onderdeel":"...","laag":"€...","gemiddeld":"€...","hoog":"€..."}],
- "kostenramingTotaal":{"laag":"€...","gemiddeld":"€...","hoog":"€..."},
- "roadmap":[{"fase":"...","tijdlijn":"Maanden X-Y","budget":"€...","acties":"...","resultaten":"..."}],
- "scores":{"digitalMaturity":{"score":0,"benchmark":0,"interpretatie":"...","doel12mnd":0},"aiReadiness":{"score":0,"benchmark":0,"interpretatie":"...","doel12mnd":0},"risk":{"score":0,"benchmark":0,"interpretatie":"...","mitigatie":"..."}},
- "gespreksleidraad":{"Strategie & Visie":["..."],"Operatie & Processen":["..."],"Financiën & Budget":["..."],"Risico's & Compliance":["..."]}
 }
-Schrijf alles in het Nederlands, zakelijk en concreet. 2-4 items per lijst, 3-4 quick wins, 4 roadmap-fasen, 2-3 vragen per gespreksleidraad-thema.`;
 
-  try{
-    // Gehost op de backend (http/https): analyse via de server, key blijft geheim.
-    // Los geopend als bestand: directe call als fallback.
-    const BACKEND_URL=''; // leeg = zelfde server; of vul volledige URL in bij losse hosting
-    const useBackend=location.protocol.startsWith('http');
-    let parsed;
-    if(useBackend){
-      const response=await fetch((BACKEND_URL||'')+'/api/analyze',{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({intakeText:`Intake-antwoorden:\n${lines||'(geen antwoorden ingevuld)'}`,systemPrompt})
-      });
-      if(!response.ok) throw new Error('Backend '+response.status);
-      parsed=await response.json();
-    }else{
-      const response=await fetch("https://api.anthropic.com/v1/messages",{
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({
-          model:"claude-sonnet-4-6",
-          max_tokens:4000,
-          system:systemPrompt,
-          messages:[{role:"user",content:`Intake-antwoorden:\n${lines||'(geen antwoorden ingevuld)'}`}]
-        })
-      });
-      const data=await response.json();
-      let text=data.content.map(b=>b.text||'').join('\n');
-      const match=text.match(/\{[\s\S]*\}/);
-      if(!match) throw new Error('Geen JSON in antwoord');
-      parsed=JSON.parse(match[0]);
-    }
-    renderResults(parsed);
-    if(useBackend){
-      // Dossier + automatische mails: fouten hier mogen de klant niet storen
-      fetch((BACKEND_URL||'')+'/api/submit',{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({answers,analysis:parsed})
-      }).catch(()=>{});
-    }
-  }catch(err){
-    console.error('AI-analyse mislukt:',err);
-    btn.disabled=false;
-    btn.textContent='Probeer opnieuw';
-    const el=document.getElementById('aiResults');
-    el.style.display='block';
-    el.innerHTML=`<div class="result-block"><h3>Analyse tijdelijk niet beschikbaar</h3><p>De analyse kon niet worden opgesteld. Uw antwoorden zijn lokaal bewaard, probeer het over een moment opnieuw.</p></div>`;
-  }
+/* =================== NAVIGATION =================== */
+function updateRoute(){
+  const clamped=Math.max(1,Math.min(current,14));
+  document.querySelectorAll('.route-dot').forEach(d=>{
+    const di=parseInt(d.dataset.i);
+    d.classList.toggle('done',di<clamped||current===15);
+    d.classList.toggle('current',di===clamped&&current>0&&current<15);
+  });
+  let pct=current===0?0:current>=15?100:Math.round((clamped/14)*100);
+  document.getElementById('routeFill').style.width=pct+'%';
+  document.getElementById('progressPct').textContent=pct+t(UI.progress);
+  document.getElementById('routeBoat').style.left=`calc(12px + ${pct} * (100% - 24px) / 100)`;
+}
+function showPanel(i){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  const p=document.querySelector(`.panel[data-panel="${i}"]`);
+  if(!p) return;
+  p.classList.add('active');
+  current=i; persist(); updateRoute();
+  document.getElementById('prevBtn').disabled=(i===0||submitted);
+  document.getElementById('nextBtn').style.display=(i===15)?'none':'inline-block';
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+document.getElementById('nextBtn').addEventListener('click',()=>{ if(current<15) showPanel(current+1); });
+document.getElementById('prevBtn').addEventListener('click',()=>{ if(current>0) showPanel(current-1); });
+document.getElementById('resetBtn').addEventListener('click',()=>{
+  if(confirm(t(UI.resetConfirm))){ localStorage.removeItem(STORAGE_KEY); location.reload(); }
 });
 
-function renderResults(r){
-  document.getElementById('aiCtaBlock').style.display='none';
-  const el=document.getElementById('aiResults');
-  el.style.display='block';
-  document.getElementById('printBtn').style.display='inline-block';
-
-  const list=arr=>`<ul>${(arr||[]).map(x=>`<li>${x}</li>`).join('')}</ul>`;
-  const catBlock=(obj)=>Object.entries(obj||{}).map(([k,v])=>`<h4>${k}</h4>${list(v)}`).join('');
-  const scoreCard=(lbl,s,extra)=>`
-    <div class="score-card">
-      <div class="num">${s?.score ?? '–'}<small>/100</small></div>
-      <div class="lbl">${lbl}</div>
-      <div class="bench">Branche: ${s?.benchmark ?? '–'} · ${extra==='doel'?('Doel 12 mnd: '+(s?.doel12mnd ?? '–')):''}${extra==='mitigatie'?'':''}</div>
-    </div>`;
-
-  el.innerHTML=`
-    <div class="result-block"><h3>Managementsamenvatting</h3><p>${r.samenvatting||''}</p></div>
-    <div class="score-grid">
-      ${scoreCard('Digital Maturity',r.scores?.digitalMaturity,'doel')}
-      ${scoreCard('AI Readiness',r.scores?.aiReadiness,'doel')}
-      ${scoreCard('Risicoscore',r.scores?.risk,'mitigatie')}
-    </div>
-    <div class="result-block"><h3>Score-interpretatie</h3>
-      <p><b>Digital Maturity:</b> ${r.scores?.digitalMaturity?.interpretatie||''}</p>
-      <p><b>AI Readiness:</b> ${r.scores?.aiReadiness?.interpretatie||''}</p>
-      <p><b>Risico:</b> ${r.scores?.risk?.interpretatie||''} ${r.scores?.risk?.mitigatie?('<br><b>Mitigatie:</b> '+r.scores.risk.mitigatie):''}</p>
-    </div>
-    <div class="result-block"><h3>Knelpunten</h3>${catBlock(r.knelpunten)}</div>
-    <div class="result-block"><h3>Kansen</h3>${catBlock(r.kansen)}</div>
-    <div class="result-block"><h3>Quick wins</h3>
-      ${(r.quickWins||[]).map(q=>`<div class="qw-card"><b>${q.actie}</b><br>${q.waarom}<br><b>Kosten:</b> ${q.kosten} · <b>Impact:</b> ${q.impact} · <b>Tijdlijn:</b> ${q.tijdlijn}</div>`).join('')}
-    </div>
-    <div class="result-block"><h3>Kostenraming (indicatief, 12 maanden)</h3>
-      <table class="cost">
-        <tr><th>Onderdeel</th><th>Laag</th><th>Gemiddeld</th><th>Hoog</th></tr>
-        ${(r.kostenraming||[]).map(c=>`<tr><td>${c.onderdeel}</td><td>${c.laag}</td><td>${c.gemiddeld}</td><td>${c.hoog}</td></tr>`).join('')}
-        ${r.kostenramingTotaal?`<tr><td>Totaal</td><td>${r.kostenramingTotaal.laag}</td><td>${r.kostenramingTotaal.gemiddeld}</td><td>${r.kostenramingTotaal.hoog}</td></tr>`:''}
-      </table>
-      <p class="field-hint" style="margin-top:8px;">Ramingen zijn indicatief en worden na het strategiegesprek verfijnd in de projectplanning.</p>
-    </div>
-    <div class="result-block"><h3>Implementatie-roadmap</h3>
-      ${(r.roadmap||[]).map(p=>`<div class="roadmap-item"><div class="timeline">${p.tijdlijn||''} · ${p.budget||''}</div><div class="phase">${p.fase||''}</div><p>${p.acties||''}</p><p><b>Resultaten:</b> ${p.resultaten||''}</p></div>`).join('')}
-    </div>
-    <div class="result-block"><h3>Gespreksleidraad strategiegesprek</h3>${catBlock(r.gespreksleidraad)}</div>
-  `;
+/* =================== LANGUAGE SWITCH =================== */
+function setLang(l){
+  lang=l;
+  localStorage.setItem('lbr_lang',l);
+  document.documentElement.lang=l;
+  document.querySelectorAll('#langSwitch button').forEach(b=>b.classList.toggle('on',b.dataset.lang===l));
+  buildPage();
+  showPanel(submitted?15:current);
+  if(submitted) showThanks();
 }
+document.querySelectorAll('#langSwitch button').forEach(b=>{
+  b.addEventListener('click',()=>setLang(b.dataset.lang));
+});
+
+/* =================== SUBMIT =================== */
+function showThanks(){
+  const f=document.getElementById('finishBlock'), th=document.getElementById('thanksBlock');
+  if(f) f.style.display='none';
+  if(th) th.style.display='block';
+  document.getElementById('navbar').style.display='none';
+  updateRoute();
+}
+async function submitIntake(){
+  const btn=document.getElementById('submitBtn');
+  const errEl=document.getElementById('submitError');
+  btn.disabled=true;
+  btn.innerHTML=`${t(UI.submitting)}<span class="loading-dots">.<span>.</span><span>.</span></span>`;
+  errEl.style.display='none';
+  try{
+    const r=await fetch('/api/submit',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({answers,lang})
+    });
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    submitted=true; current=15; persist();
+    showThanks();
+  }catch(e){
+    console.error('Submit mislukt:',e);
+    btn.disabled=false;
+    btn.textContent=t(UI.retry);
+    errEl.textContent=t(UI.submitFail);
+    errEl.style.display='block';
+  }
+}
+
+/* =================== INIT =================== */
+(function init(){
+  try{
+    const saved=JSON.parse(localStorage.getItem(STORAGE_KEY));
+    if(saved){ answers=saved.answers||{}; current=saved.current||0; submitted=!!saved.submitted; }
+  }catch(e){}
+  document.querySelectorAll('#langSwitch button').forEach(b=>b.classList.toggle('on',b.dataset.lang===lang));
+  buildPage();
+  showPanel(submitted?15:Math.min(current,15));
+  if(submitted) showThanks();
+})();
 </script>
 </body>
 </html>
