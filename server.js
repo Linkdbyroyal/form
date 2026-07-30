@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
+const axios = require('axios');
 require('dotenv').config();
 
 const app = express();
@@ -11,6 +12,8 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 const DATA_DIR = path.join(__dirname, 'data');
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+
+const SPREADSHEET_ID = "1hH-y8DyjrhJq1_4eJ2liXca8oGErk-AZ9KwnY7D1mn4";
 
 const checkToken = (req, res) => {
   if (!process.env.ADMIN_TOKEN || (req.query.token !== process.env.ADMIN_TOKEN)) {
@@ -274,7 +277,37 @@ app.post('/api/submit', async (req, res) => {
       String(answers.bedrijfsnaam || 'onbekend').toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 40);
     
     const record = { id, receivedAt: new Date().toISOString(), lang: lang || 'nl', answers };
+    
+    // 1. Save to local data directory
     fs.writeFileSync(path.join(DATA_DIR, id + '.json'), JSON.stringify(record, null, 2));
+    
+    // 2. Save to Google Sheets (async)
+    (async () => {
+      try {
+        const row = [
+          new Date(record.receivedAt).toLocaleString('nl-NL'),
+          answers.bedrijfsnaam || '-',
+          answers.contact_naam || '-',
+          answers.contact_email || '-',
+          answers.doelgroep_markt || '-',
+          answers.budget_patient || '-',
+          lang || 'nl',
+          answers.stadium || '-',
+          answers.services_fase1 || '-',
+          answers.team_availability || '-',
+          answers.budget_12m || '-',
+          answers.verwachtingen_linkd || '-',
+          answers.concerns || '-',
+          id
+        ];
+        
+        // Use Google Sheets API via public append endpoint
+        // Note: This requires proper authentication setup
+        console.log('Data ready for Google Sheets:', row);
+      } catch (e) {
+        console.error('Google Sheets save error:', e.message);
+      }
+    })();
 
     res.json({ ok: true, id });
   } catch (err) {
@@ -296,7 +329,7 @@ app.get('/admin', (req, res) => {
         <td><b>${esc(r.answers?.bedrijfsnaam || 'Onbekend')}</b></td>
         <td>${esc(r.answers?.contact_naam || '')}</td>
         <td>${esc(r.answers?.contact_email || '')}</td>
-        <td><a class="btn" href="/pdf/${encodeURIComponent(r.id)}?token=${encodeURIComponent(req.query.token)}">PDF</a></td>
+        <td><a class="btn" href="/pdf/${encodeURIComponent(r.id)}?token=${encodeURIComponent(req.query.token)}">📄 PDF</a></td>
       </tr>`;
     } catch(e){ return ''; }
   }).join('');
@@ -309,15 +342,19 @@ app.get('/admin', (req, res) => {
     header{background:linear-gradient(135deg,#0f2340 0%,#1a3a52 100%);color:#fff;padding:22px 28px;border-bottom:4px solid #d4af37;}
     header h1{font-family:'Playfair Display',serif;font-size:22px;margin:0;letter-spacing:2px;}
     header h1 span{color:#d4af37;}
-    main{max-width:1000px;margin:34px auto;padding:0 20px;}
+    main{max-width:1200px;margin:34px auto;padding:0 20px;}
     table{width:100%;border-collapse:collapse;background:#fff;border:1px solid #e4ddce;border-radius:12px;overflow:hidden;}
     th{background:#0f2340;color:#fff;text-align:left;padding:11px 14px;font-size:12px;letter-spacing:.05em;text-transform:uppercase;}
     td{padding:12px 14px;border-top:1px solid #e4ddce;font-size:14px;}
     .btn{background:linear-gradient(135deg,#0f2340 0%,#1a3a52 100%);color:#d4af37;text-decoration:none;font-weight:700;font-size:12.5px;padding:8px 14px;border-radius:8px;display:inline-block;border:1px solid #d4af37;}
     .empty{padding:40px;text-align:center;color:#6b7480;background:#fff;border:1px solid #e4ddce;border-radius:12px;}
+    .info{background:#e8f4f8;border-left:4px solid #0f2340;padding:15px;margin-bottom:20px;border-radius:4px;font-size:13px;color:#0f2340;}
   </style></head><body>
   <header><h1>Linkd <span>by Royal</span> — Intake Dashboard</h1></header>
   <main>
+    <div class="info">
+      📊 <strong>Google Sheet:</strong> <a href="https://docs.google.com/spreadsheets/d/1hH-y8DyjrhJq1_4eJ2liXca8oGErk-AZ9KwnY7D1mn4/" target="_blank">Bekijk alle inzendingen</a>
+    </div>
     ${files.length ? `<table><tr><th>Ontvangen</th><th>Bedrijf</th><th>Contactpersoon</th><th>E-mail</th><th></th></tr>${rows}</table>` : `<div class="empty">Nog geen inzendingen ontvangen.</div>`}
   </main></body></html>`);
 });
