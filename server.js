@@ -46,7 +46,7 @@ async function callPerplexity(prompt, lang) {
       body: JSON.stringify({
         model: 'pplx-7b-online',
         messages: [{ role: 'user', content: prompt }],
-        max_tokens: 2500,
+        max_tokens: 3000,
         temperature: 0.7
       })
     });
@@ -70,32 +70,34 @@ async function runMarketResearch(answers, lang) {
   const location = answers.doelgroep_markt || 'Venezuela';
   
   const prompt = lang === 'en' 
-    ? `Provide a comprehensive market research report for a medical tourism venture targeting ${location} in the ${industry} sector. Include:
-1. Market size and growth trends (with specific figures and percentages)
-2. Target patient demographics (age, income, pain points, communication preferences)
-3. Competitive landscape (3-5 key competitors)
-4. Regulatory environment and compliance requirements
-5. Patient journey and decision-making process
-6. Pricing benchmarks and payment models
-7. Key success factors and barriers to entry
-8. Marketing channels and patient acquisition costs
-9. Emerging opportunities and threats
-10. Recommendations for market entry
+    ? `Provide a COMPREHENSIVE market research report for a medical tourism venture targeting ${location} in the ${industry} sector. Include specific data, percentages, and numbers for:
 
-Be specific with numbers, percentages, and real market data.`
-    : `Geef een uitgebreid marktonderzoeksrapport voor een medisch-toerisme-onderneming gericht op ${location} in de ${industry}-sector. Inclusief:
-1. Marktgrootte en groeicijfers (met specifieke percentages en getallen)
-2. Doelgroep-demografie (leeftijd, inkomen, pijnpunten, communicatiekanalen)
-3. Competitief landschap (3-5 belangrijkste concurrenten)
-4. Regelgeving en compliance-vereisten
-5. Patiëntenreis en besluitvormingsproces
-6. Prijsbenchmarks en betalingsmodellen
-7. Kritieke succesfactoren en toegangsbarrières
-8. Marketingkanalen en patiënt-acquisitiekosten
-9. Kansen en bedreigingen
-10. Aanbevelingen voor marktintrede
+1. Market Size & Growth Trends (with specific €/$ figures and % growth rates)
+2. Target Patient Demographics (exact age ranges, income levels, pain points, communication preferences)
+3. Competitive Landscape (3-5 specific competitors with their positioning)
+4. Regulatory Environment & Compliance (specific requirements for ${location})
+5. Patient Journey & Decision-Making Process (% breakdown of how patients find providers)
+6. Pricing Benchmarks (specific € amounts for different procedures)
+7. Key Success Factors & Barriers to Entry
+8. Marketing Channels & Patient Acquisition Costs (specific channels with % effectiveness)
+9. Emerging Opportunities & Threats
+10. Market Entry Recommendations
 
-Wees specifiek met getallen, percentages en echte marktgegevens.`;
+IMPORTANT: Be VERY specific with numbers, percentages, actual market data, and real figures.`
+    : `Geef een UITGEBREID marktonderzoeksrapport voor een medisch-toerisme-onderneming gericht op ${location} in de ${industry}-sector. Inclusief specifieke data, percentages en getallen voor:
+
+1. Marktgrootte & Groeicijfers (met specifieke €/$ bedragen en % groeipercentages)
+2. Doelgroep-Demografie (exacte leeftijdsbereiken, inkomniveaus, pijnpunten, communicatiekanalen)
+3. Competitief Landschap (3-5 specifieke concurrenten met hun positionering)
+4. Regelgeving & Compliance (specifieke vereisten voor ${location})
+5. Patiëntenreis & Besluitvormingsproces (% verdeling hoe patiënten providers vinden)
+6. Prijsbenchmarks (specifieke € bedragen voor verschillende procedures)
+7. Kritieke Succesfactoren & Toegangsbarrières
+8. Marketingkanalen & Patiënt-Acquisitiekosten (specifieke kanalen met % effectiviteit)
+9. Kansen & Bedreigingen
+10. Aanbevelingen voor Marktintrede
+
+BELANGRIJK: Wees ZEER specifiek met getallen, percentages, actuele marktgegevens en echte cijfers.`;
 
   const result = await callPerplexity(prompt, lang);
   return result || generateDefaultMarketResearch(industry, location, lang);
@@ -134,7 +136,7 @@ async function runManusAnalysis(answers, marketResearch, lang) {
   const prompt = lang === 'en'
     ? `You are a senior strategic consultant with 20+ years of experience in medical tourism, business development, and operational setup. 
 
-Analyze the following medical tourism venture discovery intake and provide a comprehensive strategic analysis:
+Analyze the following medical tourism venture discovery intake and provide a COMPREHENSIVE strategic analysis with specific metrics and visualizable data:
 
 INTAKE ANSWERS:
 ${answersText}
@@ -143,21 +145,58 @@ MARKET RESEARCH:
 ${marketResearch}
 
 Provide a detailed strategic analysis including:
-1. Executive Summary (3-5 sentences)
-2. Market Opportunity Assessment
-3. Business Model Analysis
-4. Operational Readiness Assessment
-5. Risk Factors (top 5)
-6. Quick Wins (3-4 achievable in 90 days)
-7. 90-Day Roadmap (3-4 phases with timeline and actions)
-8. Financial Viability Assessment
-9. Go/No-Go Recommendation with conditions
-10. Recommended Next Steps
 
-Format as professional consultant report with specific, actionable insights.`
+1. EXECUTIVE SUMMARY (3-5 sentences with key metrics)
+
+2. MARKET OPPORTUNITY ASSESSMENT
+   - Market size estimate
+   - Growth potential (%)
+   - Target patient volume potential
+
+3. BUSINESS MODEL ANALYSIS
+   - Revenue model viability
+   - Unit economics
+   - Profitability timeline
+
+4. OPERATIONAL READINESS ASSESSMENT
+   - Readiness score (0-100)
+   - Critical gaps
+   - Timeline to launch
+
+5. RISK FACTORS (Top 5 with probability and impact scores 1-10)
+   - Risk 1: [Name] - Probability: X/10, Impact: X/10
+   - Risk 2: [Name] - Probability: X/10, Impact: X/10
+   - Risk 3: [Name] - Probability: X/10, Impact: X/10
+   - Risk 4: [Name] - Probability: X/10, Impact: X/10
+   - Risk 5: [Name] - Probability: X/10, Impact: X/10
+
+6. QUICK WINS (3-4 achievable in 90 days with effort/impact scores)
+   - Win 1: [Name] - Effort: X/10, Impact: X/10
+   - Win 2: [Name] - Effort: X/10, Impact: X/10
+   - Win 3: [Name] - Effort: X/10, Impact: X/10
+
+7. 90-DAY ROADMAP
+   Phase 1 (Days 1-30): [Actions]
+   Phase 2 (Days 31-60): [Actions]
+   Phase 3 (Days 61-90): [Actions]
+
+8. FINANCIAL VIABILITY ASSESSMENT
+   - Estimated startup costs
+   - Break-even timeline
+   - Year 1 revenue potential
+   - Margin assumptions
+
+9. GO/NO-GO RECOMMENDATION
+   - Overall recommendation: GO / CONDITIONAL GO / NO-GO
+   - Conditions for success
+   - Critical success factors
+
+10. RECOMMENDED NEXT STEPS (Priority ranked)
+
+Format with specific numbers, percentages, and metrics wherever possible.`
     : `Je bent een senior strategisch consultant met 20+ jaar ervaring in medisch toerisme, businessontwikkeling en operationele inrichting.
 
-Analyseer de volgende medisch-toerisme-onderneming discovery intake en geef een uitgebreide strategische analyse:
+Analyseer de volgende medisch-toerisme-onderneming discovery intake en geef een UITGEBREIDE strategische analyse met specifieke metrics en visualiseerbare data:
 
 INTAKE-ANTWOORDEN:
 ${answersText}
@@ -166,18 +205,55 @@ MARKTONDERZOEK:
 ${marketResearch}
 
 Geef een gedetailleerde strategische analyse inclusief:
-1. Samenvatting (3-5 zinnen)
-2. Beoordeling marktkans
-3. Analyse businessmodel
-4. Beoordeling operationele gereedheid
-5. Risicofactoren (top 5)
-6. Snelle winsten (3-4 haalbaar in 90 dagen)
-7. 90-daagse roadmap (3-4 fasen met tijdlijn en acties)
-8. Beoordeling financiële levensvatbaarheid
-9. Go/No-Go aanbeveling met voorwaarden
-10. Aanbevolen volgende stappen
 
-Formatteer als professioneel consultantrapport met specifieke, actionable inzichten.`;
+1. SAMENVATTING (3-5 zinnen met kernmetrics)
+
+2. BEOORDELING MARKTKANS
+   - Marktgrootte schatting
+   - Groeipotentieel (%)
+   - Potentieel patiëntenvolume
+
+3. ANALYSE BUSINESSMODEL
+   - Levensvatbaarheid inkomstenmodel
+   - Eenheidseconomie
+   - Winstgevendheid tijdlijn
+
+4. BEOORDELING OPERATIONELE GEREEDHEID
+   - Gereedheidscore (0-100)
+   - Kritieke hiaten
+   - Tijdlijn tot lancering
+
+5. RISICOFACTOREN (Top 5 met waarschijnlijkheid en impactscores 1-10)
+   - Risico 1: [Naam] - Waarschijnlijkheid: X/10, Impact: X/10
+   - Risico 2: [Naam] - Waarschijnlijkheid: X/10, Impact: X/10
+   - Risico 3: [Naam] - Waarschijnlijkheid: X/10, Impact: X/10
+   - Risico 4: [Naam] - Waarschijnlijkheid: X/10, Impact: X/10
+   - Risico 5: [Naam] - Waarschijnlijkheid: X/10, Impact: X/10
+
+6. SNELLE WINSTEN (3-4 haalbaar in 90 dagen met inspanning/impactscores)
+   - Winst 1: [Naam] - Inspanning: X/10, Impact: X/10
+   - Winst 2: [Naam] - Inspanning: X/10, Impact: X/10
+   - Winst 3: [Naam] - Inspanning: X/10, Impact: X/10
+
+7. 90-DAAGSE ROADMAP
+   Fase 1 (Dag 1-30): [Acties]
+   Fase 2 (Dag 31-60): [Acties]
+   Fase 3 (Dag 61-90): [Acties]
+
+8. BEOORDELING FINANCIËLE LEVENSVATBAARHEID
+   - Geschatte opstartkosten
+   - Break-even tijdlijn
+   - Potentiële inkomsten jaar 1
+   - Winstmargeaannames
+
+9. GO/NO-GO AANBEVELING
+   - Algemene aanbeveling: GO / VOORWAARDELIJK GO / NO-GO
+   - Voorwaarden voor succes
+   - Kritieke succesfactoren
+
+10. AANBEVOLEN VOLGENDE STAPPEN (Prioriteit gerangschikt)
+
+Formatteer met specifieke getallen, percentages en metrics waar mogelijk.`;
 
   try {
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -189,7 +265,7 @@ Formatteer als professioneel consultantrapport met specifieke, actionable inzich
       body: JSON.stringify({
         model: 'gpt-4-turbo',
         messages: [{ role: 'user', content: prompt }],
-        max_tokens: 3000,
+        max_tokens: 4000,
         temperature: 0.7
       })
     });
@@ -266,54 +342,10 @@ function formatIntakeData(answers, lang) {
   return html;
 }
 
-/* ---------- Generate Chart SVG ---------- */
-function generateCharts(lang) {
-  const isDutch = lang === 'nl';
-  
-  // Risk Matrix Chart
-  const riskChart = `
-    <svg viewBox="0 0 400 300" style="width: 100%; max-width: 400px; margin: 20px 0;">
-      <defs>
-        <linearGradient id="riskGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" style="stop-color:#d4af37;stop-opacity:1" />
-          <stop offset="100%" style="stop-color:#b8941f;stop-opacity:1" />
-        </linearGradient>
-      </defs>
-      <rect width="400" height="300" fill="#f8f6f0"/>
-      <line x1="50" y1="250" x2="350" y2="250" stroke="#333" stroke-width="2"/>
-      <line x1="50" y1="50" x2="50" y2="250" stroke="#333" stroke-width="2"/>
-      <text x="200" y="290" text-anchor="middle" font-size="12" fill="#333">${isDutch ? 'Impact' : 'Impact'}</text>
-      <text x="20" y="150" text-anchor="middle" font-size="12" fill="#333" transform="rotate(-90 20 150)">${isDutch ? 'Waarschijnlijkheid' : 'Probability'}</text>
-      <rect x="100" y="100" width="80" height="80" fill="url(#riskGrad)" opacity="0.3" stroke="#d4af37" stroke-width="2"/>
-      <circle cx="140" cy="140" r="8" fill="#d4af37"/>
-      <text x="140" y="175" text-anchor="middle" font-size="11" fill="#333">${isDutch ? 'Hoog Risico' : 'High Risk'}</text>
-    </svg>
-  `;
-
-  // Timeline Chart
-  const timelineChart = `
-    <svg viewBox="0 0 400 200" style="width: 100%; max-width: 400px; margin: 20px 0;">
-      <line x1="50" y1="100" x2="350" y2="100" stroke="#d4af37" stroke-width="3"/>
-      <circle cx="100" cy="100" r="8" fill="#d4af37"/>
-      <circle cx="180" cy="100" r="8" fill="#d4af37"/>
-      <circle cx="260" cy="100" r="8" fill="#d4af37"/>
-      <circle cx="340" cy="100" r="8" fill="#d4af37"/>
-      <text x="100" y="130" text-anchor="middle" font-size="11" fill="#333">${isDutch ? 'Fase 1' : 'Phase 1'}</text>
-      <text x="180" y="130" text-anchor="middle" font-size="11" fill="#333">${isDutch ? 'Fase 2' : 'Phase 2'}</text>
-      <text x="260" y="130" text-anchor="middle" font-size="11" fill="#333">${isDutch ? 'Fase 3' : 'Phase 3'}</text>
-      <text x="340" y="130" text-anchor="middle" font-size="11" fill="#333">${isDutch ? 'Fase 4' : 'Phase 4'}</text>
-      <text x="200" y="40" text-anchor="middle" font-size="13" font-weight="bold" fill="#333">${isDutch ? '90-Daagse Roadmap' : '90-Day Roadmap'}</text>
-    </svg>
-  `;
-
-  return { riskChart, timelineChart };
-}
-
 /* ---------- HTML Rapport Generator ---------- */
 function generateHTMLReport(record, marketResearch, analysis, lang) {
   const a = record.answers || {};
   const isDutch = lang === 'nl';
-  const { riskChart, timelineChart } = generateCharts(lang);
   
   const labels = {
     nl: {
@@ -346,29 +378,151 @@ function generateHTMLReport(record, marketResearch, analysis, lang) {
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #1c2430; background: #f8f6f0; line-height: 1.6; }
     .container { max-width: 1000px; margin: 0 auto; padding: 40px 20px; background: white; }
-    header { border-bottom: 3px solid #d4af37; padding-bottom: 30px; margin-bottom: 40px; display: flex; justify-content: space-between; align-items: flex-start; }
-    .logo-section { display: flex; align-items: center; gap: 15px; }
-    .logo-section img { height: 60px; }
-    header h1 { font-size: 28px; color: #000; margin-bottom: 5px; }
-    header .tagline { font-size: 11px; color: #d4af37; font-weight: 700; letter-spacing: 2px; }
-    .contact-info { text-align: right; font-size: 12px; color: #666; line-height: 1.8; }
-    .contact-info strong { color: #000; }
+    
+    /* Header Styling */
+    header { 
+      background: linear-gradient(135deg, #0f2340 0%, #1a3a52 100%);
+      color: white;
+      padding: 30px;
+      margin: -40px -20px 40px -20px;
+      border-bottom: 4px solid #d4af37;
+    }
+    
+    .header-content { display: flex; justify-content: space-between; align-items: flex-start; }
+    
+    .logo-section h1 { 
+      font-size: 28px; 
+      margin-bottom: 5px;
+      letter-spacing: 2px;
+    }
+    
+    .logo-section .gold { color: #d4af37; }
+    .logo-section .tagline { 
+      font-size: 11px; 
+      color: #d4af37; 
+      font-weight: 700; 
+      letter-spacing: 2px;
+      margin-top: 5px;
+    }
+    
+    .contact-info { 
+      text-align: right; 
+      font-size: 12px; 
+      color: #e8e8e8;
+      line-height: 1.8;
+    }
+    
+    .contact-info strong { color: #d4af37; }
+    
+    /* Title Section */
+    .title-section {
+      text-align: center;
+      margin-bottom: 40px;
+      padding-bottom: 20px;
+      border-bottom: 2px solid #d4af37;
+    }
+    
+    .title-section h2 {
+      font-size: 32px;
+      color: #0f2340;
+      margin-bottom: 10px;
+    }
+    
+    .title-section .meta {
+      color: #666;
+      font-size: 14px;
+    }
+    
+    /* Sections */
     section { margin-bottom: 50px; page-break-inside: avoid; }
-    section h2 { font-size: 22px; color: #000; margin-bottom: 20px; border-left: 4px solid #d4af37; padding-left: 12px; }
-    section h3 { font-size: 16px; color: #000; margin-top: 20px; margin-bottom: 10px; }
-    .intake-section { background: #f8f6f0; padding: 15px; margin-bottom: 15px; border-radius: 4px; border-left: 3px solid #d4af37; }
-    .intake-item { padding: 8px 0; font-size: 13px; }
-    .intake-item strong { color: #000; }
-    .summary-box { background: #f0ebe0; border-left: 4px solid #d4af37; padding: 20px; margin-bottom: 20px; border-radius: 4px; }
-    .analysis-text { white-space: pre-wrap; font-size: 13px; line-height: 1.8; }
-    .chart-container { display: flex; justify-content: center; margin: 30px 0; }
-    .download-btn { display: inline-block; background: #d4af37; color: #000; padding: 12px 24px; border-radius: 4px; text-decoration: none; font-weight: 700; margin: 20px 0; cursor: pointer; border: none; font-size: 14px; }
-    .download-btn:hover { background: #b8941f; }
-    footer { border-top: 1px solid #ddd; padding-top: 20px; margin-top: 40px; font-size: 11px; color: #666; text-align: center; }
+    section h2 { 
+      font-size: 22px; 
+      color: #0f2340; 
+      margin-bottom: 20px; 
+      border-left: 4px solid #d4af37; 
+      padding-left: 12px;
+    }
+    
+    section h3 { 
+      font-size: 16px; 
+      color: #0f2340; 
+      margin-top: 20px; 
+      margin-bottom: 10px;
+    }
+    
+    /* Intake Sections */
+    .intake-section { 
+      background: #f0ebe0; 
+      padding: 15px; 
+      margin-bottom: 15px; 
+      border-radius: 4px; 
+      border-left: 3px solid #d4af37;
+    }
+    
+    .intake-item { 
+      padding: 8px 0; 
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    
+    .intake-item strong { 
+      color: #0f2340;
+      display: inline-block;
+      min-width: 150px;
+    }
+    
+    /* Analysis Boxes */
+    .analysis-box { 
+      background: #f0ebe0; 
+      border-left: 4px solid #d4af37; 
+      padding: 20px; 
+      margin-bottom: 20px; 
+      border-radius: 4px;
+    }
+    
+    .analysis-text { 
+      white-space: pre-wrap; 
+      font-size: 13px; 
+      line-height: 1.8;
+      color: #1c2430;
+    }
+    
+    /* Buttons */
+    .download-btn { 
+      display: inline-block; 
+      background: linear-gradient(135deg, #0f2340 0%, #1a3a52 100%);
+      color: #d4af37; 
+      padding: 12px 24px; 
+      border-radius: 4px; 
+      text-decoration: none; 
+      font-weight: 700; 
+      margin: 20px 0; 
+      cursor: pointer; 
+      border: 2px solid #d4af37;
+      font-size: 14px;
+    }
+    
+    .download-btn:hover { 
+      background: #d4af37;
+      color: #0f2340;
+    }
+    
+    /* Footer */
+    footer { 
+      border-top: 2px solid #d4af37; 
+      padding-top: 20px; 
+      margin-top: 40px; 
+      font-size: 11px; 
+      color: #666; 
+      text-align: center;
+    }
+    
     .page-break { page-break-after: always; }
+    
     @media print { 
       body { background: white; } 
       .container { padding: 0; } 
+      header { margin: 0; }
       section { page-break-inside: avoid; } 
       .download-btn { display: none; }
     }
@@ -377,27 +531,27 @@ function generateHTMLReport(record, marketResearch, analysis, lang) {
 <body>
   <div class="container">
     <header>
-      <div class="logo-section">
-        <div>
-          <h1>LINKD <span style="color: #d4af37;">BY ROYAL</span></h1>
+      <div class="header-content">
+        <div class="logo-section">
+          <h1>LINKD <span class="gold">BY ROYAL</span></h1>
           <div class="tagline">MEDICAL EXPEDITIONS</div>
         </div>
-      </div>
-      <div class="contact-info">
-        <strong>Linkd By Royal</strong><br>
-        Posthoornstraat 11<br>
-        3011WD Rotterdam<br>
-        <br>
-        <strong>info@linkdbyroyal.nl</strong><br>
-        +31 6 87884978<br>
-        <br>
-        KVK: 42079291
+        <div class="contact-info">
+          <strong>Linkd By Royal</strong><br>
+          Posthoornstraat 11<br>
+          3011WD Rotterdam<br>
+          <br>
+          <strong>info@linkdbyroyal.nl</strong><br>
+          +31 6 87884978<br>
+          <br>
+          KVK: 42079291
+        </div>
       </div>
     </header>
 
-    <div style="text-align: center; margin-bottom: 40px;">
-      <h1 style="font-size: 32px; color: #000; margin-bottom: 10px;">${a.bedrijfsnaam || 'Bedrijf'}</h1>
-      <p style="color: #666; font-size: 14px;">${l.title} • ${new Date(record.receivedAt).toLocaleDateString(isDutch ? 'nl-NL' : 'en-US')}</p>
+    <div class="title-section">
+      <h2>${a.bedrijfsnaam || 'Bedrijf'}</h2>
+      <p class="meta">${l.title} • ${new Date(record.receivedAt).toLocaleDateString(isDutch ? 'nl-NL' : 'en-US')}</p>
     </div>
 
     <!-- INTAKE DATA SECTION -->
@@ -411,10 +565,9 @@ function generateHTMLReport(record, marketResearch, analysis, lang) {
     <!-- MARKET RESEARCH SECTION -->
     <section>
       <h2>${l.marketAnalysis}</h2>
-      <div class="summary-box">
+      <div class="analysis-box">
         <div class="analysis-text">${marketResearch || (isDutch ? 'Marktonderzoek niet beschikbaar' : 'Market research not available')}</div>
       </div>
-      <div class="chart-container">${timelineChart}</div>
     </section>
 
     <div class="page-break"></div>
@@ -422,10 +575,9 @@ function generateHTMLReport(record, marketResearch, analysis, lang) {
     <!-- STRATEGIC ANALYSIS SECTION -->
     <section>
       <h2>${l.strategicAnalysis}</h2>
-      <div class="summary-box">
+      <div class="analysis-box">
         <div class="analysis-text">${analysis || (isDutch ? 'Strategische analyse niet beschikbaar' : 'Strategic analysis not available')}</div>
       </div>
-      <div class="chart-container">${riskChart}</div>
     </section>
 
     <button class="download-btn" onclick="window.print()">${l.downloadPDF}</button>
@@ -498,7 +650,7 @@ async function notifyOwner(record, req) {
     `${isDutch ? 'Taal' : 'Language'}: ${record.lang}`,
     `${isDutch ? 'Ontvangen' : 'Received'}: ${new Date(record.receivedAt).toLocaleString(isDutch ? 'nl-NL' : 'en-US')}`,
     ``,
-    isDutch ? `Volledige rapport met intake-gegevens en strategische analyse beschikbaar.` : `Full report with intake data and strategic analysis available.`
+    isDutch ? `Volledige rapport met intake-gegevens, marktonderzoek en strategische analyse beschikbaar.` : `Full report with intake data, market research and strategic analysis available.`
   ];
   
   bodyLines.push(``, `${isDutch ? 'Volledig rapport' : 'Full report'}: ${reportLink}`, `${isDutch ? 'Dashboard' : 'Dashboard'}: ${dashLink}`, ``, isDutch ? `Het complete dossier zit als bijlage bij deze mail.` : `The complete file is attached to this email.`);
@@ -540,14 +692,14 @@ app.get('/admin', (req, res) => {
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
   <style>
     body{margin:0;font-family:'Inter',sans-serif;background:#f8f6f0;color:#1c2430;}
-    header{background:#000;color:#fff;padding:22px 28px;}
-    header h1{font-family:'Playfair Display',serif;font-size:22px;margin:0;}
+    header{background:linear-gradient(135deg,#0f2340 0%,#1a3a52 100%);color:#fff;padding:22px 28px;border-bottom:4px solid #d4af37;}
+    header h1{font-family:'Playfair Display',serif;font-size:22px;margin:0;letter-spacing:2px;}
     header h1 span{color:#d4af37;}
     main{max-width:1000px;margin:34px auto;padding:0 20px;}
     table{width:100%;border-collapse:collapse;background:#fff;border:1px solid #e4ddce;border-radius:12px;overflow:hidden;}
-    th{background:#000;color:#fff;text-align:left;padding:11px 14px;font-size:12px;letter-spacing:.05em;text-transform:uppercase;}
+    th{background:#0f2340;color:#fff;text-align:left;padding:11px 14px;font-size:12px;letter-spacing:.05em;text-transform:uppercase;}
     td{padding:12px 14px;border-top:1px solid #e4ddce;font-size:14px;}
-    .btn{background:#d4af37;color:#000;text-decoration:none;font-weight:700;font-size:12.5px;padding:8px 14px;border-radius:8px;display:inline-block;}
+    .btn{background:linear-gradient(135deg,#0f2340 0%,#1a3a52 100%);color:#d4af37;text-decoration:none;font-weight:700;font-size:12.5px;padding:8px 14px;border-radius:8px;display:inline-block;border:1px solid #d4af37;}
     .empty{padding:40px;text-align:center;color:#6b7480;background:#fff;border:1px solid #e4ddce;border-radius:12px;}
   </style></head><body>
   <header><h1>Linkd <span>by Royal</span> — Intake Dashboard</h1></header>
