@@ -2,7 +2,7 @@
 // Klant vult in en verstuurt. De server slaat het dossier op, genereert op de
 // achtergrond marktonderzoek via Perplexity en strategische analyse via Manus AI,
 // en mailt het rapport naar de eigenaar. De klant ziet alleen een bedankpagina.
-// Node 18+ vereist.
+// Node 18+ vereist. Rapport beschikbaar als HTML en PDF.
 
 const express = require('express');
 const cors = require('cors');
@@ -180,7 +180,6 @@ Geef een gedetailleerde strategische analyse inclusief:
 Formatteer als professioneel consultantrapport met specifieke, actionable inzichten.`;
 
   try {
-    // Call Manus API (using OpenAI-compatible endpoint)
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -239,9 +238,8 @@ function formatIntakeData(answers, lang) {
 
   const s = sections[lang] || sections.nl;
   
-  let html = '<section><h2>' + (isDutch ? 'Intake Gegevens' : 'Intake Data') + '</h2>';
+  let html = '';
   
-  // Group answers by section
   const grouped = {
     bedrijf: ['bedrijfsnaam', 'naamverhaal', 'stadium', 'bedrijf_intro', 'waarom_venezuela', 'waarom_colombia', 'launch_date'],
     model: ['rol_organisatie', 'doelstellingen_12m', 'succeskriterium', 'services_fase1', 'services_niet', 'budget_patient', 'facturatie'],
@@ -265,27 +263,74 @@ function formatIntakeData(answers, lang) {
     }
   });
 
-  html += '</section>';
   return html;
+}
+
+/* ---------- Generate Chart SVG ---------- */
+function generateCharts(lang) {
+  const isDutch = lang === 'nl';
+  
+  // Risk Matrix Chart
+  const riskChart = `
+    <svg viewBox="0 0 400 300" style="width: 100%; max-width: 400px; margin: 20px 0;">
+      <defs>
+        <linearGradient id="riskGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" style="stop-color:#d4af37;stop-opacity:1" />
+          <stop offset="100%" style="stop-color:#b8941f;stop-opacity:1" />
+        </linearGradient>
+      </defs>
+      <rect width="400" height="300" fill="#f8f6f0"/>
+      <line x1="50" y1="250" x2="350" y2="250" stroke="#333" stroke-width="2"/>
+      <line x1="50" y1="50" x2="50" y2="250" stroke="#333" stroke-width="2"/>
+      <text x="200" y="290" text-anchor="middle" font-size="12" fill="#333">${isDutch ? 'Impact' : 'Impact'}</text>
+      <text x="20" y="150" text-anchor="middle" font-size="12" fill="#333" transform="rotate(-90 20 150)">${isDutch ? 'Waarschijnlijkheid' : 'Probability'}</text>
+      <rect x="100" y="100" width="80" height="80" fill="url(#riskGrad)" opacity="0.3" stroke="#d4af37" stroke-width="2"/>
+      <circle cx="140" cy="140" r="8" fill="#d4af37"/>
+      <text x="140" y="175" text-anchor="middle" font-size="11" fill="#333">${isDutch ? 'Hoog Risico' : 'High Risk'}</text>
+    </svg>
+  `;
+
+  // Timeline Chart
+  const timelineChart = `
+    <svg viewBox="0 0 400 200" style="width: 100%; max-width: 400px; margin: 20px 0;">
+      <line x1="50" y1="100" x2="350" y2="100" stroke="#d4af37" stroke-width="3"/>
+      <circle cx="100" cy="100" r="8" fill="#d4af37"/>
+      <circle cx="180" cy="100" r="8" fill="#d4af37"/>
+      <circle cx="260" cy="100" r="8" fill="#d4af37"/>
+      <circle cx="340" cy="100" r="8" fill="#d4af37"/>
+      <text x="100" y="130" text-anchor="middle" font-size="11" fill="#333">${isDutch ? 'Fase 1' : 'Phase 1'}</text>
+      <text x="180" y="130" text-anchor="middle" font-size="11" fill="#333">${isDutch ? 'Fase 2' : 'Phase 2'}</text>
+      <text x="260" y="130" text-anchor="middle" font-size="11" fill="#333">${isDutch ? 'Fase 3' : 'Phase 3'}</text>
+      <text x="340" y="130" text-anchor="middle" font-size="11" fill="#333">${isDutch ? 'Fase 4' : 'Phase 4'}</text>
+      <text x="200" y="40" text-anchor="middle" font-size="13" font-weight="bold" fill="#333">${isDutch ? '90-Daagse Roadmap' : '90-Day Roadmap'}</text>
+    </svg>
+  `;
+
+  return { riskChart, timelineChart };
 }
 
 /* ---------- HTML Rapport Generator ---------- */
 function generateHTMLReport(record, marketResearch, analysis, lang) {
   const a = record.answers || {};
   const isDutch = lang === 'nl';
+  const { riskChart, timelineChart } = generateCharts(lang);
   
   const labels = {
     nl: {
       title: 'Strategisch Rapport',
       intakeData: 'Intake Gegevens',
       marketAnalysis: 'Marktanalyse',
-      strategicAnalysis: 'Strategische Analyse'
+      strategicAnalysis: 'Strategische Analyse',
+      downloadPDF: 'Download als PDF',
+      generatedOn: 'Rapport gegenereerd op'
     },
     en: {
       title: 'Strategic Report',
       intakeData: 'Intake Data',
       marketAnalysis: 'Market Analysis',
-      strategicAnalysis: 'Strategic Analysis'
+      strategicAnalysis: 'Strategic Analysis',
+      downloadPDF: 'Download as PDF',
+      generatedOn: 'Report generated on'
     }
   };
   
@@ -299,32 +344,61 @@ function generateHTMLReport(record, marketResearch, analysis, lang) {
   <title>${l.title} - ${a.bedrijfsnaam || 'Linkd by Royal'}</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1c2430; background: #f8f6f0; line-height: 1.6; }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #1c2430; background: #f8f6f0; line-height: 1.6; }
     .container { max-width: 1000px; margin: 0 auto; padding: 40px 20px; background: white; }
-    header { border-bottom: 3px solid #c6a15b; padding-bottom: 20px; margin-bottom: 40px; }
-    header h1 { font-size: 32px; color: #0f1b2d; margin-bottom: 10px; }
-    header .subtitle { color: #6b7480; font-size: 14px; }
-    .logo { font-size: 12px; color: #c6a15b; font-weight: 700; margin-bottom: 20px; }
+    header { border-bottom: 3px solid #d4af37; padding-bottom: 30px; margin-bottom: 40px; display: flex; justify-content: space-between; align-items: flex-start; }
+    .logo-section { display: flex; align-items: center; gap: 15px; }
+    .logo-section img { height: 60px; }
+    header h1 { font-size: 28px; color: #000; margin-bottom: 5px; }
+    header .tagline { font-size: 11px; color: #d4af37; font-weight: 700; letter-spacing: 2px; }
+    .contact-info { text-align: right; font-size: 12px; color: #666; line-height: 1.8; }
+    .contact-info strong { color: #000; }
     section { margin-bottom: 50px; page-break-inside: avoid; }
-    section h2 { font-size: 24px; color: #0f1b2d; margin-bottom: 20px; border-left: 4px solid #c6a15b; padding-left: 12px; }
-    section h3 { font-size: 16px; color: #0f1b2d; margin-top: 15px; margin-bottom: 10px; }
-    .intake-section { background: #f8f6f0; padding: 15px; margin-bottom: 15px; border-radius: 4px; border-left: 3px solid #c6a15b; }
-    .intake-item { padding: 8px 0; font-size: 14px; }
-    .intake-item strong { color: #0f1b2d; }
-    .summary-box { background: #f0ebe0; border-left: 4px solid #c6a15b; padding: 15px; margin-bottom: 20px; border-radius: 4px; }
-    .analysis-text { white-space: pre-wrap; font-size: 14px; line-height: 1.8; }
-    footer { border-top: 1px solid #e4ddce; padding-top: 20px; margin-top: 40px; font-size: 12px; color: #6b7480; text-align: center; }
+    section h2 { font-size: 22px; color: #000; margin-bottom: 20px; border-left: 4px solid #d4af37; padding-left: 12px; }
+    section h3 { font-size: 16px; color: #000; margin-top: 20px; margin-bottom: 10px; }
+    .intake-section { background: #f8f6f0; padding: 15px; margin-bottom: 15px; border-radius: 4px; border-left: 3px solid #d4af37; }
+    .intake-item { padding: 8px 0; font-size: 13px; }
+    .intake-item strong { color: #000; }
+    .summary-box { background: #f0ebe0; border-left: 4px solid #d4af37; padding: 20px; margin-bottom: 20px; border-radius: 4px; }
+    .analysis-text { white-space: pre-wrap; font-size: 13px; line-height: 1.8; }
+    .chart-container { display: flex; justify-content: center; margin: 30px 0; }
+    .download-btn { display: inline-block; background: #d4af37; color: #000; padding: 12px 24px; border-radius: 4px; text-decoration: none; font-weight: 700; margin: 20px 0; cursor: pointer; border: none; font-size: 14px; }
+    .download-btn:hover { background: #b8941f; }
+    footer { border-top: 1px solid #ddd; padding-top: 20px; margin-top: 40px; font-size: 11px; color: #666; text-align: center; }
     .page-break { page-break-after: always; }
-    @media print { body { background: white; } .container { padding: 0; } section { page-break-inside: avoid; } }
+    @media print { 
+      body { background: white; } 
+      .container { padding: 0; } 
+      section { page-break-inside: avoid; } 
+      .download-btn { display: none; }
+    }
   </style>
 </head>
 <body>
   <div class="container">
-    <div class="logo">LINKD BY ROYAL</div>
     <header>
-      <h1>${a.bedrijfsnaam || 'Bedrijf'}</h1>
-      <p class="subtitle">${l.title} • ${new Date(record.receivedAt).toLocaleDateString(isDutch ? 'nl-NL' : 'en-US')}</p>
+      <div class="logo-section">
+        <div>
+          <h1>LINKD <span style="color: #d4af37;">BY ROYAL</span></h1>
+          <div class="tagline">MEDICAL EXPEDITIONS</div>
+        </div>
+      </div>
+      <div class="contact-info">
+        <strong>Linkd By Royal</strong><br>
+        Posthoornstraat 11<br>
+        3011WD Rotterdam<br>
+        <br>
+        <strong>info@linkdbyroyal.nl</strong><br>
+        +31 6 87884978<br>
+        <br>
+        KVK: 42079291
+      </div>
     </header>
+
+    <div style="text-align: center; margin-bottom: 40px;">
+      <h1 style="font-size: 32px; color: #000; margin-bottom: 10px;">${a.bedrijfsnaam || 'Bedrijf'}</h1>
+      <p style="color: #666; font-size: 14px;">${l.title} • ${new Date(record.receivedAt).toLocaleDateString(isDutch ? 'nl-NL' : 'en-US')}</p>
+    </div>
 
     <!-- INTAKE DATA SECTION -->
     <section>
@@ -340,6 +414,7 @@ function generateHTMLReport(record, marketResearch, analysis, lang) {
       <div class="summary-box">
         <div class="analysis-text">${marketResearch || (isDutch ? 'Marktonderzoek niet beschikbaar' : 'Market research not available')}</div>
       </div>
+      <div class="chart-container">${timelineChart}</div>
     </section>
 
     <div class="page-break"></div>
@@ -350,10 +425,14 @@ function generateHTMLReport(record, marketResearch, analysis, lang) {
       <div class="summary-box">
         <div class="analysis-text">${analysis || (isDutch ? 'Strategische analyse niet beschikbaar' : 'Strategic analysis not available')}</div>
       </div>
+      <div class="chart-container">${riskChart}</div>
     </section>
 
+    <button class="download-btn" onclick="window.print()">${l.downloadPDF}</button>
+
     <footer>
-      <p>${isDutch ? 'Dit rapport is gegenereerd door Linkd by Royal op basis van uw intake-antwoorden.' : 'This report was generated by Linkd by Royal based on your intake answers.'}</p>
+      <p>${l.generatedOn}: ${new Date(record.receivedAt).toLocaleString(isDutch ? 'nl-NL' : 'en-US')}</p>
+      <p style="margin-top: 10px;">© Linkd by Royal - Medical Expeditions</p>
     </footer>
   </div>
 </body>
@@ -377,17 +456,14 @@ app.post('/api/submit', async (req, res) => {
     // Async processing
     (async () => {
       try {
-        // Run market research
         console.log('Starting market research for', id);
         record.marketResearch = await runMarketResearch(answers, lang || 'nl');
         console.log('Market research completed for', id);
         
-        // Run strategic analysis via Manus AI
         console.log('Starting strategic analysis via Manus AI for', id);
         record.analysis = await runManusAnalysis(answers, record.marketResearch, lang || 'nl');
         console.log('Strategic analysis completed for', id);
         
-        // Generate HTML report
         record.htmlReport = generateHTMLReport(record, record.marketResearch, record.analysis, lang || 'nl');
         
         fs.writeFileSync(path.join(DATA_DIR, id + '.json'), JSON.stringify(record, null, 2));
@@ -464,14 +540,14 @@ app.get('/admin', (req, res) => {
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
   <style>
     body{margin:0;font-family:'Inter',sans-serif;background:#f8f6f0;color:#1c2430;}
-    header{background:#0f1b2d;color:#fff;padding:22px 28px;}
+    header{background:#000;color:#fff;padding:22px 28px;}
     header h1{font-family:'Playfair Display',serif;font-size:22px;margin:0;}
-    header h1 span{color:#e3cd9a;}
+    header h1 span{color:#d4af37;}
     main{max-width:1000px;margin:34px auto;padding:0 20px;}
     table{width:100%;border-collapse:collapse;background:#fff;border:1px solid #e4ddce;border-radius:12px;overflow:hidden;}
-    th{background:#0f1b2d;color:#fff;text-align:left;padding:11px 14px;font-size:12px;letter-spacing:.05em;text-transform:uppercase;}
+    th{background:#000;color:#fff;text-align:left;padding:11px 14px;font-size:12px;letter-spacing:.05em;text-transform:uppercase;}
     td{padding:12px 14px;border-top:1px solid #e4ddce;font-size:14px;}
-    .btn{background:#c6a15b;color:#0f1b2d;text-decoration:none;font-weight:700;font-size:12.5px;padding:8px 14px;border-radius:8px;display:inline-block;}
+    .btn{background:#d4af37;color:#000;text-decoration:none;font-weight:700;font-size:12.5px;padding:8px 14px;border-radius:8px;display:inline-block;}
     .empty{padding:40px;text-align:center;color:#6b7480;background:#fff;border:1px solid #e4ddce;border-radius:12px;}
   </style></head><body>
   <header><h1>Linkd <span>by Royal</span> — Intake Dashboard</h1></header>
@@ -487,6 +563,7 @@ app.get('/report/:id', (req, res) => {
   try {
     const record = JSON.parse(fs.readFileSync(path.join(DATA_DIR, req.params.id + '.json'), 'utf8'));
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Content-Disposition', `inline; filename="rapport-${record.id}.html"`);
     res.send(record.htmlReport || 'Rapport niet beschikbaar');
   } catch (err) {
     res.status(404).send('Rapport niet gevonden');
