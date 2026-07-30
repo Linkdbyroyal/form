@@ -46,7 +46,7 @@ async function callPerplexity(prompt, lang) {
       body: JSON.stringify({
         model: 'pplx-7b-online',
         messages: [{ role: 'user', content: prompt }],
-        max_tokens: 3000,
+        max_tokens: 2000,
         temperature: 0.7
       })
     });
@@ -70,34 +70,32 @@ async function runMarketResearch(answers, lang) {
   const location = answers.doelgroep_markt || 'Venezuela';
   
   const prompt = lang === 'en' 
-    ? `Provide a COMPREHENSIVE market research report for a medical tourism venture targeting ${location} in the ${industry} sector. Include specific data, percentages, and numbers for:
-
-1. Market Size & Growth Trends (with specific €/$ figures and % growth rates)
-2. Target Patient Demographics (exact age ranges, income levels, pain points, communication preferences)
-3. Competitive Landscape (3-5 specific competitors with their positioning)
-4. Regulatory Environment & Compliance (specific requirements for ${location})
-5. Patient Journey & Decision-Making Process (% breakdown of how patients find providers)
-6. Pricing Benchmarks (specific € amounts for different procedures)
-7. Key Success Factors & Barriers to Entry
-8. Marketing Channels & Patient Acquisition Costs (specific channels with % effectiveness)
-9. Emerging Opportunities & Threats
+    ? `Provide a market research report for a medical tourism venture targeting ${location} in the ${industry} sector. Include:
+1. Market Size & Growth (with specific % figures)
+2. Target Patient Demographics (age, income, pain points)
+3. Competitive Landscape (3-5 competitors)
+4. Regulatory Environment
+5. Patient Journey (% breakdown)
+6. Pricing Benchmarks (€ amounts)
+7. Key Success Factors
+8. Marketing Channels & Effectiveness
+9. Opportunities & Threats
 10. Market Entry Recommendations
 
-IMPORTANT: Be VERY specific with numbers, percentages, actual market data, and real figures.`
-    : `Geef een UITGEBREID marktonderzoeksrapport voor een medisch-toerisme-onderneming gericht op ${location} in de ${industry}-sector. Inclusief specifieke data, percentages en getallen voor:
-
-1. Marktgrootte & Groeicijfers (met specifieke €/$ bedragen en % groeipercentages)
-2. Doelgroep-Demografie (exacte leeftijdsbereiken, inkomniveaus, pijnpunten, communicatiekanalen)
-3. Competitief Landschap (3-5 specifieke concurrenten met hun positionering)
-4. Regelgeving & Compliance (specifieke vereisten voor ${location})
-5. Patiëntenreis & Besluitvormingsproces (% verdeling hoe patiënten providers vinden)
-6. Prijsbenchmarks (specifieke € bedragen voor verschillende procedures)
-7. Kritieke Succesfactoren & Toegangsbarrières
-8. Marketingkanalen & Patiënt-Acquisitiekosten (specifieke kanalen met % effectiviteit)
+Be specific with numbers and percentages.`
+    : `Geef een marktonderzoeksrapport voor een medisch-toerisme-onderneming gericht op ${location} in de ${industry}-sector. Inclusief:
+1. Marktgrootte & Groeicijfers (met specifieke % getallen)
+2. Doelgroep-Demografie (leeftijd, inkomen, pijnpunten)
+3. Competitief Landschap (3-5 concurrenten)
+4. Regelgeving
+5. Patiëntenreis (% verdeling)
+6. Prijsbenchmarks (€ bedragen)
+7. Kritieke Succesfactoren
+8. Marketingkanalen & Effectiviteit
 9. Kansen & Bedreigingen
 10. Aanbevelingen voor Marktintrede
 
-BELANGRIJK: Wees ZEER specifiek met getallen, percentages, actuele marktgegevens en echte cijfers.`;
+Wees specifiek met getallen en percentages.`;
 
   const result = await callPerplexity(prompt, lang);
   return result || generateDefaultMarketResearch(industry, location, lang);
@@ -106,156 +104,159 @@ BELANGRIJK: Wees ZEER specifiek met getallen, percentages, actuele marktgegevens
 function generateDefaultMarketResearch(industry, location, lang) {
   if (lang === 'en') {
     return `Market Research Summary for ${industry} in ${location}:
-- Market Size: Growing sector with 15-25% annual growth
-- Target Demographics: High-income patients aged 45-65, seeking quality care
-- Competition: 5-10 established players in the region
-- Regulatory: Requires local partnerships and compliance with healthcare regulations
-- Patient Journey: 60% research online, 40% through referrals
-- Pricing: €3,000-€15,000 per procedure depending on complexity
-- Key Success Factors: Quality assurance, patient safety, clear communication
-- Marketing Channels: Digital marketing (60%), referral networks (40%)`;
+
+1. Market Size & Growth: Growing sector with 15-25% annual growth, estimated market value €500M-€1B
+2. Target Demographics: High-income patients aged 45-70, seeking quality care abroad
+3. Competitive Landscape: 8-12 established players, ranging from budget to premium positioning
+4. Regulatory Environment: Requires local partnerships, medical licensing compliance, healthcare regulations
+5. Patient Journey: 65% research online, 35% through referrals; average decision time 2-4 weeks
+6. Pricing: €3,000-€15,000 per procedure depending on complexity and specialization
+7. Success Factors: Quality assurance, patient safety protocols, clear communication, follow-up care
+8. Marketing Channels: Digital marketing (55%), referral networks (30%), medical professionals (15%)
+9. Opportunities: Growing middle class, medical tourism trend, telemedicine integration
+10. Threats: Regulatory changes, currency volatility, competition from established players`;
   } else {
     return `Marktonderzoek samenvatting voor ${industry} in ${location}:
-- Marktgrootte: Groeiende sector met 15-25% jaarlijkse groei
-- Doelgroep: Welgestelde patiënten 45-65 jaar, op zoek naar kwaliteitszorg
-- Concurrentie: 5-10 gevestigde spelers in de regio
-- Regelgeving: Vereist lokale partnerships en naleving van gezondheidswetgeving
-- Patiëntenreis: 60% online onderzoek, 40% via aanbevelingen
-- Prijzen: €3.000-€15.000 per procedure afhankelijk van complexiteit
-- Kritieke succesfactoren: Kwaliteitsborging, patiëntveiligheid, duidelijke communicatie
-- Marketingkanalen: Digitale marketing (60%), referraalnetwerken (40%)`;
+
+1. Marktgrootte & Groei: Groeiende sector met 15-25% jaarlijkse groei, geschatte marktwaarde €500M-€1B
+2. Doelgroep: Welgestelde patiënten 45-70 jaar, op zoek naar kwaliteitszorg in het buitenland
+3. Concurrentie: 8-12 gevestigde spelers, variërend van budget tot premium positionering
+4. Regelgeving: Vereist lokale partnerships, medische licenties, naleving gezondheidswetgeving
+5. Patiëntenreis: 65% online onderzoek, 35% via aanbevelingen; gemiddelde besluitvormingstijd 2-4 weken
+6. Prijzen: €3.000-€15.000 per procedure afhankelijk van complexiteit en specialisatie
+7. Succesfactoren: Kwaliteitsborging, patiëntveiligheidprotocollen, duidelijke communicatie, vervolgzorg
+8. Marketingkanalen: Digitale marketing (55%), referraalnetwerken (30%), medische professionals (15%)
+9. Kansen: Groeiende middenklasse, medisch-toerisme trend, telemedicine integratie
+10. Bedreigingen: Regelgevingswijzigingen, valutavolatiliteit, concurrentie van gevestigde spelers`;
   }
 }
 
-/* ---------- Manus AI Strategische Analyse ---------- */
+/* ---------- Manus AI Strategische Analyse (Optimized) ---------- */
 async function runManusAnalysis(answers, marketResearch, lang) {
   const answersText = Object.entries(answers)
     .filter(([k, v]) => v !== '' && v !== null && v !== undefined && (Array.isArray(v) ? v.length : true))
     .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`).join('\n');
 
   const prompt = lang === 'en'
-    ? `You are a senior strategic consultant with 20+ years of experience in medical tourism, business development, and operational setup. 
+    ? `You are a senior strategic consultant with 20+ years of experience in medical tourism.
 
-Analyze the following medical tourism venture discovery intake and provide a COMPREHENSIVE strategic analysis with specific metrics and visualizable data:
+Analyze this medical tourism venture and provide a CONCISE strategic analysis with specific metrics:
 
-INTAKE ANSWERS:
+INTAKE:
 ${answersText}
 
 MARKET RESEARCH:
 ${marketResearch}
 
-Provide a detailed strategic analysis including:
+Provide:
 
-1. EXECUTIVE SUMMARY (3-5 sentences with key metrics)
+1. EXECUTIVE SUMMARY (2-3 sentences with key metrics)
 
-2. MARKET OPPORTUNITY ASSESSMENT
+2. MARKET OPPORTUNITY
    - Market size estimate
-   - Growth potential (%)
-   - Target patient volume potential
+   - Growth potential (%): X%
+   - Patient volume potential: X patients/year
 
-3. BUSINESS MODEL ANALYSIS
-   - Revenue model viability
-   - Unit economics
-   - Profitability timeline
+3. BUSINESS MODEL
+   - Revenue model: [description]
+   - Unit economics: €X per patient
+   - Break-even: X months
 
-4. OPERATIONAL READINESS ASSESSMENT
-   - Readiness score (0-100)
-   - Critical gaps
-   - Timeline to launch
+4. OPERATIONAL READINESS: X/100
+   - Critical gaps: [list]
+   - Launch timeline: X weeks
 
-5. RISK FACTORS (Top 5 with probability and impact scores 1-10)
-   - Risk 1: [Name] - Probability: X/10, Impact: X/10
+5. TOP 5 RISKS (format: Risk Name - Probability: X/10, Impact: X/10)
+   - Risk 1: Regulatory compliance - Probability: 7/10, Impact: 9/10
    - Risk 2: [Name] - Probability: X/10, Impact: X/10
    - Risk 3: [Name] - Probability: X/10, Impact: X/10
    - Risk 4: [Name] - Probability: X/10, Impact: X/10
    - Risk 5: [Name] - Probability: X/10, Impact: X/10
 
-6. QUICK WINS (3-4 achievable in 90 days with effort/impact scores)
+6. QUICK WINS (achievable in 90 days - format: Name - Effort: X/10, Impact: X/10)
    - Win 1: [Name] - Effort: X/10, Impact: X/10
    - Win 2: [Name] - Effort: X/10, Impact: X/10
    - Win 3: [Name] - Effort: X/10, Impact: X/10
 
 7. 90-DAY ROADMAP
-   Phase 1 (Days 1-30): [Actions]
-   Phase 2 (Days 31-60): [Actions]
-   Phase 3 (Days 61-90): [Actions]
+   Phase 1 (Days 1-30): [3-4 key actions]
+   Phase 2 (Days 31-60): [3-4 key actions]
+   Phase 3 (Days 61-90): [3-4 key actions]
 
-8. FINANCIAL VIABILITY ASSESSMENT
-   - Estimated startup costs
-   - Break-even timeline
-   - Year 1 revenue potential
-   - Margin assumptions
+8. FINANCIAL VIABILITY
+   - Startup costs: €X
+   - Year 1 revenue potential: €X
+   - Margin assumption: X%
 
-9. GO/NO-GO RECOMMENDATION
-   - Overall recommendation: GO / CONDITIONAL GO / NO-GO
-   - Conditions for success
-   - Critical success factors
+9. GO/NO-GO: [GO / CONDITIONAL GO / NO-GO]
+   - Conditions: [list]
+   - Critical success factors: [list]
 
-10. RECOMMENDED NEXT STEPS (Priority ranked)
+10. NEXT STEPS (priority ranked): [list]
 
-Format with specific numbers, percentages, and metrics wherever possible.`
-    : `Je bent een senior strategisch consultant met 20+ jaar ervaring in medisch toerisme, businessontwikkeling en operationele inrichting.
+Be specific with numbers and metrics.`
+    : `Je bent een senior strategisch consultant met 20+ jaar ervaring in medisch toerisme.
 
-Analyseer de volgende medisch-toerisme-onderneming discovery intake en geef een UITGEBREIDE strategische analyse met specifieke metrics en visualiseerbare data:
+Analyseer deze medisch-toerisme-onderneming en geef een BEKNOPTE strategische analyse met specifieke metrics:
 
-INTAKE-ANTWOORDEN:
+INTAKE:
 ${answersText}
 
 MARKTONDERZOEK:
 ${marketResearch}
 
-Geef een gedetailleerde strategische analyse inclusief:
+Geef:
 
-1. SAMENVATTING (3-5 zinnen met kernmetrics)
+1. SAMENVATTING (2-3 zinnen met kernmetrics)
 
-2. BEOORDELING MARKTKANS
+2. MARKTKANS
    - Marktgrootte schatting
-   - Groeipotentieel (%)
-   - Potentieel patiëntenvolume
+   - Groeipotentieel (%): X%
+   - Patiëntenvolume potentieel: X patiënten/jaar
 
-3. ANALYSE BUSINESSMODEL
-   - Levensvatbaarheid inkomstenmodel
-   - Eenheidseconomie
-   - Winstgevendheid tijdlijn
+3. BUSINESSMODEL
+   - Inkomstenmodel: [beschrijving]
+   - Eenheidseconomie: €X per patiënt
+   - Break-even: X maanden
 
-4. BEOORDELING OPERATIONELE GEREEDHEID
-   - Gereedheidscore (0-100)
-   - Kritieke hiaten
-   - Tijdlijn tot lancering
+4. OPERATIONELE GEREEDHEID: X/100
+   - Kritieke hiaten: [lijst]
+   - Lanceringstijdlijn: X weken
 
-5. RISICOFACTOREN (Top 5 met waarschijnlijkheid en impactscores 1-10)
-   - Risico 1: [Naam] - Waarschijnlijkheid: X/10, Impact: X/10
+5. TOP 5 RISICO'S (format: Risiconaam - Waarschijnlijkheid: X/10, Impact: X/10)
+   - Risico 1: Regelgevingscompliance - Waarschijnlijkheid: 7/10, Impact: 9/10
    - Risico 2: [Naam] - Waarschijnlijkheid: X/10, Impact: X/10
    - Risico 3: [Naam] - Waarschijnlijkheid: X/10, Impact: X/10
    - Risico 4: [Naam] - Waarschijnlijkheid: X/10, Impact: X/10
    - Risico 5: [Naam] - Waarschijnlijkheid: X/10, Impact: X/10
 
-6. SNELLE WINSTEN (3-4 haalbaar in 90 dagen met inspanning/impactscores)
+6. SNELLE WINSTEN (haalbaar in 90 dagen - format: Naam - Inspanning: X/10, Impact: X/10)
    - Winst 1: [Naam] - Inspanning: X/10, Impact: X/10
    - Winst 2: [Naam] - Inspanning: X/10, Impact: X/10
    - Winst 3: [Naam] - Inspanning: X/10, Impact: X/10
 
 7. 90-DAAGSE ROADMAP
-   Fase 1 (Dag 1-30): [Acties]
-   Fase 2 (Dag 31-60): [Acties]
-   Fase 3 (Dag 61-90): [Acties]
+   Fase 1 (Dag 1-30): [3-4 sleutelacties]
+   Fase 2 (Dag 31-60): [3-4 sleutelacties]
+   Fase 3 (Dag 61-90): [3-4 sleutelacties]
 
-8. BEOORDELING FINANCIËLE LEVENSVATBAARHEID
-   - Geschatte opstartkosten
-   - Break-even tijdlijn
-   - Potentiële inkomsten jaar 1
-   - Winstmargeaannames
+8. FINANCIËLE LEVENSVATBAARHEID
+   - Opstartkosten: €X
+   - Potentiële inkomsten jaar 1: €X
+   - Winstmarge aanname: X%
 
-9. GO/NO-GO AANBEVELING
-   - Algemene aanbeveling: GO / VOORWAARDELIJK GO / NO-GO
-   - Voorwaarden voor succes
-   - Kritieke succesfactoren
+9. GO/NO-GO: [GO / VOORWAARDELIJK GO / NO-GO]
+   - Voorwaarden: [lijst]
+   - Kritieke succesfactoren: [lijst]
 
-10. AANBEVOLEN VOLGENDE STAPPEN (Prioriteit gerangschikt)
+10. VOLGENDE STAPPEN (prioriteit gerangschikt): [lijst]
 
-Formatteer met specifieke getallen, percentages en metrics waar mogelijk.`;
+Wees specifiek met getallen en metrics.`;
 
   try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 20000); // 20 second timeout
+    
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -265,10 +266,13 @@ Formatteer met specifieke getallen, percentages en metrics waar mogelijk.`;
       body: JSON.stringify({
         model: 'gpt-4-turbo',
         messages: [{ role: 'user', content: prompt }],
-        max_tokens: 4000,
+        max_tokens: 2000,
         temperature: 0.7
-      })
+      }),
+      signal: controller.signal
     });
+
+    clearTimeout(timeout);
 
     if (!response.ok) {
       console.error('Manus API error:', response.status);
@@ -485,6 +489,7 @@ function generateHTMLReport(record, marketResearch, analysis, lang) {
       font-size: 13px; 
       line-height: 1.8;
       color: #1c2430;
+      font-family: 'Courier New', monospace;
     }
     
     /* Buttons */
