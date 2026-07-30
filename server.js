@@ -1,7 +1,8 @@
 // Linkd by Royal — Medical Tourism Discovery Intake Form
 // Klant vult in en verstuurt. De server slaat het dossier op, genereert op de
-// achtergrond marktonderzoek en strategische analyse via Perplexity, en mailt het rapport naar de eigenaar.
-// De klant ziet alleen een bedankpagina. Node 18+ vereist.
+// achtergrond marktonderzoek via Perplexity en strategische analyse via Manus AI,
+// en mailt het rapport naar de eigenaar. De klant ziet alleen een bedankpagina.
+// Node 18+ vereist.
 
 const express = require('express');
 const cors = require('cors');
@@ -124,14 +125,16 @@ function generateDefaultMarketResearch(industry, location, lang) {
   }
 }
 
-/* ---------- Perplexity Strategische Analyse ---------- */
-async function runStrategicAnalysis(answers, marketResearch, lang) {
+/* ---------- Manus AI Strategische Analyse ---------- */
+async function runManusAnalysis(answers, marketResearch, lang) {
   const answersText = Object.entries(answers)
     .filter(([k, v]) => v !== '' && v !== null && v !== undefined && (Array.isArray(v) ? v.length : true))
     .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`).join('\n');
 
   const prompt = lang === 'en'
-    ? `You are a senior strategic consultant analyzing a medical tourism venture discovery intake. Based on the following intake answers and market research, provide a strategic analysis in JSON format:
+    ? `You are a senior strategic consultant with 20+ years of experience in medical tourism, business development, and operational setup. 
+
+Analyze the following medical tourism venture discovery intake and provide a comprehensive strategic analysis:
 
 INTAKE ANSWERS:
 ${answersText}
@@ -139,23 +142,22 @@ ${answersText}
 MARKET RESEARCH:
 ${marketResearch}
 
-Provide a JSON response with:
-{
-  "summary": "3-5 sentence executive summary",
-  "marketOpportunity": "Assessment of market opportunity based on research",
-  "businessModel": "Analysis of proposed business model",
-  "operationalReadiness": "Assessment of operational readiness",
-  "riskFactors": ["Top 3-5 risks"],
-  "quickWins": ["3-4 quick wins that can be achieved in 90 days"],
-  "roadmap": [
-    {"phase": "Phase name", "timeline": "Timeline", "actions": ["Action 1", "Action 2"]},
-    ...
-  ],
-  "financialProjection": "Assessment of financial viability",
-  "recommendedNextSteps": ["Step 1", "Step 2", "Step 3"],
-  "goNoGoAssessment": "Go / Go with conditions / Not ready"
-}`
-    : `Je bent een senior strategisch consultant die een medisch-toerisme-onderneming discovery intake analyseert. Gebaseerd op de volgende intake-antwoorden en marktonderzoek, geef een strategische analyse in JSON-formaat:
+Provide a detailed strategic analysis including:
+1. Executive Summary (3-5 sentences)
+2. Market Opportunity Assessment
+3. Business Model Analysis
+4. Operational Readiness Assessment
+5. Risk Factors (top 5)
+6. Quick Wins (3-4 achievable in 90 days)
+7. 90-Day Roadmap (3-4 phases with timeline and actions)
+8. Financial Viability Assessment
+9. Go/No-Go Recommendation with conditions
+10. Recommended Next Steps
+
+Format as professional consultant report with specific, actionable insights.`
+    : `Je bent een senior strategisch consultant met 20+ jaar ervaring in medisch toerisme, businessontwikkeling en operationele inrichting.
+
+Analyseer de volgende medisch-toerisme-onderneming discovery intake en geef een uitgebreide strategische analyse:
 
 INTAKE-ANTWOORDEN:
 ${answersText}
@@ -163,76 +165,108 @@ ${answersText}
 MARKTONDERZOEK:
 ${marketResearch}
 
-Geef een JSON-antwoord met:
-{
-  "samenvatting": "3-5 zin executive summary",
-  "marktKans": "Beoordeling van marktkans gebaseerd op onderzoek",
-  "businessModel": "Analyse van voorgesteld businessmodel",
-  "operationeelGereedheid": "Beoordeling van operationele gereedheid",
-  "risicofactoren": ["Top 3-5 risico's"],
-  "snelleWinsten": ["3-4 snelle winsten die in 90 dagen bereikt kunnen worden"],
-  "roadmap": [
-    {"fase": "Fasenaam", "tijdlijn": "Tijdlijn", "acties": ["Actie 1", "Actie 2"]},
-    ...
-  ],
-  "financielePrognose": "Beoordeling van financiële levensvatbaarheid",
-  "aanbevolenVolgendeStappen": ["Stap 1", "Stap 2", "Stap 3"],
-  "goNoGoBeoordeling": "Go / Go met voorwaarden / Niet gereed"
-}`;
+Geef een gedetailleerde strategische analyse inclusief:
+1. Samenvatting (3-5 zinnen)
+2. Beoordeling marktkans
+3. Analyse businessmodel
+4. Beoordeling operationele gereedheid
+5. Risicofactoren (top 5)
+6. Snelle winsten (3-4 haalbaar in 90 dagen)
+7. 90-daagse roadmap (3-4 fasen met tijdlijn en acties)
+8. Beoordeling financiële levensvatbaarheid
+9. Go/No-Go aanbeveling met voorwaarden
+10. Aanbevolen volgende stappen
 
-  const result = await callPerplexity(prompt, lang);
-  
-  if (!result) {
-    return generateDefaultAnalysis(lang);
-  }
+Formatteer als professioneel consultantrapport met specifieke, actionable inzichten.`;
 
-  // Try to parse JSON from response
   try {
-    const jsonMatch = result.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      return JSON.parse(jsonMatch[0]);
-    }
-  } catch (e) {
-    console.error('JSON parse error:', e.message);
-  }
+    // Call Manus API (using OpenAI-compatible endpoint)
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'gpt-4-turbo',
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 3000,
+        temperature: 0.7
+      })
+    });
 
-  return generateDefaultAnalysis(lang);
+    if (!response.ok) {
+      console.error('Manus API error:', response.status);
+      return null;
+    }
+
+    const data = await response.json();
+    return data.choices[0]?.message?.content || null;
+  } catch (err) {
+    console.error('Manus API error:', err.message);
+    return null;
+  }
 }
 
-function generateDefaultAnalysis(lang) {
-  if (lang === 'en') {
-    return {
-      summary: "Medical tourism venture with potential in target market. Requires further development of operational infrastructure and partner network.",
-      marketOpportunity: "Significant opportunity in target market with growing demand for medical services.",
-      businessModel: "Patient facilitation model with local partnerships.",
-      operationalReadiness: "Moderate - requires development of key operational processes.",
-      riskFactors: ["Regulatory compliance", "Partner quality assurance", "Patient safety protocols"],
-      quickWins: ["Establish legal entity", "Identify key partners", "Develop patient intake process"],
-      roadmap: [
-        { phase: "Phase 1: Foundation", timeline: "Months 1-3", actions: ["Legal setup", "Partner identification"] },
-        { phase: "Phase 2: Pilot", timeline: "Months 4-6", actions: ["Pilot launch", "Process refinement"] }
-      ],
-      financialProjection: "Requires detailed financial modeling.",
-      recommendedNextSteps: ["Develop detailed business plan", "Secure initial funding", "Establish partnerships"],
-      goNoGoAssessment: "Go with conditions"
-    };
-  } else {
-    return {
-      samenvatting: "Medisch-toerisme-onderneming met potentieel in doelmarkt. Vereist verdere ontwikkeling van operationele infrastructuur en partnernetwerk.",
-      marktKans: "Aanzienlijke kans in doelmarkt met groeiende vraag naar medische diensten.",
-      businessModel: "Patiëntfacilitatiemodel met lokale partnerships.",
-      operationeelGereedheid: "Matig - vereist ontwikkeling van belangrijkste operationele processen.",
-      risicofactoren: ["Regelgeving compliance", "Partnerkwaliteitsborging", "Patiëntveiligheidsprotocollen"],
-      snelleWinsten: ["Juridische entiteit opzetten", "Belangrijkste partners identificeren", "Patiëntinname-proces ontwikkelen"],
-      roadmap: [
-        { fase: "Fase 1: Basis", tijdlijn: "Maanden 1-3", acties: ["Juridische opzet", "Partneridentificatie"] },
-        { fase: "Fase 2: Pilot", tijdlijn: "Maanden 4-6", acties: ["Pilot lancering", "Procesverbetering"] }
-      ],
-      financielePrognose: "Vereist gedetailleerde financiële modellering.",
-      aanbevolenVolgendeStappen: ["Gedetailleerd bedrijfsplan ontwikkelen", "Initiële financiering veiligstellen", "Partnerships opzetten"],
-      goNoGoBeoordeling: "Go met voorwaarden"
-    };
-  }
+/* ---------- Format Intake Data for Report ---------- */
+function formatIntakeData(answers, lang) {
+  const isDutch = lang === 'nl';
+  
+  const sections = {
+    nl: {
+      bedrijf: 'Bedrijf & Identiteit',
+      model: 'Model & Operatie',
+      doelgroep: 'Doelgroep',
+      partners: 'Partners',
+      patiëntreis: 'Patiëntreis',
+      juridisch: 'Juridisch & Compliance',
+      digitaal: 'Digitaal & Automation',
+      budget: 'Budget & Planning',
+      afronding: 'Afronding'
+    },
+    en: {
+      bedrijf: 'Company & Identity',
+      model: 'Model & Operations',
+      doelgroep: 'Target Market',
+      partners: 'Partnerships',
+      patiëntreis: 'Patient Journey',
+      juridisch: 'Legal & Compliance',
+      digitaal: 'Digital & Automation',
+      budget: 'Budget & Planning',
+      afronding: 'Closing'
+    }
+  };
+
+  const s = sections[lang] || sections.nl;
+  
+  let html = '<section><h2>' + (isDutch ? 'Intake Gegevens' : 'Intake Data') + '</h2>';
+  
+  // Group answers by section
+  const grouped = {
+    bedrijf: ['bedrijfsnaam', 'naamverhaal', 'stadium', 'bedrijf_intro', 'waarom_venezuela', 'waarom_colombia', 'launch_date'],
+    model: ['rol_organisatie', 'doelstellingen_12m', 'succeskriterium', 'services_fase1', 'services_niet', 'budget_patient', 'facturatie'],
+    doelgroep: ['doelgroep_markt', 'patientgroep', 'zorggebieden', 'talen', 'barrières', 'concurrenten'],
+    partners: ['partners_identified', 'partner_landen', 'medische_evaluatie', 'kwaliteitscontrole', 'lokale_contact', 'partner_agreements'],
+    patiëntreis: ['lead_channels', 'eerste_intake', 'patient_journey', 'communicatie_eigenaar', 'escalatie_24h'],
+    juridisch: ['juridische_entiteit', 'juridisch_advies', 'beschikbare_documenten', 'medische_documenten', 'medische_data_access', 'verantwoordelijkheid', 'compliance_risico'],
+    digitaal: ['website_status', 'crm_status', 'whatsapp_business', 'online_payments', 'automation_priorities', 'ai_nooit_alleen', 'ai_comfort', 'huidige_systemen'],
+    budget: ['budget_12m', 'team_availability', 'goals_90d', 'priority_matrix'],
+    afronding: ['verwachtingen_linkd', 'concerns', 'risk_appetite', 'contact_naam', 'contact_email']
+  };
+
+  Object.entries(grouped).forEach(([key, fields]) => {
+    const sectionTitle = s[key] || key;
+    const sectionAnswers = fields.filter(f => answers[f]).map(f => 
+      `<div class="intake-item"><strong>${f}:</strong> ${Array.isArray(answers[f]) ? answers[f].join(', ') : answers[f]}</div>`
+    ).join('');
+    
+    if (sectionAnswers) {
+      html += `<div class="intake-section"><h3>${sectionTitle}</h3>${sectionAnswers}</div>`;
+    }
+  });
+
+  html += '</section>';
+  return html;
 }
 
 /* ---------- HTML Rapport Generator ---------- */
@@ -243,26 +277,19 @@ function generateHTMLReport(record, marketResearch, analysis, lang) {
   const labels = {
     nl: {
       title: 'Strategisch Rapport',
-      executiveSummary: 'Samenvatting',
+      intakeData: 'Intake Gegevens',
       marketAnalysis: 'Marktanalyse',
-      businessAnalysis: 'Bedrijfsanalyse',
-      roadmap: 'Roadmap',
-      risks: 'Risicobeoordeling',
-      nextSteps: 'Volgende stappen'
+      strategicAnalysis: 'Strategische Analyse'
     },
     en: {
       title: 'Strategic Report',
-      executiveSummary: 'Executive Summary',
+      intakeData: 'Intake Data',
       marketAnalysis: 'Market Analysis',
-      businessAnalysis: 'Business Analysis',
-      roadmap: 'Roadmap',
-      risks: 'Risk Assessment',
-      nextSteps: 'Next Steps'
+      strategicAnalysis: 'Strategic Analysis'
     }
   };
   
   const l = labels[lang] || labels.nl;
-  const an = typeof analysis === 'string' ? {} : analysis;
   
   return `<!DOCTYPE html>
 <html lang="${lang}">
@@ -273,24 +300,22 @@ function generateHTMLReport(record, marketResearch, analysis, lang) {
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1c2430; background: #f8f6f0; line-height: 1.6; }
-    .container { max-width: 900px; margin: 0 auto; padding: 40px 20px; background: white; }
+    .container { max-width: 1000px; margin: 0 auto; padding: 40px 20px; background: white; }
     header { border-bottom: 3px solid #c6a15b; padding-bottom: 20px; margin-bottom: 40px; }
     header h1 { font-size: 32px; color: #0f1b2d; margin-bottom: 10px; }
     header .subtitle { color: #6b7480; font-size: 14px; }
     .logo { font-size: 12px; color: #c6a15b; font-weight: 700; margin-bottom: 20px; }
-    section { margin-bottom: 40px; }
-    section h2 { font-size: 22px; color: #0f1b2d; margin-bottom: 15px; border-left: 4px solid #c6a15b; padding-left: 12px; }
+    section { margin-bottom: 50px; page-break-inside: avoid; }
+    section h2 { font-size: 24px; color: #0f1b2d; margin-bottom: 20px; border-left: 4px solid #c6a15b; padding-left: 12px; }
+    section h3 { font-size: 16px; color: #0f1b2d; margin-top: 15px; margin-bottom: 10px; }
+    .intake-section { background: #f8f6f0; padding: 15px; margin-bottom: 15px; border-radius: 4px; border-left: 3px solid #c6a15b; }
+    .intake-item { padding: 8px 0; font-size: 14px; }
+    .intake-item strong { color: #0f1b2d; }
     .summary-box { background: #f0ebe0; border-left: 4px solid #c6a15b; padding: 15px; margin-bottom: 20px; border-radius: 4px; }
-    .roadmap-item { background: #f8f6f0; border-left: 4px solid #c6a15b; padding: 15px; margin-bottom: 15px; border-radius: 4px; }
-    .roadmap-item .phase { font-weight: 700; color: #0f1b2d; }
-    .roadmap-item .timeline { color: #c6a15b; font-size: 12px; }
-    .roadmap-item .actions { margin-top: 10px; font-size: 13px; }
-    .risk-list { list-style: none; padding: 0; }
-    .risk-list li { padding: 8px 0; border-bottom: 1px solid #e4ddce; }
-    .risk-list li:before { content: "• "; color: #c6a15b; font-weight: 700; margin-right: 8px; }
+    .analysis-text { white-space: pre-wrap; font-size: 14px; line-height: 1.8; }
     footer { border-top: 1px solid #e4ddce; padding-top: 20px; margin-top: 40px; font-size: 12px; color: #6b7480; text-align: center; }
     .page-break { page-break-after: always; }
-    @media print { body { background: white; } .container { padding: 0; } }
+    @media print { body { background: white; } .container { padding: 0; } section { page-break-inside: avoid; } }
   </style>
 </head>
 <body>
@@ -301,55 +326,30 @@ function generateHTMLReport(record, marketResearch, analysis, lang) {
       <p class="subtitle">${l.title} • ${new Date(record.receivedAt).toLocaleDateString(isDutch ? 'nl-NL' : 'en-US')}</p>
     </header>
 
+    <!-- INTAKE DATA SECTION -->
     <section>
-      <h2>${l.executiveSummary}</h2>
-      <div class="summary-box">
-        <p>${an.samenvatting || an.summary || (isDutch ? 'Samenvatting niet beschikbaar' : 'Summary not available')}</p>
-      </div>
+      <h2>${l.intakeData}</h2>
+      ${formatIntakeData(a, lang)}
     </section>
 
+    <div class="page-break"></div>
+
+    <!-- MARKET RESEARCH SECTION -->
     <section>
       <h2>${l.marketAnalysis}</h2>
       <div class="summary-box">
-        <p>${marketResearch || (isDutch ? 'Marktonderzoek niet beschikbaar' : 'Market research not available')}</p>
+        <div class="analysis-text">${marketResearch || (isDutch ? 'Marktonderzoek niet beschikbaar' : 'Market research not available')}</div>
       </div>
     </section>
 
-    <section>
-      <h2>${l.businessAnalysis}</h2>
-      ${an.marktKans || an.marketOpportunity ? `<p><strong>${isDutch ? 'Marktkans:' : 'Market Opportunity:'}</strong> ${an.marktKans || an.marketOpportunity}</p>` : ''}
-      ${an.businessModel ? `<p><strong>${isDutch ? 'Businessmodel:' : 'Business Model:'}</strong> ${an.businessModel}</p>` : ''}
-      ${an.operationeelGereedheid || an.operationalReadiness ? `<p><strong>${isDutch ? 'Operationele gereedheid:' : 'Operational Readiness:'}</strong> ${an.operationeelGereedheid || an.operationalReadiness}</p>` : ''}
-    </section>
+    <div class="page-break"></div>
 
+    <!-- STRATEGIC ANALYSIS SECTION -->
     <section>
-      <h2>${l.risks}</h2>
-      ${an.risicofactoren || an.riskFactors ? `
-        <ul class="risk-list">
-          ${(an.risicofactoren || an.riskFactors || []).map(r => `<li>${r}</li>`).join('')}
-        </ul>
-      ` : ''}
-    </section>
-
-    <section>
-      <h2>${l.roadmap}</h2>
-      ${(an.roadmap || []).map(phase => `
-        <div class="roadmap-item">
-          <div class="phase">${phase.fase || phase.phase}</div>
-          <div class="timeline">${phase.tijdlijn || phase.timeline}</div>
-          <div class="actions">${(phase.acties || phase.actions || []).join(', ')}</div>
-        </div>
-      `).join('')}
-    </section>
-
-    <section>
-      <h2>${l.nextSteps}</h2>
-      ${an.aanbevolenVolgendeStappen || an.recommendedNextSteps ? `
-        <ul class="risk-list">
-          ${(an.aanbevolenVolgendeStappen || an.recommendedNextSteps || []).map(s => `<li>${s}</li>`).join('')}
-        </ul>
-      ` : ''}
-      ${an.goNoGoBeoordeling || an.goNoGoAssessment ? `<p><strong>${isDutch ? 'Beoordeling:' : 'Assessment:'}</strong> ${an.goNoGoBeoordeling || an.goNoGoAssessment}</p>` : ''}
+      <h2>${l.strategicAnalysis}</h2>
+      <div class="summary-box">
+        <div class="analysis-text">${analysis || (isDutch ? 'Strategische analyse niet beschikbaar' : 'Strategic analysis not available')}</div>
+      </div>
     </section>
 
     <footer>
@@ -382,9 +382,9 @@ app.post('/api/submit', async (req, res) => {
         record.marketResearch = await runMarketResearch(answers, lang || 'nl');
         console.log('Market research completed for', id);
         
-        // Run strategic analysis
-        console.log('Starting strategic analysis for', id);
-        record.analysis = await runStrategicAnalysis(answers, record.marketResearch, lang || 'nl');
+        // Run strategic analysis via Manus AI
+        console.log('Starting strategic analysis via Manus AI for', id);
+        record.analysis = await runManusAnalysis(answers, record.marketResearch, lang || 'nl');
         console.log('Strategic analysis completed for', id);
         
         // Generate HTML report
@@ -407,7 +407,7 @@ app.post('/api/submit', async (req, res) => {
 async function notifyOwner(record, req) {
   if (!mailer) { console.log('SMTP niet geconfigureerd; mail overgeslagen voor', record.id); return; }
   
-  const a = record.answers || {}, an = record.analysis;
+  const a = record.answers || {};
   const base = process.env.PUBLIC_URL || `https://${req.headers.host}`;
   const reportLink = `${base}/report/${encodeURIComponent(record.id)}?token=${encodeURIComponent(process.env.ADMIN_TOKEN || '')}`;
   const dashLink = `${base}/admin?token=${encodeURIComponent(process.env.ADMIN_TOKEN || '')}`;
@@ -422,10 +422,9 @@ async function notifyOwner(record, req) {
     `${isDutch ? 'Taal' : 'Language'}: ${record.lang}`,
     `${isDutch ? 'Ontvangen' : 'Received'}: ${new Date(record.receivedAt).toLocaleString(isDutch ? 'nl-NL' : 'en-US')}`,
     ``,
-    an ? `${isDutch ? 'Samenvatting' : 'Summary'}:\n${an.samenvatting || an.summary}` : (isDutch ? `Let op: de analyse kon niet worden gegenereerd; de antwoorden zijn wel opgeslagen.` : `Note: the analysis could not be generated; the answers have been saved.`)
+    isDutch ? `Volledige rapport met intake-gegevens en strategische analyse beschikbaar.` : `Full report with intake data and strategic analysis available.`
   ];
   
-  if (an && (an.goNoGoBeoordeling || an.goNoGoAssessment)) bodyLines.push(``, `${isDutch ? 'Beoordeling' : 'Assessment'}: ${an.goNoGoBeoordeling || an.goNoGoAssessment}`);
   bodyLines.push(``, `${isDutch ? 'Volledig rapport' : 'Full report'}: ${reportLink}`, `${isDutch ? 'Dashboard' : 'Dashboard'}: ${dashLink}`, ``, isDutch ? `Het complete dossier zit als bijlage bij deze mail.` : `The complete file is attached to this email.`);
   
   try {
@@ -499,4 +498,5 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Linkd by Royal form server luistert op poort ${PORT}`);
   console.log(`Perplexity API key: ${process.env.PERPLEXITY_API_KEY ? 'geconfigureerd' : 'ONTBREEKT'}`);
+  console.log(`OpenAI/Manus API key: ${process.env.OPENAI_API_KEY ? 'geconfigureerd' : 'ONTBREEKT'}`);
 });
