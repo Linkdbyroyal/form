@@ -135,7 +135,7 @@
   <div class="brandrow">
     <div class="brand">Linkd <span>by Royal</span></div>
     <div class="langswitch" id="langSwitch">
-      <button data-lang="nl">NL</button><button data-lang="en">EN</button>
+      <button data-lang="nl">NL</button><button data-lang="en">EN</button><button data-lang="es">ES</button>
     </div>
   </div>
   <div class="route-wrap">
@@ -171,67 +171,67 @@ let answers = {};
 let submitted = false;
 
 const UI = {
-  next:{nl:'Volgende',en:'Next'}, prev:{nl:'Vorige',en:'Back'},
-  saved:{nl:'Opgeslagen',en:'Saved'}, reset:{nl:'Opnieuw beginnen',en:'Start over'},
-  resetConfirm:{nl:'Alle antwoorden wissen en opnieuw beginnen?',en:'Clear all answers and start over?'},
-  progress:{nl:'% voltooid',en:'% completed'},
-  sectionWord:{nl:'Sectie',en:'Section'},
-  impact:{nl:'Impact',en:'Impact'}, effort:{nl:'Moeite',en:'Effort'},
-  choose:{nl:'Kies…',en:'Choose…'},
-  submit:{nl:'Verstuur intake',en:'Submit intake'},
-  submitting:{nl:'Versturen',en:'Submitting'},
-  submitFail:{nl:'Versturen is niet gelukt. Controleer uw internetverbinding en probeer het opnieuw; uw antwoorden zijn bewaard.',en:'Submission failed. Please check your internet connection and try again; your answers have been saved.'},
-  retry:{nl:'Probeer opnieuw',en:'Try again'}
+  next:{nl:'Volgende',en:'Next',es:'Siguiente'}, prev:{nl:'Vorige',en:'Back',es:'Atrás'},
+  saved:{nl:'Opgeslagen',en:'Saved',es:'Guardado'}, reset:{nl:'Opnieuw beginnen',en:'Start over',es:'Comenzar de nuevo'},
+  resetConfirm:{nl:'Alle antwoorden wissen en opnieuw beginnen?',en:'Clear all answers and start over?',es:'¿Borrar todas las respuestas y comenzar de nuevo?'},
+  progress:{nl:'% voltooid',en:'% completed',es:'% completado'},
+  sectionWord:{nl:'Sectie',en:'Section',es:'Sección'},
+  impact:{nl:'Impact',en:'Impact',es:'Impacto'}, effort:{nl:'Moeite',en:'Effort',es:'Esfuerzo'},
+  choose:{nl:'Kies…',en:'Choose…',es:'Elegir…'},
+  submit:{nl:'Verstuur intake',en:'Submit intake',es:'Enviar solicitud'},
+  submitting:{nl:'Versturen',en:'Submitting',es:'Enviando'},
+  submitFail:{nl:'Versturen is niet gelukt. Controleer uw internetverbinding en probeer het opnieuw; uw antwoorden zijn bewaard.',en:'Submission failed. Please check your internet connection and try again; your answers have been saved.',es:'El envío falló. Por favor, verifique su conexión a Internet e intente de nuevo; sus respuestas se han guardado.'},
+  retry:{nl:'Probeer opnieuw',en:'Try again',es:'Intentar de nuevo'}
 };
 const t = o => (o && (o[lang] ?? o.nl)) || '';
 
 const ROUTE_LABELS=[
-  {nl:'Start',en:'Start'},
-  {nl:'Bedrijf',en:'Company'},
-  {nl:'Model',en:'Model'},
-  {nl:'Doelgroep',en:'Audience'},
-  {nl:'Partners',en:'Partners'},
-  {nl:'Patiëntreis',en:'Journey'},
-  {nl:'Juridisch',en:'Legal'},
-  {nl:'Digitaal',en:'Digital'},
-  {nl:'Budget',en:'Budget'},
-  {nl:'Afronding',en:'Completion'},
-  {nl:'Klaar',en:'Done'}
+  {nl:'Start',en:'Start',es:'Inicio'},
+  {nl:'Bedrijf',en:'Company',es:'Empresa'},
+  {nl:'Model',en:'Model',es:'Modelo'},
+  {nl:'Doelgroep',en:'Audience',es:'Audiencia'},
+  {nl:'Partners',en:'Partners',es:'Socios'},
+  {nl:'Patiëntreis',en:'Journey',es:'Viaje'},
+  {nl:'Juridisch',en:'Legal',es:'Legal'},
+  {nl:'Digitaal',en:'Digital',es:'Digital'},
+  {nl:'Budget',en:'Budget',es:'Presupuesto'},
+  {nl:'Afronding',en:'Completion',es:'Finalización'},
+  {nl:'Klaar',en:'Done',es:'Listo'}
 ];
 
 const DEF=[
 { // 1 Bedrijf & Identiteit
- title:{nl:'Bedrijf & Identiteit',en:'Company & Identity'},
- intro:{nl:'Wie zijn de initiatiefnemers en wat is het verhaal achter dit initiatief?',en:'Who are the founders and what is the story behind this initiative?'},
+ title:{nl:'Bedrijf & Identiteit',en:'Company & Identity',es:'Empresa e Identidad'},
+ intro:{nl:'Wie zijn de initiatiefnemers en wat is het verhaal achter dit initiatief?',en:'Who are the founders and what is the story behind this initiative?',es:'¿Quiénes son los fundadores y cuál es la historia detrás de esta iniciativa?'},
  fields:[
-  {t:'tx',k:'bedrijfsnaam',l:{nl:'Bedrijfsnaam of naam van het initiatief',en:'Company or initiative name'}},
-  {t:'ta',k:'naamverhaal',l:{nl:'Wat is het idee, verhaal of de betekenis achter deze naam?',en:'What is the idea, story or meaning behind this name?'},ph:{nl:'Waarom is deze naam gekozen, wat moet hij uitstralen en wat moet een klant erbij voelen?',en:'Why was this name chosen, what should it represent and what should a client feel when hearing it?'}},
-  {t:'sel',k:'stadium',l:{nl:'Huidig stadium',en:'Current stage'},opts:[
-    {v:'Idee / conceptfase',nl:'Idee / conceptfase',en:'Idea / concept stage'},
-    {v:'Pre-launch',nl:'Pre-launch',en:'Pre-launch'},
-    {v:'Bestaande onderneming die uitbreidt',nl:'Bestaande onderneming die uitbreidt',en:'Existing company expanding'},
-    {v:'Reeds operationeel',nl:'Reeds operationeel',en:'Already operational'},
-    {v:'Anders',nl:'Anders',en:'Other'}]},
-  {t:'ta',k:'bedrijf_intro',l:{nl:'Korte omschrijving van het initiatief',en:'Brief description of the initiative'}},
-  {t:'ta',k:'waarom_venezuela',l:{nl:'Waarom Venezuela als eerste bestemming?',en:'Why Venezuela as the first destination?'}},
-  {t:'ta',k:'waarom_colombia',l:{nl:'Waarom Colombia als mogelijke fase 2?',en:'Why Colombia as a possible phase 2?'}},
-  {t:'tx',k:'startdatum',type:'date',l:{nl:'Beoogde startdatum van de pilot',en:'Intended start date of the pilot'}},
-  {t:'tx',k:'besluitvormers',l:{nl:'Wie zijn de belangrijkste beslissers?',en:'Who are the key decision-makers?'}},
-  {t:'tx',k:'implementatie_eigenaar',l:{nl:'Wie is intern verantwoordelijk voor uitvoering?',en:'Who is internally responsible for execution?'}}
+  {t:'tx',k:'bedrijfsnaam',l:{nl:'Bedrijfsnaam of naam van het initiatief',en:'Company or initiative name',es:'Nombre de la empresa o iniciativa'}},
+  {t:'ta',k:'naamverhaal',l:{nl:'Wat is het idee, verhaal of de betekenis achter deze naam?',en:'What is the idea, story or meaning behind this name?',es:'¿Cuál es la idea, historia o significado detrás de este nombre?'},ph:{nl:'Waarom is deze naam gekozen, wat moet hij uitstralen en wat moet een klant erbij voelen?',en:'Why was this name chosen, what should it represent and what should a client feel when hearing it?',es:'¿Por qué se eligió este nombre, qué debe representar y qué debe sentir un cliente al escucharlo?'}},
+  {t:'sel',k:'stadium',l:{nl:'Huidig stadium',en:'Current stage',es:'Etapa actual'},opts:[
+    {v:'Idee / conceptfase',nl:'Idee / conceptfase',en:'Idea / concept stage',es:'Idea / fase conceptual'},
+    {v:'Pre-launch',nl:'Pre-launch',en:'Pre-launch',es:'Pre-lanzamiento'},
+    {v:'Bestaande onderneming die uitbreidt',nl:'Bestaande onderneming die uitbreidt',en:'Existing company expanding',es:'Empresa existente en expansión'},
+    {v:'Reeds operationeel',nl:'Reeds operationeel',en:'Already operational',es:'Ya operativo'},
+    {v:'Anders',nl:'Anders',en:'Other',es:'Otro'}]},
+  {t:'ta',k:'bedrijf_intro',l:{nl:'Korte omschrijving van het initiatief',en:'Brief description of the initiative',es:'Descripción breve de la iniciativa'}},
+  {t:'ta',k:'waarom_venezuela',l:{nl:'Waarom Venezuela als eerste bestemming?',en:'Why Venezuela as the first destination?',es:'¿Por qué Venezuela como primer destino?'}},
+  {t:'ta',k:'waarom_colombia',l:{nl:'Waarom Colombia als mogelijke fase 2?',en:'Why Colombia as a possible phase 2?',es:'¿Por qué Colombia como posible fase 2?'}},
+  {t:'tx',k:'startdatum',type:'date',l:{nl:'Beoogde startdatum van de pilot',en:'Intended start date of the pilot',es:'Fecha de inicio prevista del piloto'}},
+  {t:'tx',k:'besluitvormers',l:{nl:'Wie zijn de belangrijkste beslissers?',en:'Who are the key decision-makers?',es:'¿Quiénes son los principales tomadores de decisiones?'}},
+  {t:'tx',k:'implementatie_eigenaar',l:{nl:'Wie is intern verantwoordelijk voor uitvoering?',en:'Who is internally responsible for execution?',es:'¿Quién es responsable internamente de la ejecución?'}}
 ]},
 { // 2 Doel & Businessmodel
- title:{nl:'Doel & Businessmodel',en:'Purpose & Business Model'},
- intro:{nl:'Wat gaat de organisatie doen en waar moet zij over 12 maanden staan?',en:'What will the organization do and where should it stand in 12 months?'},
+ title:{nl:'Doel & Businessmodel',en:'Purpose & Business Model',es:'Propósito y Modelo de Negocio'},
+ intro:{nl:'Wat gaat de organisatie doen en waar moet zij over 12 maanden staan?',en:'What will the organization do and where should it stand in 12 months?',es:'¿Qué hará la organización y dónde debería estar en 12 meses?'},
  fields:[
-  {t:'cg',k:'rol_organisatie',l:{nl:'Wat is de primaire rol van de organisatie?',en:'What is the primary role of the organization?'},opts:[
-    {v:'Medische facilitator',nl:'Medische facilitator',en:'Medical facilitator'},
-    {v:'Bemiddelaar tussen patiënt en kliniek',nl:'Bemiddelaar tussen patiënt en kliniek',en:'Intermediary between patient and clinic'},
-    {v:'Travel & care coordinator',nl:'Travel & care coordinator',en:'Travel & care coordinator'},
-    {v:'Concierge en lokale begeleiding',nl:'Concierge en lokale begeleiding',en:'Concierge and local guidance'},
-    {v:'Partnerplatform',nl:'Partnerplatform',en:'Partner platform'},
-    {v:'Combinatie',nl:'Combinatie',en:'Combination'}],
-   other:{nl:'Anders…',en:'Other…'}},
-  {t:'cg',k:'doelen_12mnd',l:{nl:'Wat moet binnen 12 maanden bereikt zijn?',en:'What should be achieved within 12 months?'},opts:[
+  {t:'cg',k:'rol_organisatie',l:{nl:'Wat is de primaire rol van de organisatie?',en:'What is the primary role of the organization?',es:'¿Cuál es el rol principal de la organización?'},opts:[
+    {v:'Medische facilitator',nl:'Medische facilitator',en:'Medical facilitator',es:'Facilitador médico'},
+    {v:'Bemiddelaar tussen patiënt en kliniek',nl:'Bemiddelaar tussen patiënt en kliniek',en:'Intermediary between patient and clinic',es:'Intermediario entre paciente y clínica'},
+    {v:'Travel & care coordinator',nl:'Travel & care coordinator',en:'Travel & care coordinator',es:'Coordinador de viajes y atención'},
+    {v:'Concierge en lokale begeleiding',nl:'Concierge en lokale begeleiding',en:'Concierge and local guidance',es:'Conserje y orientación local'},
+    {v:'Partnerplatform',nl:'Partnerplatform',en:'Partner platform',es:'Plataforma de socios'},
+    {v:'Combinatie',nl:'Combinatie',en:'Combination',es:'Combinación'}],
+   other:{nl:'Anders…',en:'Other…',es:'Otro…'}},
+  {t:'cg',k:'doelen_12mnd',l:{nl:'Wat moet binnen 12 maanden bereikt zijn?',en:'What should be achieved within 12 months?',es:'¿Qué debe lograrse en 12 meses?'},opts:[
     {v:'Pilot succesvol lanceren',nl:'Pilot succesvol lanceren',en:'Launch a successful pilot'},
     {v:'Eerste 10 patiënten begeleiden',nl:'Eerste 10 patiënten begeleiden',en:'Guide the first 10 patients'},
     {v:'Partnerklinieken contracteren',nl:'Partnerklinieken contracteren',en:'Contract partner clinics'},
@@ -239,9 +239,9 @@ const DEF=[
     {v:'Rendabel businessmodel valideren',nl:'Rendabel businessmodel valideren',en:'Validate a profitable business model'},
     {v:'Merk en website lanceren',nl:'Merk en website lanceren',en:'Launch brand and website'},
     {v:'Colombia voorbereiden als fase 2',nl:'Colombia voorbereiden als fase 2',en:'Prepare Colombia as phase 2'}],
-   other:{nl:'Anders…',en:'Other…'}},
-  {t:'ta',k:'succescriteria',l:{nl:'Wat zijn de drie belangrijkste succescriteria?',en:'What are the three most important success criteria?'}},
-  {t:'cg',k:'diensten_fase1',l:{nl:'Welke diensten wilt u in fase 1 aanbieden?',en:'Which services do you want to offer in phase 1?'},opts:[
+   other:{nl:'Anders…',en:'Other…',es:'Other…'}},
+  {t:'ta',k:'succescriteria',l:{nl:'Wat zijn de drie belangrijkste succescriteria?',en:'What are the three most important success criteria?',es:'What are the three most important success criteria?'}},
+  {t:'cg',k:'diensten_fase1',l:{nl:'Welke diensten wilt u in fase 1 aanbieden?',en:'Which services do you want to offer in phase 1?',es:'¿Qué servicios desea ofrecer en la fase 1?'},opts:[
     {v:'Kliniek- of specialistmatching',nl:'Kliniek- of specialistmatching',en:'Clinic or specialist matching'},
     {v:'Coördinatie van medische afspraken',nl:'Coördinatie van medische afspraken',en:'Coordination of medical appointments'},
     {v:'Videoconsult of pre-screening coördinatie',nl:'Videoconsult of pre-screening coördinatie',en:'Video consult or pre-screening coordination'},
@@ -250,16 +250,16 @@ const DEF=[
     {v:'Tolken of lokale begeleiding',nl:'Tolken of lokale begeleiding',en:'Interpreters or local guidance'},
     {v:'Nazorgcoördinatie',nl:'Nazorgcoördinatie',en:'Aftercare coordination'},
     {v:'Familie- of begeleidersarrangement',nl:'Familie- of begeleidersarrangement',en:'Family or companion arrangement'}],
-   other:{nl:'Anders…',en:'Other…'}},
-  {t:'tx',k:'diensten_niet_fase1',l:{nl:'Welke diensten zijn bewust geen onderdeel van fase 1?',en:'Which services are deliberately not part of phase 1?'}},
-  {t:'sel',k:'besteding_per_patient',l:{nl:'Wat is de verwachte gemiddelde besteding per patiënt?',en:'What is the expected average spend per patient?'},opts:[
+   other:{nl:'Anders…',en:'Other…',es:'Other…'}},
+  {t:'tx',k:'diensten_niet_fase1',l:{nl:'Welke diensten zijn bewust geen onderdeel van fase 1?',en:'Which services are deliberately not part of phase 1?',es:'¿Qué servicios deliberadamente no forman parte de la fase 1?'}},
+  {t:'sel',k:'besteding_per_patient',l:{nl:'Wat is de verwachte gemiddelde besteding per patiënt?',en:'What is the expected average spend per patient?',es:'¿Cuál es el gasto promedio esperado por paciente?'},opts:[
     {v:'Onder €1.000',nl:'Onder €1.000',en:'Under €1,000'},
     {v:'€1.000 tot €2.500',nl:'€1.000 tot €2.500',en:'€1,000 to €2,500'},
     {v:'€2.500 tot €5.000',nl:'€2.500 tot €5.000',en:'€2,500 to €5,000'},
     {v:'€5.000 tot €10.000',nl:'€5.000 tot €10.000',en:'€5,000 to €10,000'},
     {v:'Boven €10.000',nl:'Boven €10.000',en:'Above €10,000'},
     {v:'Nog onbekend',nl:'Nog onbekend',en:'Unknown yet'}]},
-  {t:'sel',k:'facturatie',l:{nl:'Wie factureert de patiënt?',en:'Who invoices the patient?'},opts:[
+  {t:'sel',k:'facturatie',l:{nl:'Wie factureert de patiënt?',en:'Who invoices the patient?',es:'¿Quién factura al paciente?'},opts:[
     {v:'De kliniek rechtstreeks',nl:'De kliniek rechtstreeks',en:'The clinic directly'},
     {v:'De facilitator',nl:'De facilitator',en:'The facilitator'},
     {v:'Externe reis- of zorgpartner',nl:'Externe reis- of zorgpartner',en:'External travel or care partner'},
@@ -267,25 +267,25 @@ const DEF=[
     {v:'Nog te bepalen',nl:'Nog te bepalen',en:'To be determined'}]}
 ]},
 { // 3 Patiëntdoelgroep & Markt
- title:{nl:'Patiëntdoelgroep & Markt',en:'Patient Audience & Market'},
- intro:{nl:'Voor wie is deze dienstverlening bedoeld?',en:'Who is this service intended for?'},
+ title:{nl:'Patiëntdoelgroep & Markt',en:'Patient Audience & Market',es:'Patient Audience & Market'},
+ intro:{nl:'Voor wie is deze dienstverlening bedoeld?',en:'Who is this service intended for?',es:'¿Para quién está destinado este servicio?'},
  fields:[
-  {t:'cg',k:'doelgroep_markt',l:{nl:'Primaire herkomstmarkt',en:'Primary source market'},opts:[
+  {t:'cg',k:'doelgroep_markt',l:{nl:'Primaire herkomstmarkt',en:'Primary source market',es:'Mercado de origen primario'},opts:[
     {v:'Curaçao',nl:'Curaçao',en:'Curaçao'},
     {v:'Caribisch gebied',nl:'Caribisch gebied',en:'Caribbean region'},
     {v:'Nederland',nl:'Nederland',en:'Netherlands'},
     {v:'Venezuela',nl:'Venezuela',en:'Venezuela'},
     {v:'Colombia',nl:'Colombia',en:'Colombia'}],
-   other:{nl:'Anders…',en:'Other…'}},
-  {t:'cg',k:'patientgroep',l:{nl:'Primaire patiëntgroep',en:'Primary patient group'},opts:[
+   other:{nl:'Anders…',en:'Other…',es:'Other…'}},
+  {t:'cg',k:'patientgroep',l:{nl:'Primaire patiëntgroep',en:'Primary patient group',es:'Grupo de pacientes primarios'},opts:[
     {v:'Self-pay patiënten',nl:'Self-pay patiënten',en:'Self-pay patients'},
     {v:'Verzekerde patiënten',nl:'Verzekerde patiënten',en:'Insured patients'},
     {v:'Diaspora',nl:'Diaspora',en:'Diaspora'},
     {v:'Werkgevers',nl:'Werkgevers',en:'Employers'},
     {v:'Referral via arts of zorgpartner',nl:'Referral via arts of zorgpartner',en:'Referral via doctor or care partner'},
     {v:'Families',nl:'Families',en:'Families'}],
-   other:{nl:'Anders…',en:'Other…'}},
-  {t:'cg',k:'zorggebieden',l:{nl:'Welke zorggebieden of behandelingen hebben prioriteit in fase 1?',en:'Which care areas or treatments have priority in phase 1?'},opts:[
+   other:{nl:'Anders…',en:'Other…',es:'Other…'}},
+  {t:'cg',k:'zorggebieden',l:{nl:'Welke zorggebieden of behandelingen hebben prioriteit in fase 1?',en:'Which care areas or treatments have priority in phase 1?',es:'¿Qué áreas de atención o tratamientos tienen prioridad en la fase 1?'},opts:[
     {v:'Tandheelkunde',nl:'Tandheelkunde',en:'Dentistry'},
     {v:'Esthetische chirurgie',nl:'Esthetische chirurgie',en:'Aesthetic surgery'},
     {v:'Orthopedie',nl:'Orthopedie',en:'Orthopedics'},
@@ -294,14 +294,14 @@ const DEF=[
     {v:'Oogzorg',nl:'Oogzorg',en:'Eye care'},
     {v:'Dermatologie',nl:'Dermatologie',en:'Dermatology'},
     {v:'Bariatrie',nl:'Bariatrie',en:'Bariatrics'}],
-   other:{nl:'Anders…',en:'Other…'}},
-  {t:'cg',k:'talen',l:{nl:'Welke talen moeten minimaal worden ondersteund?',en:'Which languages must be supported at a minimum?'},opts:[
+   other:{nl:'Anders…',en:'Other…',es:'Other…'}},
+  {t:'cg',k:'talen',l:{nl:'Welke talen moeten minimaal worden ondersteund?',en:'Which languages must be supported at a minimum?',es:'¿Qué idiomas deben ser soportados como mínimo?'},opts:[
     {v:'Nederlands',nl:'Nederlands',en:'Dutch'},
     {v:'Engels',nl:'Engels',en:'English'},
     {v:'Spaans',nl:'Spaans',en:'Spanish'},
     {v:'Papiaments',nl:'Papiaments',en:'Papiamentu'}],
-   other:{nl:'Anders…',en:'Other…'}},
-  {t:'cg',k:'drempels',l:{nl:'Wat zijn volgens u de grootste drempels voor patiënten?',en:'What do you consider the biggest barriers for patients?'},opts:[
+   other:{nl:'Anders…',en:'Other…',es:'Other…'}},
+  {t:'cg',k:'drempels',l:{nl:'Wat zijn volgens u de grootste drempels voor patiënten?',en:'What do you consider the biggest barriers for patients?',es:'¿Cuáles cree que son las mayores barreras para los pacientes?'},opts:[
     {v:'Vertrouwen',nl:'Vertrouwen',en:'Trust'},
     {v:'Veiligheid',nl:'Veiligheid',en:'Safety'},
     {v:'Prijs',nl:'Prijs',en:'Price'},
@@ -311,19 +311,19 @@ const DEF=[
     {v:'Nazorg',nl:'Nazorg',en:'Aftercare'},
     {v:'Betaling',nl:'Betaling',en:'Payment'},
     {v:'Onzekerheid over aansprakelijkheid',nl:'Onzekerheid over aansprakelijkheid',en:'Uncertainty about liability'}],
-   other:{nl:'Anders…',en:'Other…'}},
-  {t:'ta',k:'concurrenten',l:{nl:'Noem maximaal drie mogelijke concurrenten of voorbeeldbedrijven',en:'Name up to three possible competitors or example companies'},ph:{nl:'Eén per regel',en:'One per line'}}
+   other:{nl:'Anders…',en:'Other…',es:'Other…'}},
+  {t:'ta',k:'concurrenten',l:{nl:'Noem maximaal drie mogelijke concurrenten of voorbeeldbedrijven',en:'Name up to three possible competitors or example companies',es:'Mencione hasta tres posibles competidores o empresas de ejemplo'},ph:{nl:'Eén per regel',en:'One per line',es:'Uno por línea'}}
 ]},
 { // 4 Medische Partners & Klinieknetwerk
- title:{nl:'Medische Partners & Klinieknetwerk',en:'Medical Partners & Clinic Network'},
- intro:{nl:'De kwaliteit en verificatie van partnerklinieken bepalen of een pilot verantwoord kan starten.',en:'The quality and verification of partner clinics determine whether a pilot can start responsibly.'},
+ title:{nl:'Medische Partners & Klinieknetwerk',en:'Medical Partners & Clinic Network',es:'Socios Médicos y Red de Clínicas'},
+ intro:{nl:'De kwaliteit en verificatie van partnerklinieken bepalen of een pilot verantwoord kan starten.',en:'The quality and verification of partner clinics determine whether a pilot can start responsibly.',es:'La calidad y verificación de las clínicas asociadas determinan si un piloto puede comenzar responsablemente.'},
  fields:[
-  {t:'sel',k:'partners_geidentificeerd',l:{nl:'Zijn er al klinieken, artsen of specialisten geïdentificeerd?',en:'Have clinics, doctors or specialists already been identified?'},opts:[
+  {t:'sel',k:'partners_geidentificeerd',l:{nl:'Zijn er al klinieken, artsen of specialisten geïdentificeerd?',en:'Have clinics, doctors or specialists already been identified?',es:'¿Ya se han identificado clínicas, médicos o especialistas?'},opts:[
     {v:'Ja',nl:'Ja',en:'Yes'},{v:'Gedeeltelijk',nl:'Gedeeltelijk',en:'Partially'},{v:'Nee',nl:'Nee',en:'No'}]},
-  {t:'cg',k:'partner_landen',l:{nl:'In welke landen bevinden deze partners zich?',en:'In which countries are these partners located?'},opts:[
+  {t:'cg',k:'partner_landen',l:{nl:'In welke landen bevinden deze partners zich?',en:'In which countries are these partners located?',es:'¿En qué países se encuentran estos socios?'},opts:[
     {v:'Venezuela',nl:'Venezuela',en:'Venezuela'},{v:'Colombia',nl:'Colombia',en:'Colombia'},{v:'Curaçao',nl:'Curaçao',en:'Curaçao'}],
-   other:{nl:'Anders…',en:'Other…'}},
-  {t:'cg',k:'partner_informatie',l:{nl:'Welke partnerinformatie is al beschikbaar?',en:'Which partner information is already available?'},opts:[
+   other:{nl:'Anders…',en:'Other…',es:'Other…'}},
+  {t:'cg',k:'partner_informatie',l:{nl:'Welke partnerinformatie is al beschikbaar?',en:'Which partner information is already available?',es:'¿Qué información de socios ya está disponible?'},opts:[
     {v:'Klinieklicentie of registratie',nl:'Klinieklicentie of registratie',en:'Clinic license or registration'},
     {v:'Artsregistratie of kwalificaties',nl:'Artsregistratie of kwalificaties',en:'Physician registration or qualifications'},
     {v:'Behandelprijzen',nl:'Behandelprijzen',en:'Treatment prices'},
@@ -333,34 +333,34 @@ const DEF=[
     {v:'Schriftelijke samenwerkingsovereenkomst',nl:'Schriftelijke samenwerkingsovereenkomst',en:'Written partnership agreement'},
     {v:'Service Level Agreement',nl:'Service Level Agreement',en:'Service Level Agreement'},
     {v:'Nog niets geverifieerd',nl:'Nog niets geverifieerd',en:'Nothing verified yet'}]},
-  {t:'sel',k:'medische_beoordeling',l:{nl:'Wie voert de medische beoordeling uit voordat een patiënt aan een kliniek wordt gekoppeld?',en:'Who performs the medical assessment before a patient is matched to a clinic?'},opts:[
+  {t:'sel',k:'medische_beoordeling',l:{nl:'Wie voert de medische beoordeling uit voordat een patiënt aan een kliniek wordt gekoppeld?',en:'Who performs the medical assessment before a patient is matched to a clinic?',es:'¿Quién realiza la evaluación médica antes de que un paciente se asigne a una clínica?'},opts:[
     {v:'Bevoegde arts of medisch specialist',nl:'Bevoegde arts of medisch specialist',en:'Licensed doctor or medical specialist'},
     {v:'Partnerkliniek',nl:'Partnerkliniek',en:'Partner clinic'},
     {v:'Externe medisch adviseur',nl:'Externe medisch adviseur',en:'External medical advisor'},
     {v:'Nog te bepalen',nl:'Nog te bepalen',en:'To be determined'}]},
-  {t:'tx',k:'kwaliteitscontrole',l:{nl:'Wie controleert kwaliteit, bevoegdheden en partnerdocumentatie?',en:'Who verifies quality, credentials and partner documentation?'}},
-  {t:'sel',k:'lokale_contactpersoon',l:{nl:'Is er een lokale contactpersoon voor spoed of escalaties?',en:'Is there a local contact for emergencies or escalations?'},opts:[
+  {t:'tx',k:'kwaliteitscontrole',l:{nl:'Wie controleert kwaliteit, bevoegdheden en partnerdocumentatie?',en:'Who verifies quality, credentials and partner documentation?',es:'¿Quién verifica la calidad, credenciales y documentación de socios?'}},
+  {t:'sel',k:'lokale_contactpersoon',l:{nl:'Is er een lokale contactpersoon voor spoed of escalaties?',en:'Is there a local contact for emergencies or escalations?',es:'¿Hay un contacto local para emergencias o escaladas?'},opts:[
     {v:'Ja',nl:'Ja',en:'Yes'},{v:'Nee',nl:'Nee',en:'No'},{v:'Nog te bepalen',nl:'Nog te bepalen',en:'To be determined'}]},
-  {t:'sel',k:'partnerafspraken_vastgelegd',l:{nl:'Zijn partnerrollen, commissies, betalingen en verantwoordelijkheden schriftelijk vastgelegd?',en:'Are partner roles, commissions, payments and responsibilities documented in writing?'},opts:[
+  {t:'sel',k:'partnerafspraken_vastgelegd',l:{nl:'Zijn partnerrollen, commissies, betalingen en verantwoordelijkheden schriftelijk vastgelegd?',en:'Are partner roles, commissions, payments and responsibilities documented in writing?',es:'¿Están documentados por escrito los roles de socios, comisiones, pagos y responsabilidades?'},opts:[
     {v:'Ja',nl:'Ja',en:'Yes'},{v:'Gedeeltelijk',nl:'Gedeeltelijk',en:'Partially'},{v:'Nee',nl:'Nee',en:'No'},{v:'Nog te bepalen',nl:'Nog te bepalen',en:'To be determined'}]}
 ]},
 { // 5 Patiëntreis & Operatie
- title:{nl:'Patiëntreis & Operatie',en:'Patient Journey & Operations'},
- intro:{nl:'Hoe verloopt de reis van eerste contact tot nazorg, en wie is waarvoor verantwoordelijk?',en:'How does the journey run from first contact to aftercare, and who is responsible for what?'},
+ title:{nl:'Patiëntreis & Operatie',en:'Patient Journey & Operations',es:'Viaje del Paciente y Operaciones'},
+ intro:{nl:'Hoe verloopt de reis van eerste contact tot nazorg, en wie is waarvoor verantwoordelijk?',en:'How does the journey run from first contact to aftercare, and who is responsible for what?',es:'¿Cómo se desarrolla el viaje desde el primer contacto hasta el cuidado posterior, y quién es responsable de qué?'},
  fields:[
-  {t:'cg',k:'lead_kanalen',l:{nl:'Via welke kanalen komen potentiële patiënten binnen?',en:'Through which channels do potential patients come in?'},opts:[
+  {t:'cg',k:'lead_kanalen',l:{nl:'Via welke kanalen komen potentiële patiënten binnen?',en:'Through which channels do potential patients come in?',es:'¿A través de qué canales llegan los pacientes potenciales?'},opts:[
     {v:'Website',nl:'Website',en:'Website'},{v:'WhatsApp',nl:'WhatsApp',en:'WhatsApp'},
     {v:'Instagram',nl:'Instagram',en:'Instagram'},{v:'Referral',nl:'Referral',en:'Referral'},
     {v:'Arts of zorgpartner',nl:'Arts of zorgpartner',en:'Doctor or care partner'},
     {v:'Bestaande klant',nl:'Bestaande klant',en:'Existing client'},
     {v:'Advertenties',nl:'Advertenties',en:'Advertising'}],
-   other:{nl:'Anders…',en:'Other…'}},
-  {t:'tx',k:'eerste_intake',l:{nl:'Wie doet de eerste commerciële intake?',en:'Who handles the first commercial intake?'}},
-  {t:'ta',k:'patientreis',l:{nl:'Beschrijf kort de gewenste patiëntreis',en:'Briefly describe the desired patient journey'},ph:{nl:'Bijvoorbeeld: lead → intake → medische beoordeling → kliniekvoorstel → betaling → reis → behandeling → nazorg',en:'For example: lead → intake → medical assessment → clinic proposal → payment → travel → treatment → aftercare'}},
-  {t:'tx',k:'communicatie_eigenaar',l:{nl:'Wie is eigenaar van communicatie vóór, tijdens en na de reis?',en:'Who owns communication before, during and after the journey?'}},
-  {t:'sel',k:'escalatieplan',l:{nl:'Is er een 24/7 contact- of escalatieplan?',en:'Is there a 24/7 contact or escalation plan?'},opts:[
+   other:{nl:'Anders…',en:'Other…',es:'Other…'}},
+  {t:'tx',k:'eerste_intake',l:{nl:'Wie doet de eerste commerciële intake?',en:'Who handles the first commercial intake?',es:'¿Quién maneja la primera admisión comercial?'}},
+  {t:'ta',k:'patientreis',l:{nl:'Beschrijf kort de gewenste patiëntreis',en:'Briefly describe the desired patient journey',es:'Describa brevemente el viaje del paciente deseado'},ph:{nl:'Bijvoorbeeld: lead → intake → medische beoordeling → kliniekvoorstel → betaling → reis → behandeling → nazorg',en:'For example: lead → intake → medical assessment → clinic proposal → payment → travel → treatment → aftercare',es:'Por ejemplo: cliente potencial → admisión → evaluación médica → propuesta de clínica → pago → viaje → tratamiento → cuidado posterior'}},
+  {t:'tx',k:'communicatie_eigenaar',l:{nl:'Wie is eigenaar van communicatie vóór, tijdens en na de reis?',en:'Who owns communication before, during and after the journey?',es:'¿Quién es dueño de la comunicación antes, durante y después del viaje?'}},
+  {t:'sel',k:'escalatieplan',l:{nl:'Is er een 24/7 contact- of escalatieplan?',en:'Is there a 24/7 contact or escalation plan?',es:'¿Hay un plan de contacto o escalada 24/7?'},opts:[
     {v:'Ja',nl:'Ja',en:'Yes'},{v:'Gedeeltelijk',nl:'Gedeeltelijk',en:'Partially'},{v:'Nee',nl:'Nee',en:'No'}]},
-  {t:'cg',k:'procesrisicos',l:{nl:'Welke drie procesrisico\u2019s verwacht u het meest?',en:'Which three process risks do you expect most?'},opts:[
+  {t:'cg',k:'procesrisicos',l:{nl:'Welke drie procesrisico\u2019s verwacht u het meest?',en:'Which three process risks do you expect most?',es:'¿Cuáles son los tres riesgos de proceso que espera más?'},opts:[
     {v:'Vertraging',nl:'Vertraging',en:'Delay'},{v:'Annulering',nl:'Annulering',en:'Cancellation'},
     {v:'Complicatie',nl:'Complicatie',en:'Complication'},{v:'Taalbarrière',nl:'Taalbarrière',en:'Language barrier'},
     {v:'Betalingsprobleem',nl:'Betalingsprobleem',en:'Payment issue'},
@@ -368,18 +368,18 @@ const DEF=[
     {v:'Ontbrekende documentatie',nl:'Ontbrekende documentatie',en:'Missing documentation'},
     {v:'Reisproblemen',nl:'Reisproblemen',en:'Travel problems'},
     {v:'Klacht',nl:'Klacht',en:'Complaint'}],
-   other:{nl:'Anders…',en:'Other…'}}
+   other:{nl:'Anders…',en:'Other…',es:'Other…'}}
 ]},
 { // 6 Juridisch, Privacy & Veiligheid
- title:{nl:'Juridisch, Privacy & Veiligheid',en:'Legal, Privacy & Safety'},
- intro:{nl:'Deze onderwerpen bepalen de aansprakelijkheid en het vertrouwen van patiënten. Antwoord naar beste weten; ontbrekende zaken zijn juist waardevolle informatie.',en:'These topics determine liability and patient trust. Answer to the best of your knowledge; gaps are valuable information in themselves.'},
+ title:{nl:'Juridisch, Privacy & Veiligheid',en:'Legal, Privacy & Safety',es:'Legal, Privacidad y Seguridad'},
+ intro:{nl:'Deze onderwerpen bepalen de aansprakelijkheid en het vertrouwen van patiënten. Antwoord naar beste weten; ontbrekende zaken zijn juist waardevolle informatie.',en:'These topics determine liability and patient trust. Answer to the best of your knowledge; gaps are valuable information in themselves.',es:'Estos temas determinan la responsabilidad y la confianza del paciente. Responda lo mejor que pueda; las brechas son información valiosa en sí mismas.'},
  fields:[
-  {t:'tx',k:'juridische_entiteit',l:{nl:'In welke juridische entiteit en vanuit welk land wordt de dienstverlening uitgevoerd?',en:'Through which legal entity and from which country will the service operate?'}},
-  {t:'sel',k:'juridisch_advies',l:{nl:'Is juridisch advies beschikbaar?',en:'Is legal advice available?'},opts:[
+  {t:'tx',k:'juridische_entiteit',l:{nl:'In welke juridische entiteit en vanuit welk land wordt de dienstverlening uitgevoerd?',en:'Through which legal entity and from which country will the service operate?',es:'¿A través de qué entidad legal y desde qué país operará el servicio?'}},
+  {t:'sel',k:'juridisch_advies',l:{nl:'Is juridisch advies beschikbaar?',en:'Is legal advice available?',es:'¿Hay asesoramiento legal disponible?'},opts:[
     {v:'Ja, via vast juridisch kantoor of jurist',nl:'Ja, via vast juridisch kantoor of jurist',en:'Yes, via a regular law firm or lawyer'},
     {v:'Incidenteel',nl:'Incidenteel',en:'Occasionally'},
     {v:'Nog niet',nl:'Nog niet',en:'Not yet'}]},
-  {t:'cg',k:'documenten_aanwezig',l:{nl:'Welke documenten zijn al aanwezig?',en:'Which documents are already in place?'},opts:[
+  {t:'cg',k:'documenten_aanwezig',l:{nl:'Welke documenten zijn al aanwezig?',en:'Which documents are already in place?',es:'¿Qué documentos ya están en su lugar?'},opts:[
     {v:'Algemene voorwaarden',nl:'Algemene voorwaarden',en:'General terms and conditions'},
     {v:'Privacyverklaring',nl:'Privacyverklaring',en:'Privacy statement'},
     {v:'Partnerovereenkomst',nl:'Partnerovereenkomst',en:'Partner agreement'},
@@ -389,29 +389,29 @@ const DEF=[
     {v:'Crisis- of escalatieprotocol',nl:'Crisis- of escalatieprotocol',en:'Crisis or escalation protocol'},
     {v:'Verwerkersovereenkomst of privacyprocedure',nl:'Verwerkersovereenkomst of privacyprocedure',en:'Data processing agreement or privacy procedure'},
     {v:'Nog geen documenten',nl:'Nog geen documenten',en:'No documents yet'}]},
-  {t:'sel',k:'medische_documenten_aanlevering',l:{nl:'Hoe worden medische documenten later veilig aangeleverd?',en:'How will medical documents be supplied securely later on?'},opts:[
+  {t:'sel',k:'medische_documenten_aanlevering',l:{nl:'Hoe worden medische documenten later veilig aangeleverd?',en:'How will medical documents be supplied securely later on?',es:'¿Cómo se suministrarán los documentos médicos de forma segura más adelante?'},opts:[
     {v:'Beveiligd patiëntenportaal',nl:'Beveiligd patiëntenportaal',en:'Secure patient portal'},
     {v:'Beveiligde cloudomgeving',nl:'Beveiligde cloudomgeving',en:'Secure cloud environment'},
     {v:'Versleutelde e-mail',nl:'Versleutelde e-mail',en:'Encrypted email'},
     {v:'WhatsApp',nl:'WhatsApp',en:'WhatsApp'},
     {v:'Nog te bepalen',nl:'Nog te bepalen',en:'To be determined'}]},
-  {t:'tx',k:'toegang_medische_gegevens',l:{nl:'Wie mag toegang hebben tot medische patiëntgegevens?',en:'Who may have access to medical patient data?'}},
-  {t:'sel',k:'verantwoordelijkheid_duidelijk',l:{nl:'Is duidelijk wie verantwoordelijk is bij complicaties, annuleringen of klachten?',en:'Is it clear who is responsible in case of complications, cancellations or complaints?'},opts:[
+  {t:'tx',k:'toegang_medische_gegevens',l:{nl:'Wie mag toegang hebben tot medische patiëntgegevens?',en:'Who may have access to medical patient data?',es:'¿Quién puede tener acceso a los datos médicos del paciente?'}},
+  {t:'sel',k:'verantwoordelijkheid_duidelijk',l:{nl:'Is duidelijk wie verantwoordelijk is bij complicaties, annuleringen of klachten?',en:'Is it clear who is responsible in case of complications, cancellations or complaints?',es:'¿Está claro quién es responsable en caso de complicaciones, cancelaciones o quejas?'},opts:[
     {v:'Ja',nl:'Ja',en:'Yes'},{v:'Gedeeltelijk',nl:'Gedeeltelijk',en:'Partially'},{v:'Nee',nl:'Nee',en:'No'}]},
-  {t:'ta',k:'compliance_risicos',l:{nl:'Welke compliance-, veiligheids- of aansprakelijkheidsrisico\u2019s ziet u zelf?',en:'Which compliance, safety or liability risks do you see yourself?'}}
+  {t:'ta',k:'compliance_risicos',l:{nl:'Welke compliance-, veiligheids- of aansprakelijkheidsrisico\u2019s ziet u zelf?',en:'Which compliance, safety or liability risks do you see yourself?',es:'¿Qué riesgos de cumplimiento, seguridad o responsabilidad ve usted mismo?'}}
 ]},
 { // 7 Digitale Basis & Automatisering
- title:{nl:'Digitale Basis & Automatisering',en:'Digital Foundation & Automation'},
- intro:{nl:'Wat staat er al, en wat mag nooit zonder menselijke controle gebeuren?',en:'What is already in place, and what should never happen without human oversight?'},
+ title:{nl:'Digitale Basis & Automatisering',en:'Digital Foundation & Automation',es:'Base Digital y Automatización'},
+ intro:{nl:'Wat staat er al, en wat mag nooit zonder menselijke controle gebeuren?',en:'What is already in place, and what should never happen without human oversight?',es:'¿Qué ya está en su lugar, y qué nunca debería suceder sin supervisión humana?'},
  fields:[
-  {t:'sel',k:'website',l:{nl:'Website aanwezig?',en:'Website in place?'},opts:[
+  {t:'sel',k:'website',l:{nl:'Website aanwezig?',en:'Website in place?',es:'¿Sitio web en su lugar?'},opts:[
     {v:'Ja',nl:'Ja',en:'Yes'},{v:'Nee',nl:'Nee',en:'No'},{v:'In ontwikkeling',nl:'In ontwikkeling',en:'In development'}]},
-  {t:'sel',k:'crm',l:{nl:'CRM aanwezig?',en:'CRM in place?'},opts:[
+  {t:'sel',k:'crm',l:{nl:'CRM aanwezig?',en:'CRM in place?',es:'¿CRM en su lugar?'},opts:[
     {v:'Ja',nl:'Ja',en:'Yes'},{v:'Nee',nl:'Nee',en:'No'},{v:'Nog te kiezen',nl:'Nog te kiezen',en:'Still to choose'}]},
-  {t:'yn',k:'whatsapp',l:{nl:'WhatsApp Business aanwezig?',en:'WhatsApp Business in place?'}},
-  {t:'sel',k:'betalingen',l:{nl:'Online betalingen mogelijk?',en:'Online payments possible?'},opts:[
+  {t:'yn',k:'whatsapp',l:{nl:'WhatsApp Business aanwezig?',en:'WhatsApp Business in place?',es:'¿WhatsApp Business en su lugar?'}},
+  {t:'sel',k:'betalingen',l:{nl:'Online betalingen mogelijk?',en:'Online payments possible?',es:'¿Pagos en línea posibles?'},opts:[
     {v:'Ja',nl:'Ja',en:'Yes'},{v:'Nee',nl:'Nee',en:'No'},{v:'Nog te kiezen',nl:'Nog te kiezen',en:'Still to choose'}]},
-  {t:'cg',k:'automatiseringen_prioriteit',l:{nl:'Welke automatiseringen hebben eerste prioriteit?',en:'Which automations have first priority?'},opts:[
+  {t:'cg',k:'automatiseringen_prioriteit',l:{nl:'Welke automatiseringen hebben eerste prioriteit?',en:'Which automations have first priority?',es:'¿Qué automatizaciones tienen primera prioridad?'},opts:[
     {v:'Leadregistratie',nl:'Leadregistratie',en:'Lead registration'},
     {v:'CRM-opvolging',nl:'CRM-opvolging',en:'CRM follow-up'},
     {v:'WhatsApp opvolging',nl:'WhatsApp opvolging',en:'WhatsApp follow-up'},
@@ -423,7 +423,7 @@ const DEF=[
     {v:'Nazorgcheck-ins',nl:'Nazorgcheck-ins',en:'Aftercare check-ins'},
     {v:'KPI-dashboard',nl:'KPI-dashboard',en:'KPI dashboard'},
     {v:'Managementrapportage',nl:'Managementrapportage',en:'Management reporting'}]},
-  {t:'cg',k:'nooit_ai',l:{nl:'Welke handelingen mogen nooit volledig door AI of automatisering worden uitgevoerd?',en:'Which actions should never be performed fully by AI or automation?'},opts:[
+  {t:'cg',k:'nooit_ai',l:{nl:'Welke handelingen mogen nooit volledig door AI of automatisering worden uitgevoerd?',en:'Which actions should never be performed fully by AI or automation?',es:'Which actions should never be performed fully by AI or automation?'},opts:[
     {v:'Medische beoordeling',nl:'Medische beoordeling',en:'Medical assessment'},
     {v:'Diagnose of behandeladvies',nl:'Diagnose of behandeladvies',en:'Diagnosis or treatment advice'},
     {v:'Definitieve kliniekselectie',nl:'Definitieve kliniekselectie',en:'Final clinic selection'},
@@ -431,73 +431,73 @@ const DEF=[
     {v:'Versturen van medische gegevens zonder menselijke controle',nl:'Versturen van medische gegevens zonder menselijke controle',en:'Sending medical data without human review'},
     {v:'Refund- of claimbesluit',nl:'Refund- of claimbesluit',en:'Refund or claim decision'},
     {v:'Definitieve prijsafwijking bij complexe cases',nl:'Definitieve prijsafwijking bij complexe cases',en:'Final price deviation in complex cases'}],
-   other:{nl:'Anders…',en:'Other…'}},
-  {t:'sel',k:'ai_comfort',l:{nl:'Huidig comfortniveau met AI en automatisering',en:'Current comfort level with AI and automation'},opts:[
+   other:{nl:'Anders…',en:'Other…',es:'Other…'}},
+  {t:'sel',k:'ai_comfort',l:{nl:'Huidig comfortniveau met AI en automatisering',en:'Current comfort level with AI and automation',es:'Current comfort level with AI and automation'},opts:[
     {v:'Geen ervaring',nl:'Geen ervaring',en:'No experience'},{v:'Basis',nl:'Basis',en:'Basic'},
     {v:'Gemiddeld',nl:'Gemiddeld',en:'Average'},{v:'Sterk',nl:'Sterk',en:'Strong'}]},
-  {t:'tx',k:'huidige_systemen',l:{nl:'Welke systemen worden nu al gebruikt?',en:'Which systems are already in use?'}}
+  {t:'tx',k:'huidige_systemen',l:{nl:'Welke systemen worden nu al gebruikt?',en:'Which systems are already in use?',es:'Which systems are already in use?'}}
 ]},
 { // 8 Budget, Planning & Prioriteiten
- title:{nl:'Budget, Planning & Prioriteiten',en:'Budget, Planning & Priorities'},
- intro:{nl:'Beoordeel in de matrix per onderdeel de impact en de verwachte moeite (1 = laag, 5 = hoog).',en:'In the matrix, rate each item on impact and expected effort (1 = low, 5 = high).'},
+ title:{nl:'Budget, Planning & Prioriteiten',en:'Budget, Planning & Priorities',es:'Budget, Planning & Priorities'},
+ intro:{nl:'Beoordeel in de matrix per onderdeel de impact en de verwachte moeite (1 = laag, 5 = hoog).',en:'In the matrix, rate each item on impact and expected effort (1 = low, 5 = high).',es:'In the matrix, rate each item on impact and expected effort (1 = low, 5 = high).'},
  fields:[
-  {t:'sel',k:'budget',l:{nl:'Beschikbaar budget voor de eerste 12 maanden',en:'Available budget for the first 12 months'},opts:[
+  {t:'sel',k:'budget',l:{nl:'Beschikbaar budget voor de eerste 12 maanden',en:'Available budget for the first 12 months',es:'Available budget for the first 12 months'},opts:[
     {v:'Onder €10.000',nl:'Onder €10.000',en:'Under €10,000'},
     {v:'€10.000 tot €25.000',nl:'€10.000 tot €25.000',en:'€10,000 to €25,000'},
     {v:'€25.000 tot €50.000',nl:'€25.000 tot €50.000',en:'€25,000 to €50,000'},
     {v:'€50.000 tot €100.000',nl:'€50.000 tot €100.000',en:'€50,000 to €100,000'},
     {v:'Boven €100.000',nl:'Boven €100.000',en:'Above €100,000'},
     {v:'Nog onbekend',nl:'Nog onbekend',en:'Unknown yet'}]},
-  {t:'sel',k:'team_tijd',l:{nl:'Hoeveel tijd kan het kernteam per week vrijmaken?',en:'How much time can the core team free up per week?'},opts:[
+  {t:'sel',k:'team_tijd',l:{nl:'Hoeveel tijd kan het kernteam per week vrijmaken?',en:'How much time can the core team free up per week?',es:'¿Cuánto tiempo puede liberar el equipo principal por semana?'},opts:[
     {v:'Minder dan 5 uur',nl:'Minder dan 5 uur',en:'Less than 5 hours'},
     {v:'5 tot 10 uur',nl:'5 tot 10 uur',en:'5 to 10 hours'},
     {v:'10 tot 20 uur',nl:'10 tot 20 uur',en:'10 to 20 hours'},
     {v:'Meer dan 20 uur',nl:'Meer dan 20 uur',en:'More than 20 hours'}]},
-  {t:'ta',k:'doelen_90dagen',l:{nl:'Wat moet binnen 90 dagen gerealiseerd zijn?',en:'What must be realized within 90 days?'}},
+  {t:'ta',k:'doelen_90dagen',l:{nl:'Wat moet binnen 90 dagen gerealiseerd zijn?',en:'What must be realized within 90 days?',es:'¿Qué debe realizarse en 90 días?'}},
   {t:'matrix'}
 ]},
 { // 9 Afronding
- title:{nl:'Afronding',en:'Completion'},
- intro:{nl:'',en:''},
+ title:{nl:'Afronding',en:'Completion',es:'Finalización'},
+ intro:{nl:'',en:'',es:''},
  fields:[
-  {t:'ta',k:'verwachting_lbr',l:{nl:'Wat verwacht u concreet van Linkd by Royal?',en:'What do you concretely expect from Linkd by Royal?'}},
-  {t:'ta',k:'zorgen',l:{nl:'Wat zijn de grootste zorgen, blokkades of risico\u2019s?',en:'What are the biggest concerns, blockers or risks?'}},
-  {t:'sel',k:'risicobereidheid',l:{nl:'Risicobereidheid',en:'Risk appetite'},opts:[
+  {t:'ta',k:'verwachting_lbr',l:{nl:'Wat verwacht u concreet van Linkd by Royal?',en:'What do you concretely expect from Linkd by Royal?',es:'¿Qué espera concretamente de Linkd by Royal?'}},
+  {t:'ta',k:'zorgen',l:{nl:'Wat zijn de grootste zorgen, blokkades of risico\u2019s?',en:'What are the biggest concerns, blockers or risks?',es:'¿Cuáles son las mayores preocupaciones, bloqueadores o riesgos?'}},
+  {t:'sel',k:'risicobereidheid',l:{nl:'Risicobereidheid',en:'Risk appetite',es:'Apetito de riesgo'},opts:[
     {v:'Voorzichtig: eerst bewijzen, daarna opschalen',nl:'Voorzichtig: eerst bewijzen, daarna opschalen',en:'Cautious: prove first, then scale'},
     {v:'Gebalanceerd',nl:'Gebalanceerd',en:'Balanced'},
     {v:'Ambitieus: bereid om vooraf te investeren',nl:'Ambitieus: bereid om vooraf te investeren',en:'Ambitious: willing to invest upfront'}]},
-  {t:'tx',k:'contact_naam',l:{nl:'Naam contactpersoon',en:'Contact person name'}},
-  {t:'tx',k:'contact_email',type:'email',l:{nl:'E-mailadres contactpersoon',en:'Contact person email address'}}
+  {t:'tx',k:'contact_naam',l:{nl:'Naam contactpersoon',en:'Contact person name',es:'Nombre de la persona de contacto'}},
+  {t:'tx',k:'contact_email',type:'email',l:{nl:'E-mailadres contactpersoon',en:'Contact person email address',es:'Dirección de correo electrónico de la persona de contacto'}}
 ]}
 ];
 
 const PRIORITY_ITEMS=[
-  ['prio_partnerverificatie',{nl:'Kliniek- en partnerverificatie',en:'Clinic and partner verification'}],
-  ['prio_juridisch',{nl:'Juridische structuur en voorwaarden',en:'Legal structure and terms'}],
-  ['prio_privacy',{nl:'Privacy en veilige documentverwerking',en:'Privacy and secure document handling'}],
-  ['prio_patientreis',{nl:'Patiëntreis en crisisprotocol',en:'Patient journey and crisis protocol'}],
-  ['prio_website',{nl:'Website en lead intake',en:'Website and lead intake'}],
-  ['prio_crm',{nl:'CRM en WhatsApp opvolging',en:'CRM and WhatsApp follow-up'}],
-  ['prio_marketing',{nl:'Marketing en leadgeneratie',en:'Marketing and lead generation'}],
-  ['prio_ai_dashboard',{nl:'AI en rapportagedashboard',en:'AI and reporting dashboard'}]
+  ['prio_partnerverificatie',{nl:'Kliniek- en partnerverificatie',en:'Clinic and partner verification',es:'Verificación de clínica y socio'}],
+  ['prio_juridisch',{nl:'Juridische structuur en voorwaarden',en:'Legal structure and terms',es:'Estructura legal y términos'}],
+  ['prio_privacy',{nl:'Privacy en veilige documentverwerking',en:'Privacy and secure document handling',es:'Privacidad y manejo seguro de documentos'}],
+  ['prio_patientreis',{nl:'Patiëntreis en crisisprotocol',en:'Patient journey and crisis protocol',es:'Viaje del paciente y protocolo de crisis'}],
+  ['prio_website',{nl:'Website en lead intake',en:'Website and lead intake',es:'Sitio web y admisión de clientes potenciales'}],
+  ['prio_crm',{nl:'CRM en WhatsApp opvolging',en:'CRM and WhatsApp follow-up',es:'Seguimiento de CRM y WhatsApp'}],
+  ['prio_marketing',{nl:'Marketing en leadgeneratie',en:'Marketing and lead generation',es:'Marketing y generación de clientes potenciales'}],
+  ['prio_ai_dashboard',{nl:'AI en rapportagedashboard',en:'AI and reporting dashboard',es:'Panel de IA e informes'}]
 ];
 
 const COVER={
-  eyebrow:{nl:'Strategische intake voor initiatiefnemers en besluitvormers',en:'Strategic intake for founders and decision-makers'},
-  h1:{nl:'Medical Tourism Venture Discovery Intake',en:'Medical Tourism Venture Discovery Intake'},
-  p:{nl:'Deze intake vormt de basis voor een haalbaar, veilig en schaalbaar medisch-toerismeconcept vanuit Curaçao.',en:'This intake forms the foundation for a feasible, safe and scalable medical tourism concept from Curaçao.'},
-  m1:{nl:'secties',en:'sections'}, m2:{nl:'minuten',en:'minutes'},
-  privacy:{nl:'<b>Belangrijk:</b> deel via deze strategische intake geen patiëntgegevens, medische documenten, diagnoses, paspoortkopieën of identiteitsdocumenten. Voor medische dossiers wordt later een aparte beveiligde procedure ingericht.',en:'<b>Important:</b> do not share patient data, medical documents, diagnoses, passport copies or identity documents through this strategic intake. A separate secure process will be established for medical records later.'},
-  note:{nl:'Uw antwoorden worden lokaal opgeslagen totdat ze worden verstuurd. U kunt dit venster sluiten en later verdergaan.',en:'Your answers are stored locally until submitted. You can close this window and continue later.'}
+  eyebrow:{nl:'Strategische intake voor initiatiefnemers en besluitvormers',en:'Strategic intake for founders and decision-makers',es:'Admisión estratégica para fundadores y tomadores de decisiones'},
+  h1:{nl:'Medical Tourism Venture Discovery Intake',en:'Medical Tourism Venture Discovery Intake',es:'Medical Tourism Venture Discovery Intake'},
+  p:{nl:'Deze intake vormt de basis voor een haalbaar, veilig en schaalbaar medisch-toerismeconcept vanuit Curaçao.',en:'This intake forms the foundation for a feasible, safe and scalable medical tourism concept from Curaçao.',es:'Esta admisión forma la base para un concepto de turismo médico viable, seguro y escalable desde Curaçao.'},
+  m1:{nl:'secties',en:'sections',es:'secciones'}, m2:{nl:'minuten',en:'minutes',es:'minutos'},
+  privacy:{nl:'<b>Belangrijk:</b> deel via deze strategische intake geen patiëntgegevens, medische documenten, diagnoses, paspoortkopieën of identiteitsdocumenten. Voor medische dossiers wordt later een aparte beveiligde procedure ingericht.',en:'<b>Important:</b> do not share patient data, medical documents, diagnoses, passport copies or identity documents through this strategic intake. A separate secure process will be established for medical records later.',es:'<b>Importante:</b> no comparta datos de pacientes, documentos médicos, diagnósticos, copias de pasaportes o documentos de identidad a través de esta admisión estratégica. Se establecerá un proceso seguro separado para registros médicos más adelante.'},
+  note:{nl:'Uw antwoorden worden lokaal opgeslagen totdat ze worden verstuurd. U kunt dit venster sluiten en later verdergaan.',en:'Your answers are stored locally until submitted. You can close this window and continue later.',es:'Sus respuestas se almacenan localmente hasta que se envíen. Puede cerrar esta ventana y continuar más tarde.'}
 };
 const FINISH={
-  eyebrow:{nl:'Laatste stap',en:'Final step'},
-  h2:{nl:'Klaar om te versturen',en:'Ready to submit'},
-  p:{nl:'Controleer of u niets vergeten bent; via de balk bovenin kunt u terug naar elke sectie. Met de knop hieronder verstuurt u uw intake veilig naar Linkd by Royal.',en:'Please check that you have not missed anything; use the bar at the top to return to any section. The button below securely submits your intake to Linkd by Royal.'}
+  eyebrow:{nl:'Laatste stap',en:'Final step',es:'Paso final'},
+  h2:{nl:'Klaar om te versturen',en:'Ready to submit',es:'Listo para enviar'},
+  p:{nl:'Controleer of u niets vergeten bent; via de balk bovenin kunt u terug naar elke sectie. Met de knop hieronder verstuurt u uw intake veilig naar Linkd by Royal.',en:'Please check that you have not missed anything; use the bar at the top to return to any section. The button below securely submits your intake to Linkd by Royal.',es:'Por favor, verifique que no haya perdido nada; use la barra en la parte superior para volver a cualquier sección. El botón a continuación envía de forma segura su admisión a Linkd by Royal.'}
 };
 const THANKS={
-  h1:{nl:'Hartelijk dank!',en:'Thank you!'},
-  p:{nl:'Uw intake is succesvol verzonden naar Linkd by Royal. We nemen uw antwoorden zorgvuldig door en bereiden een strategische analyse voor. U hoort binnen twee werkdagen van ons om het strategiegesprek in te plannen. Tot snel!',en:'Your intake has been successfully submitted to Linkd by Royal. We will carefully review your answers and prepare a strategic analysis. We will contact you within two business days to schedule the strategy session. Speak soon!'}
+  h1:{nl:'Hartelijk dank!',en:'Thank you!',es:'¡Gracias!'},
+  p:{nl:'Uw intake is succesvol verzonden naar Linkd by Royal. We nemen uw antwoorden zorgvuldig door en bereiden een strategische analyse voor. U hoort binnen twee werkdagen van ons om het strategiegesprek in te plannen. Tot snel!',en:'Your intake has been successfully submitted to Linkd by Royal. We will carefully review your answers and prepare a strategic analysis. We will contact you within two business days to schedule the strategy session. Speak soon!',es:'Su admisión ha sido enviada exitosamente a Linkd by Royal. Revisaremos cuidadosamente sus respuestas y prepararemos un análisis estratégico. Nos comunicaremos con usted dentro de dos días hábiles para programar la sesión de estrategia. ¡Hasta pronto!'}
 };
 
 /* =================== RENDER =================== */
