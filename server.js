@@ -2,7 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
-const axios = require('axios');
+const nodemailer = require('nodemailer');
 require('dotenv').config();
 
 const app = express();
@@ -13,10 +13,25 @@ app.use(express.static(path.join(__dirname, 'public')));
 const DATA_DIR = path.join(__dirname, 'data');
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
-const SPREADSHEET_ID = "1hH-y8DyjrhJq1_4eJ2liXca8oGErk-AZ9KwnY7D1mn4";
+const OWNER_EMAIL = process.env.OWNER_EMAIL || 'd.haddocks@gmail.com';
+const ADMIN_TOKEN = process.env.ADMIN_TOKEN || 'Quinlan2412-';
+
+// Email setup
+let transporter = null;
+if (process.env.SMTP_HOST) {
+  transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: process.env.SMTP_PORT || 587,
+    secure: false,
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS
+    }
+  });
+}
 
 const checkToken = (req, res) => {
-  if (!process.env.ADMIN_TOKEN || (req.query.token !== process.env.ADMIN_TOKEN)) {
+  if (!ADMIN_TOKEN || (req.query.token !== ADMIN_TOKEN)) {
     res.status(401).send('Ongeldig of ontbrekend token'); return false;
   }
   return true;
@@ -277,39 +292,51 @@ app.post('/api/submit', async (req, res) => {
       String(answers.bedrijfsnaam || 'onbekend').toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 40);
     
     const record = { id, receivedAt: new Date().toISOString(), lang: lang || 'nl', answers };
-    
-    // 1. Save to local data directory
     fs.writeFileSync(path.join(DATA_DIR, id + '.json'), JSON.stringify(record, null, 2));
-    
-    // 2. Save to Google Sheets (async)
-    (async () => {
-      try {
-        const row = [
-          new Date(record.receivedAt).toLocaleString('nl-NL'),
-          answers.bedrijfsnaam || '-',
-          answers.contact_naam || '-',
-          answers.contact_email || '-',
-          answers.doelgroep_markt || '-',
-          answers.budget_patient || '-',
-          lang || 'nl',
-          answers.stadium || '-',
-          answers.services_fase1 || '-',
-          answers.team_availability || '-',
-          answers.budget_12m || '-',
-          answers.verwachtingen_linkd || '-',
-          answers.concerns || '-',
-          id
-        ];
-        
-        // Use Google Sheets API via public append endpoint
-        // Note: This requires proper authentication setup
-        console.log('Data ready for Google Sheets:', row);
-      } catch (e) {
-        console.error('Google Sheets save error:', e.message);
-      }
-    })();
 
     res.json({ ok: true, id });
+
+    // Send email notification
+    (async () => {
+      try {
+        if (transporter) {
+          const dashboardLink = `https://linkdform.up.railway.app/admin?token=${ADMIN_TOKEN}`;
+          const pdfLink = `https://linkdform.up.railway.app/pdf/${id}?token=${ADMIN_TOKEN}`;
+          
+          const emailBody = `
+Hallo,
+
+Een nieuw intake-formulier is ingediend!
+
+📋 Bedrijf: ${answers.bedrijfsnaam || 'Onbekend'}
+👤 Contact: ${answers.contact_naam || '-'}
+📧 E-mail: ${answers.contact_email || '-'}
+🌍 Markt: ${answers.doelgroep_markt || '-'}
+💰 Budget: ${answers.budget_12m || '-'}
+
+🔗 Links:
+- Dashboard: ${dashboardLink}
+- PDF Rapport: ${pdfLink}
+
+Vriendelijke groeten,
+Linkd by Royal Form System
+          `;
+          
+          await transporter.sendMail({
+            from: process.env.MAIL_FROM || OWNER_EMAIL,
+            to: OWNER_EMAIL,
+            subject: `🎯 Nieuwe Intake: ${answers.bedrijfsnaam || 'Onbekend'}`,
+            text: emailBody
+          });
+          
+          console.log('Email sent to:', OWNER_EMAIL);
+        } else {
+          console.log('Email not configured. To enable, set SMTP_HOST, SMTP_USER, SMTP_PASS in environment');
+        }
+      } catch (e) {
+        console.error('Email send error:', e.message);
+      }
+    })();
   } catch (err) {
     console.error('Submit error:', err.message);
     res.status(500).json({ error: 'Opslaan mislukt' });
@@ -348,13 +375,9 @@ app.get('/admin', (req, res) => {
     td{padding:12px 14px;border-top:1px solid #e4ddce;font-size:14px;}
     .btn{background:linear-gradient(135deg,#0f2340 0%,#1a3a52 100%);color:#d4af37;text-decoration:none;font-weight:700;font-size:12.5px;padding:8px 14px;border-radius:8px;display:inline-block;border:1px solid #d4af37;}
     .empty{padding:40px;text-align:center;color:#6b7480;background:#fff;border:1px solid #e4ddce;border-radius:12px;}
-    .info{background:#e8f4f8;border-left:4px solid #0f2340;padding:15px;margin-bottom:20px;border-radius:4px;font-size:13px;color:#0f2340;}
   </style></head><body>
   <header><h1>Linkd <span>by Royal</span> — Intake Dashboard</h1></header>
   <main>
-    <div class="info">
-      📊 <strong>Google Sheet:</strong> <a href="https://docs.google.com/spreadsheets/d/1hH-y8DyjrhJq1_4eJ2liXca8oGErk-AZ9KwnY7D1mn4/" target="_blank">Bekijk alle inzendingen</a>
-    </div>
     ${files.length ? `<table><tr><th>Ontvangen</th><th>Bedrijf</th><th>Contactpersoon</th><th>E-mail</th><th></th></tr>${rows}</table>` : `<div class="empty">Nog geen inzendingen ontvangen.</div>`}
   </main></body></html>`);
 });
