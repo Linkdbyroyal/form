@@ -32,7 +32,16 @@ export const ProcessRedesignDraftSchema = z.object({
     risk: z.int().min(1).max(5),
     time_to_value: z.int().min(1).max(5),
     based_on_finding_indexes: z.array(z.int().min(0))
-  })
+  }),
+  reusable_insight: z
+    .object({
+      title: z.string().min(5).max(160),
+      generic_statement: z.string().min(20).max(800).describe("Industry-neutral wording: no names, amounts, contract details or identifiable combinations"),
+      rationale: z.string().min(10).max(600),
+      identifiability_risk: z.enum(["low", "medium", "high"])
+    })
+    .optional()
+    .describe("A Potential Reusable Insight for the agency reviewer. It is only a nomination; publication requires a human rights check.")
 });
 export type ProcessRedesignDraft = z.infer<typeof ProcessRedesignDraftSchema>;
 
@@ -47,6 +56,7 @@ export function buildProcessRedesignPrompt(s: TenantSnapshot): string {
     wrapUntrusted("systems_register", formatList(s.systems, (x) => `${x.name}: ${x.function} [${x.claimStatus}]`)),
     "",
     "Pick the single process with the highest impact among the findings. Describe AS-IS from the answers only (no invented steps), then a TO-BE with fewer hand-offs where every changed step carries an intervention label. Propose ONE opportunity with a business case; every money figure is an estimate and may be omitted. Automation is only proposed after the process is simplified.",
+    "Optionally nominate one reusable_insight: the generic pattern behind the redesign, worded so that no company, person, amount or contract detail can be recognised. It is a nomination for a human reviewer, never a publication.",
     "Produce the JSON object described in your instructions."
   ].join("\n");
 }
@@ -86,6 +96,12 @@ export function processRedesignFixture(s: TenantSnapshot): ProcessRedesignDraft 
       risk: 2,
       time_to_value: 4,
       based_on_finding_indexes: finIdx.slice(0, 2)
+    },
+    reusable_insight: {
+      title: "Closure gate before invoicing",
+      generic_statement: "Companies that invoice from a project or job system benefit from an explicit closure check (returns, extra costs, damages) that triggers invoice preparation, with a human review of exceptions.",
+      rationale: "The pattern depends on no company-specific data; only the systems and the closure definition are parameters.",
+      identifiability_risk: "low"
     }
   };
 }

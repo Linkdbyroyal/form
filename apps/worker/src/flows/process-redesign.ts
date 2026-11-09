@@ -1,4 +1,4 @@
-import { proposeOpportunity, upsertProcess } from "@sbos/core";
+import { AuthorizationError, nominateReusableInsight, proposeOpportunity, upsertProcess } from "@sbos/core";
 import { ProcessRedesignDraftSchema, buildProcessRedesignPrompt, processRedesignFixture, type ProcessRedesignDraft, type TenantSnapshot } from "@sbos/agents";
 import type { BaseCheckpoint, Flow, StepOutcome } from "./types";
 import { writeVaultNote } from "./shared";
@@ -11,6 +11,7 @@ interface Cp extends BaseCheckpoint {
   approvalId?: string;
   asIsId?: string;
   toBeId?: string;
+  promotionRequestId?: string;
 }
 const next = (checkpoint: Cp): StepOutcome<Cp> => ({ kind: "next", checkpoint });
 
@@ -62,9 +63,24 @@ export const processRedesignFlow: Flow<Cp> = {
         return { asIsId, toBeId, opportunityId, approvalId };
       });
       await rt.event("approval_requested", `opportunity proposed for client admin decision: ${draft.opportunity.title.slice(0, 80)}`, { opportunityId: result.opportunityId, approvalId: result.approvalId }, "confidential");
+      // Client -> Agency: nominate a Potential Reusable Insight (spec 4H). Only a nomination row in the
+      // tenant's own scope; a human reviewer in agency scope decides after rights, security and
+      // identifiability checks. Skill versions without the tool skip this step and say so.
+      let promotionRequestId: string | undefined;
+      if (draft.reusable_insight) {
+        try {
+          rt.gateway.authorize("knowledge.nominate");
+          const insight = draft.reusable_insight;
+          promotionRequestId = await rt.tx((tx) => nominateReusableInsight(tx, rt.ctx, { tenantId: rt.tenant.id, title: insight.title, proposedGenericStatement: insight.generic_statement, rationale: insight.rationale, identifiabilityRisk: insight.identifiability_risk, classification: "internal", confidentiality: "confidential", consentStatus: "pending", sourceRefs: { opportunity_count: 1, finding_count: findingIds.length }, runId: rt.run.id }));
+          await rt.event("note", `reusable insight nominated for agency review (promotion request ${promotionRequestId.slice(0, 8)}); publication requires a reviewer`, { promotionRequestId }, "internal");
+        } catch (err) {
+          if (err instanceof AuthorizationError) await rt.event("note", "reusable insight not nominated: tool knowledge.nominate is not allowed by the pinned skill version", {}, "internal");
+          else throw err;
+        }
+      }
       await writeVaultNote(rt, { path: `04_processes_as_is/${draft.process_key}.md`, title: `${draft.process_name} (AS-IS)`, frontmatter: { process_key: draft.process_key, variant: "as_is", department: draft.department, verification: "unconfirmed" }, body: `# ${draft.process_name} (AS-IS)\n\nReconstructed from answers only; every step is a client statement until evidence is attached.\n\n${stepsMarkdown(draft.as_is_steps)}`, changeNote: "process redesign agent" });
       await writeVaultNote(rt, { path: `05_processes_to_be/${draft.process_key}.md`, title: `${draft.process_name} (TO-BE)`, frontmatter: { process_key: draft.process_key, variant: "to_be", department: draft.department, opportunity_id: result.opportunityId, verification: "hypothesis" }, body: `# ${draft.process_name} (TO-BE)\n\nProposal awaiting approval. Intervention labels per step.\n\n${stepsMarkdown(draft.to_be_steps)}\n\n## Opportunity\n\n**${draft.opportunity.title}** (${draft.opportunity.intervention}, effort ${draft.opportunity.effort})\n\n${draft.opportunity.description}\n\n- Dependencies: ${draft.opportunity.dependencies.join("; ") || "none listed"}\n- Risks: ${draft.opportunity.risks.join("; ") || "none listed"}\n- Estimated saving: ${draft.opportunity.estimated_saving_eur_per_year !== undefined ? `EUR ${draft.opportunity.estimated_saving_eur_per_year} per year (estimate)` : "not estimated"}`, changeNote: "process redesign agent" });
-      return next({ ...cp, step: "done", ...result });
+      return next({ ...cp, step: "done", ...result, ...(promotionRequestId ? { promotionRequestId } : {}) });
     }
   },
   finalize: async (_rt, cp) => ({ summary: cp.draft?.summary ?? "No open findings to redesign", outputs: cp.opportunityId ? [{ contract: "Opportunity", ref_id: cp.opportunityId }] : [] })

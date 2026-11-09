@@ -11,7 +11,7 @@ import { agencyContext, createDb, operatorContext, schema, tenantContext } from 
 import { activateActionTask, answerQuestion, createActionTask, createRun, createTask, currentDashboard, decideApproval, latestObservations, setOpportunityState } from "@sbos/core";
 import { BossJobBackend } from "../boss-backend";
 
-const { tenants, agentInstances, agentRuns, questions, approvals, findings, opportunities, actionTasks, kpis, briefings, memberships, vaultDocuments, runEvents, schedules } = schema;
+const { tenants, agentInstances, agentRuns, questions, approvals, findings, opportunities, actionTasks, kpis, briefings, memberships, vaultDocuments, runEvents, schedules, knowledgePromotionRequests, agencyKnowledgeRecords } = schema;
 const url = process.env.DATABASE_URL;
 if (!url) throw new Error("DATABASE_URL required");
 const handle = createDb({ connectionString: url, max: 4 });
@@ -131,6 +131,13 @@ try {
   const ctxB = tenantContext({ tenantId: tb!.id, actorType: "user", actorId: "ceo-b", roles: ["client_admin"] });
   const leaks = await handle.withContext(ctxB, async (tx) => ({ f: (await tx.select().from(findings)).length, o: (await tx.select().from(opportunities)).length, k: (await tx.select().from(kpis)).length, b: (await tx.select().from(briefings)).length, a: (await tx.select().from(actionTasks)).length }));
   record(9, "Tenant B sees none of tenant A's findings, opportunities, KPIs, briefings or tasks", Object.values(leaks).every((n) => n === 0), JSON.stringify(leaks));
+
+  // Spec 4H: the redesign agent nominated a reusable insight; it waits for a human reviewer and nothing reached the agency vault.
+  const nominations = await handle.withContext(ceoCtx, (tx) => tx.select({ id: knowledgePromotionRequests.id, state: knowledgePromotionRequests.state, risk: knowledgePromotionRequests.identifiabilityRisk }).from(knowledgePromotionRequests));
+  const agencyCtx = agencyContext({ tenantId: null, actorType: "user", actorId: "reviewer", roles: ["agency_reviewer"] });
+  const abstracted = await handle.withContext(agencyCtx, (tx) => tx.select({ id: agencyKnowledgeRecords.id }).from(agencyKnowledgeRecords).where(eq(agencyKnowledgeRecords.origin, "abstracted_from_client")));
+  const leakB = await handle.withContext(ctxB, (tx) => tx.select({ id: knowledgePromotionRequests.id }).from(knowledgePromotionRequests));
+  record(10, "Agent nominated a reusable insight; it is only a nomination (state nominated), no agency record exists, tenant B cannot see it", nominations.length >= 1 && nominations.every((n) => n.state === "nominated") && abstracted.length === 0 && leakB.length === 0, `nominations=${nominations.map((n) => `${n.state}/${n.risk}`).join(",")}, abstracted records=${abstracted.length}, visible to tenant B=${leakB.length}`);
 } catch (err) {
   record(0, "unexpected error", false, (err as Error).message);
 } finally {
