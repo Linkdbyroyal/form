@@ -20,7 +20,7 @@ describe("schedule cron parsing", () => {
 
 describe("pg-boss send options", () => {
   it("never passes undefined option values (pg-boss asserts on them)", () => {
-    const opts = toBossSendOptions("agent.run", { singletonKey: "run:1" }) as Record<string, unknown>;
+    const opts = toBossSendOptions("agent.run", { singletonKey: "run:1" }) as unknown as Record<string, unknown>;
     expect(Object.values(opts).some((v) => v === undefined)).toBe(false);
     expect(opts.singletonKey).toBe("run:1");
     expect(opts.deadLetter).toBe("dead-letter");

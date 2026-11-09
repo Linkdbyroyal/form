@@ -32,6 +32,10 @@ export interface DiscoveryContext {
   departments: Array<{ key: string; name: string; headRole: string | null }>;
   systems: Array<{ name: string; vendor: string | null; function: string; claimStatus: string; apiCapabilities: string[]; sourceOfTruthFor: string[] }>;
   priorQuestions: Array<{ department: string; question_text: string; state: string }>;
+  /** Answers given so far (round 2 onward builds on them). */
+  answers: Array<{ question_text: string; answer_text: string; department: string; answered_by_role: string; fact_id: string | null }>;
+  /** Non-deprecated facts from the Knowledge Vault, read through the tool gateway with retrieval audit. */
+  facts: Array<{ id: string; statement: string; verification: string; subject_key: string | null }>;
   roundNumber: number;
 }
 
@@ -41,6 +45,8 @@ export function buildDiscoveryPrompt(ctx: DiscoveryContext): string {
     .map((s) => `- ${s.name} by ${s.vendor ?? "unknown vendor"}: ${s.function}. claim_status=${s.claimStatus}; capabilities=${s.apiCapabilities.join(",") || "none"}; source of truth for ${s.sourceOfTruthFor.join(", ") || "nothing recorded"}`)
     .join("\n");
   const prior = ctx.priorQuestions.length === 0 ? "(none yet)" : ctx.priorQuestions.map((q) => `- [${q.state}] (${q.department}) ${q.question_text}`).join("\n");
+  const answers = ctx.answers.length === 0 ? "(none yet)" : ctx.answers.map((a) => `- (${a.department}, ${a.answered_by_role}) Q: ${a.question_text} A: ${a.answer_text}`).join("\n");
+  const facts = ctx.facts.length === 0 ? "(none yet)" : ctx.facts.map((f) => `- [${f.verification}] ${f.statement}`).join("\n");
   const roundGuidance =
     ctx.roundNumber === 1
       ? "This is round 1: interview the CEO (client_admin) about business model, revenue mechanics, critical processes, bottlenecks and ownership."
@@ -58,6 +64,12 @@ export function buildDiscoveryPrompt(ctx: DiscoveryContext): string {
     "",
     "Questions already asked (never repeat these):",
     wrapUntrusted("prior_questions", prior),
+    "",
+    "Answers received so far (client statements, unconfirmed unless marked verified in the facts list):",
+    wrapUntrusted("answers", answers),
+    "",
+    "Knowledge Vault facts (with verification status):",
+    wrapUntrusted("facts", facts),
     "",
     "Produce the JSON object described in your instructions. Between 3 and 5 questions unless fewer gaps remain."
   ].join("\n");
@@ -78,6 +90,23 @@ export function discoveryFixture(ctx: DiscoveryContext): DiscoveryDraft {
       answer_type: "text",
       confidence: 0.6
     });
+  }
+  if (ctx.roundNumber >= 2) {
+    for (const a of ctx.answers) {
+      if (questions.length >= 5) break;
+      const text = `You answered "${a.answer_text.slice(0, 80)}" about ${a.department}. Who performs the related manual steps, how many hours per week does it take, and which errors have occurred in the last three months?`;
+      if (asked.has(text)) continue;
+      questions.push({
+        department: a.department,
+        recipient_role: "department_manager",
+        question_text: text,
+        reason: "Quantifies the manual work and error rate behind a stated answer so the finding can be sized.",
+        evidence_gap: `No effort or error data recorded for the ${a.department} answer.`,
+        priority: "high",
+        answer_type: "text",
+        confidence: 0.55
+      });
+    }
   }
   for (const s of ctx.systems) {
     if (questions.length >= 5) break;
@@ -147,4 +176,37 @@ export async function runDiscoveryModelStep(runtime: AgentRuntime, skillMd: stri
     })
   );
   return { draft: result.object, contracts, usage: result.usage, model: result.model, simulated: result.simulated, durationMs: result.durationMs };
+}
+
+
+export interface SystemContradiction {
+  answerFactId: string;
+  systemName: string;
+  snippet: string;
+}
+
+const NEGATIONS = ["not used", "no longer", "isn't used", "is not used", "don't use", "do not use", "stopped using", "retired", "never used", "niet meer", "gebruiken we niet", "no, "];
+
+/**
+ * Deterministic contradiction check: an answer that negates the use of a system the register lists as used.
+ * This is a hypothesis generator, not a verdict: the result becomes a FactVerificationRequest for a reviewer.
+ */
+export function detectSystemContradictions(ctx: Pick<DiscoveryContext, "answers" | "systems">): SystemContradiction[] {
+  const out: SystemContradiction[] = [];
+  for (const a of ctx.answers) {
+    if (!a.fact_id) continue;
+    const text = a.answer_text.toLowerCase();
+    for (const s of ctx.systems) {
+      const name = s.name.toLowerCase();
+      const idx = text.indexOf(name);
+      if (idx < 0) continue;
+      // The negation must sit right before the name ("no, QuickBooks ...") or right after it ("QuickBooks is not used").
+      const before = text.slice(Math.max(0, idx - 30), idx);
+      const after = text.slice(idx + name.length, idx + name.length + 30);
+      if (NEGATIONS.some((n) => before.includes(n) || after.includes(n))) {
+        out.push({ answerFactId: a.fact_id, systemName: s.name, snippet: a.answer_text.slice(Math.max(0, idx - 40), idx + name.length + 40) });
+      }
+    }
+  }
+  return out;
 }

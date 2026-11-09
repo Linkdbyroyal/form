@@ -15,15 +15,18 @@ import {
   saveCheckpoint,
   setTaskState,
   transitionRun,
-  writeVaultDocument,
+  agentWriteDocument,
+  createFact,
+  readFactsForAgent,
+  requestFactVerification,
   type JobBackend
 } from "@sbos/core";
-import { MastraAgentRuntime, SimulatedRuntime, ToolGateway, discoveryFixture, runDiscoveryModelStep, type AgentRuntime, type DiscoveryContext } from "@sbos/agents";
+import { MastraAgentRuntime, SimulatedRuntime, ToolGateway, detectSystemContradictions, discoveryFixture, runDiscoveryModelStep, type AgentRuntime, type DiscoveryContext } from "@sbos/agents";
 import type { WorkerEnv } from "./env";
 import { log } from "./log";
 import { OPERATOR } from "./platform";
 
-const { agentRuns, agentInstances, agentDefinitions, skillVersions, tenants, departments, systems, questions, interviewRounds, approvedActions, approvals, memberships } = schema;
+const { agentRuns, agentInstances, agentDefinitions, skillVersions, tenants, departments, systems, questions, interviewRounds, approvedActions, approvals, memberships, answers, sources } = schema;
 
 type Step = "assemble_context" | "generate" | "persist" | "request_publication" | "publish" | "done";
 
@@ -132,6 +135,13 @@ export async function executeRun(handle: DbHandle, env: WorkerEnv, jobs: JobBack
             const deps = await tx.select({ key: departments.key, name: departments.name, headRole: departments.headRole }).from(departments);
             const sys = await tx.select({ name: systems.name, vendor: systems.vendor, function: systems.function, claimStatus: systems.claimStatus, apiCapabilities: systems.apiCapabilities, sourceOfTruthFor: systems.sourceOfTruthFor }).from(systems);
             const prior = await tx.select({ department: questions.department, question_text: questions.questionText, state: questions.state }).from(questions).where(sql`${questions.state} <> 'superseded'`);
+            gateway.authorize("vault.read");
+            const answerRows = await tx
+              .select({ question_text: questions.questionText, answer_text: answers.answerText, department: questions.department, answered_by_role: answers.answeredByRole, fact_id: answers.factId })
+              .from(answers)
+              .innerJoin(questions, eq(questions.id, answers.questionId))
+              .orderBy(desc(answers.answeredAt));
+            const factRows = await readFactsForAgent(tx, ctx, { tenantId, runId, limit: 100 });
             const [last] = await tx.select({ n: interviewRounds.roundNumber }).from(interviewRounds).orderBy(desc(interviewRounds.roundNumber)).limit(1);
             const roundNumber = (last?.n ?? 0) + 1;
             const [round] = await tx.insert(interviewRounds).values({ tenantId, runId, roundNumber, rationale: "pending" }).returning({ id: interviewRounds.id });
@@ -141,9 +151,11 @@ export async function executeRun(handle: DbHandle, env: WorkerEnv, jobs: JobBack
               departments: deps,
               systems: sys.map((s) => ({ ...s, apiCapabilities: s.apiCapabilities as string[] })),
               priorQuestions: prior,
+              answers: answerRows,
+              facts: factRows.map((f) => ({ id: f.id, statement: f.statement, verification: f.verification, subject_key: f.subjectKey })),
               roundNumber
             };
-            await appendRunEvent(tx, { tenantId, runId, kind: "tool_call", summary: `read ${deps.length} departments, ${sys.length} systems, ${prior.length} prior questions`, payload: { tools: ["systems.read", "questions.read"] } });
+            await appendRunEvent(tx, { tenantId, runId, kind: "tool_call", summary: `read ${deps.length} departments, ${sys.length} systems, ${prior.length} prior questions, ${answerRows.length} answers, ${factRows.length} facts (retrieval audited)`, payload: { tools: ["systems.read", "questions.read", "vault.read"] } });
             const next: Checkpoint = { step: "generate", roundId: round!.id, roundNumber, context, model, simulated };
             await saveCheckpoint(tx, tenantId, runId, next as unknown as Record<string, unknown>, "context assembled");
             return next;
@@ -211,18 +223,25 @@ export async function executeRun(handle: DbHandle, env: WorkerEnv, jobs: JobBack
               "## Questions",
               ...contracts.map((q, i) => `${i + 1}. **[${q.priority}] ${q.department} to ${q.recipient_role}**: ${q.question_text}\n   - Why: ${q.reason}\n   - Evidence gap: ${q.evidence_gap}\n   - Answer type: ${q.answer_type}; confidence ${q.confidence}`)
             ].join("\n");
-            const doc = await writeVaultDocument(tx, ctx, {
+            // Contradictions between answers and the systems register become verification requests for a reviewer (never verdicts).
+            const contradictions = detectSystemContradictions({ answers: checkpoint.context!.answers, systems: checkpoint.context!.systems });
+            for (const c of contradictions) {
+              gateway.authorize("approvals.request");
+              const [src] = await tx.insert(sources).values({ tenantId, system: "systems_register", locator: `system:${c.systemName}`, retrievedAt: new Date(), createdByActorType: "agent", createdByActorId: instance.serviceIdentity }).returning({ id: sources.id });
+              const registerFactId = await createFact(tx, ctx, { tenantId, statement: `Systems register lists ${c.systemName} as a system in use (claim status: stated by the client)`, subjectType: "system", subjectKey: c.systemName, sourceIds: [src!.id], originSystem: "agent", verification: "hypothesis", confidence: 0.4, runId });
+              const requestId = await requestFactVerification(tx, ctx, { tenantId, factId: c.answerFactId, conflictingFactIds: [registerFactId], reason: `Answer says ${c.systemName} is not used ("${c.snippet}") while the systems register lists it. A reviewer must decide which is true.`, runId });
+              await appendRunEvent(tx, { tenantId, runId, kind: "help_request", summary: `contradiction flagged for reviewer: ${c.systemName}`, payload: { requestId, systemName: c.systemName }, classification: "confidential" });
+            }
+            const doc = await agentWriteDocument(tx, ctx, {
               tenantId,
               path,
               title: `Discovery round ${checkpoint.roundNumber}`,
-              frontmatter: { round: checkpoint.roundNumber, run_id: runId, agent: definition.key, skill_version: skill.version, simulated: checkpoint.simulated, status: "draft", source_ids: [runId], confidence: 0.5, verification: "unconfirmed" },
+              frontmatter: { round: checkpoint.roundNumber, run_id: runId, agent: definition.key, skill_version: skill.version, simulated: checkpoint.simulated, status: "draft", source_ids: [runId], confidence: 0.5, verification: "unconfirmed", contradictions: contradictions.length },
               bodyMarkdown: body,
-              classification: "confidential",
-              verification: "unconfirmed",
               runId,
               changeNote: "Discovery agent draft"
             });
-            await appendRunEvent(tx, { tenantId, runId, kind: "output_written", summary: `vault document written (v${doc.version})`, payload: { documentId: doc.documentId, path } });
+            await appendRunEvent(tx, { tenantId, runId, kind: "output_written", summary: doc.mode === "auto_draft" ? `vault document written (v${doc.version})` : "vault change proposal created (policy requires review)", payload: { documentId: doc.documentId ?? null, proposalId: doc.proposalId ?? null, path } });
             const next: Checkpoint = { ...checkpoint, step: "request_publication", questionIds: ids, documentId: doc.documentId };
             await saveCheckpoint(tx, tenantId, runId, next as unknown as Record<string, unknown>, "questions and vault note persisted");
             return next;

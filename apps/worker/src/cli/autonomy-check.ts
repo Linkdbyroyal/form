@@ -7,11 +7,11 @@
 import { and, eq, sql } from "drizzle-orm";
 import { PgBoss } from "pg-boss";
 import { agencyContext, createDb, operatorContext, schema, tenantContext } from "@sbos/db";
-import { createRun, createTask, decideApproval } from "@sbos/core";
+import { answerQuestion, createRun, createTask, decideApproval } from "@sbos/core";
 import { BossJobBackend } from "../boss-backend";
 import { checkStalledSchedules } from "../schedules";
 
-const { tenants, agentInstances, agentRuns, runEvents, questions, vaultDocuments, approvals, approvedActions, notifications, incidents, budgets, schedules, memberships } = schema;
+const { tenants, agentInstances, agentRuns, runEvents, questions, vaultDocuments, approvals, approvedActions, notifications, incidents, budgets, schedules, memberships, factVerificationRequests, vaultFacts } = schema;
 
 const url = process.env.DATABASE_URL;
 if (!url) throw new Error("DATABASE_URL required");
@@ -141,6 +141,38 @@ try {
   const notes = await handle.withContext(OPERATOR, (tx) => tx.select({ channel: notifications.channel, template: notifications.template, state: notifications.state }).from(notifications).where(sql`${notifications.payload}->>'runId' = ${waiting.id} or ${notifications.payload}->>'roundId' is not null`));
   const health = await fetch(`http://localhost:${process.env.WORKER_PORT ?? 8080}/healthz`).then((r) => r.json() as Promise<{ status: string; mode: string }>).catch(() => null);
   record(10, "system keeps operating without a developer session", health?.status === "ok" && notes.length > 0, `worker health=${JSON.stringify(health)}, notifications=${notes.map((n) => `${n.channel}:${n.template}:${n.state}`).join(",")}`);
+
+  // Vault MVP (spec 4G): a department manager answers a published question negating a registered system; the next
+  // discovery round must flag the contradiction as a verification request, never as a verdict.
+  const [finance] = await handle.withContext(ctxA, (tx) => tx.select({ userId: memberships.userId }).from(memberships).where(and(eq(memberships.tenantId, ids.tenantA), eq(memberships.roleKey, "department_manager"))));
+  const managerCtx = tenantContext({ tenantId: ids.tenantA, actorType: "user", actorId: finance!.userId, roles: ["department_manager"] });
+  const openQ = await handle.withContext(managerCtx, (tx) => tx.select({ id: questions.id, text: questions.questionText }).from(questions).where(and(eq(questions.runId, waiting.id), eq(questions.state, "open"))));
+  const target = openQ.find((q) => q.text.includes("QuickBooks")) ?? openQ[0]!;
+  const answered = await handle.withContext(managerCtx, (tx) => answerQuestion(tx, managerCtx, { tenantId: ids.tenantA, questionId: target.id, value: "No, QuickBooks Online is not used anymore; invoices are issued from Rentman since Q2.", role: "department_manager" }));
+  const factRow = await handle.withContext(managerCtx, async (tx) => (await tx.select({ verification: vaultFacts.verification, sourceIds: vaultFacts.sourceIds }).from(vaultFacts).where(eq(vaultFacts.id, answered.factId)))[0]);
+  record(11, "answer stored as provisional knowledge with source", factRow?.verification === "unconfirmed" && (factRow?.sourceIds.length ?? 0) === 1, `fact ${answered.factId} ${factRow?.verification}`);
+
+  const second = await handle.withContext(ctxA, async (tx) => {
+    const taskId = await createTask(tx, ctxA, { tenantId: ids.tenantA, agentInstanceId: ids.instA, title: "autonomy-check round 2", instruction: "Second discovery round after answers", createdBy: { actorType: "system", actorId: "autonomy-check" } });
+    return createRun(tx, ctxA, jobs, { tenantId: ids.tenantA, agentInstanceId: ids.instA, trigger: "command", triggerRef: "autonomy-check-round-2", taskId });
+  });
+  await waitFor("round 2 waiting for approval", async () => {
+    const [r] = await handle.withContext(OPERATOR, (tx) => tx.select({ state: agentRuns.state }).from(agentRuns).where(eq(agentRuns.id, second.runId)));
+    return r?.state === "waiting_for_approval" ? r : r && ["failed", "cancelled"].includes(r.state) ? Promise.reject(new Error(`round 2 ended ${r.state}`)) : null;
+  });
+  const fvr = await handle.withContext(ctxA, (tx) => tx.select({ id: factVerificationRequests.id, state: factVerificationRequests.state, factId: factVerificationRequests.factId }).from(factVerificationRequests).where(eq(factVerificationRequests.runId, second.runId)));
+  const flagged = await handle.withContext(ctxA, async (tx) => (await tx.select({ verification: vaultFacts.verification, contradicts: vaultFacts.contradicts }).from(vaultFacts).where(eq(vaultFacts.id, answered.factId)))[0]);
+  const round2Events = await handle.withContext(OPERATOR, (tx) => tx.select({ kind: runEvents.kind, summary: runEvents.summary }).from(runEvents).where(eq(runEvents.runId, second.runId)));
+  record(12, "agent detects the contradiction and asks for verification instead of deciding", fvr.length === 1 && fvr[0]!.factId === answered.factId && flagged?.verification === "hypothesis" && round2Events.some((e) => e.kind === "help_request"), `requests=${fvr.length}, fact=${flagged?.verification}, contradicts=${flagged?.contradicts.length}, tool_call="${round2Events.find((e) => e.kind === "tool_call")?.summary}"`);
+
+  // Reviewer (client admin) promotes the fact; a later agent read returns it as verified with its source.
+  const { decideFactVerification, readFactsForAgent } = await import("@sbos/core");
+  await handle.withContext(ceoCtx, (tx) => decideFactVerification(tx, ceoCtx, { tenantId: ids.tenantA, requestId: fvr[0]!.id, decision: "verified", note: "Confirmed with finance." }));
+  const agent2 = tenantContext({ tenantId: ids.tenantA, actorType: "agent", actorId: "agent:finance:northline", roles: ["agent_service"] });
+  const retrieved = await handle.withContext(agent2, (tx) => readFactsForAgent(tx, agent2, { tenantId: ids.tenantA }));
+  const verifiedFact = retrieved.find((f) => f.id === answered.factId);
+  const leakB = await handle.withContext(ctxB, (tx) => tx.select({ id: vaultFacts.id }).from(vaultFacts).where(eq(vaultFacts.id, answered.factId)));
+  record(13, "reviewer promotes the fact; another agent retrieves it with source; tenant B cannot", verifiedFact?.verification === "verified" && verifiedFact.sourceIds.length === 1 && leakB.length === 0, `verification=${verifiedFact?.verification}, sources=${verifiedFact?.sourceIds.length}, visible in B=${leakB.length}`);
 } catch (err) {
   record(0, "unexpected error", false, (err as Error).message);
 } finally {
