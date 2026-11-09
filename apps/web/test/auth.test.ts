@@ -57,13 +57,15 @@ describe("MFA gate (ADR-015)", () => {
     expect(decideOperatorAccess({ authenticated: true, agencyRoles: ["superadmin"], twoFactorEnabled: false })).toMatchObject({ kind: "redirect", to: "/account/security", reason: "mfa_required" });
     expect(decideOperatorAccess({ authenticated: true, agencyRoles: ["agency_operator", "agency_reviewer"], twoFactorEnabled: true })).toEqual({ kind: "allow", roles: ["agency_operator"] });
   });
-  it("tenant access: membership wins, superadmin needs an active grant, others are forbidden", () => {
+  it("tenant access: membership wins, operators need an active grant, others are forbidden", () => {
     const base = { authenticated: true, twoFactorEnabled: true, hasActiveGrant: false };
     expect(decideTenantAccess({ ...base, tenantRoles: ["client_admin"], agencyRoles: [] })).toEqual({ kind: "allow", roles: ["client_admin"], viaGrant: false });
-    expect(decideTenantAccess({ ...base, tenantRoles: [], agencyRoles: ["superadmin"] })).toEqual({ kind: "forbidden", reason: "superadmin_without_grant" });
+    expect(decideTenantAccess({ ...base, tenantRoles: [], agencyRoles: ["superadmin"] })).toEqual({ kind: "forbidden", reason: "operator_without_grant" });
     expect(decideTenantAccess({ ...base, tenantRoles: [], agencyRoles: ["superadmin"], hasActiveGrant: true })).toEqual({ kind: "allow", roles: ["superadmin"], viaGrant: true });
     expect(decideTenantAccess({ ...base, tenantRoles: [], agencyRoles: ["superadmin"], hasActiveGrant: true, twoFactorEnabled: false })).toEqual({ kind: "redirect", to: "/account/security" });
-    expect(decideTenantAccess({ ...base, tenantRoles: [], agencyRoles: ["agency_operator"], hasActiveGrant: true })).toEqual({ kind: "forbidden", reason: "no_membership" });
+    expect(decideTenantAccess({ ...base, tenantRoles: [], agencyRoles: ["agency_operator"], hasActiveGrant: true })).toEqual({ kind: "allow", roles: ["agency_operator"], viaGrant: true });
+    expect(decideTenantAccess({ ...base, tenantRoles: [], agencyRoles: ["agency_operator"] })).toEqual({ kind: "forbidden", reason: "operator_without_grant" });
+    expect(decideTenantAccess({ ...base, tenantRoles: [], agencyRoles: ["agency_consultant"], hasActiveGrant: true })).toEqual({ kind: "forbidden", reason: "no_membership" });
     expect(decideTenantAccess({ ...base, authenticated: false, tenantRoles: [], agencyRoles: [] })).toEqual({ kind: "redirect", to: "/sign-in" });
   });
   it("grants expire and can be revoked", () => {
@@ -137,7 +139,7 @@ describe("integration: Better Auth + identity bridge", () => {
     await client.connect();
     try {
       const tables = await client.query<{ table_name: string }>("SELECT table_name FROM information_schema.tables WHERE table_schema = 'auth' ORDER BY table_name");
-      expect(tables.rows.map((r) => r.table_name)).toEqual(["account", "invitation", "member", "organization", "session", "two_factor", "user", "verification"]);
+      expect(tables.rows.map((r) => r.table_name)).toEqual(["account", "break_glass_totp_replay", "invitation", "member", "organization", "session", "two_factor", "user", "verification"]);
       const grants = await client.query("SELECT 1 FROM information_schema.role_table_grants WHERE table_schema = 'auth' AND grantee IN ('sbos_app', 'sbos_operator')");
       expect(grants.rowCount).toBe(0);
       const usage = await client.query<{ ok: boolean }>("SELECT has_schema_privilege('sbos_app', 'auth', 'USAGE') AS ok");

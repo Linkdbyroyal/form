@@ -13,3 +13,4 @@ coverage/
 legacy/lbr-intake/data/
 legacy/lbr-intake/node_modules/
 apps/worker/worker.log
+apps/web/tsconfig.tsbuildinfo

@@ -78,13 +78,14 @@ export function decideOperatorAccess(input: { authenticated: boolean; agencyRole
 export type TenantAccess =
   | { kind: "allow"; roles: string[]; viaGrant: boolean }
   | { kind: "redirect"; to: "/sign-in" | "/account/security" }
-  | { kind: "forbidden"; reason: "no_membership" | "superadmin_without_grant" };
+  | { kind: "forbidden"; reason: "no_membership" | "operator_without_grant" };
 
 /**
  * Decides client workspace access (ADR-017 break-glass):
  * - a membership on the tenant gives tenant context with those roles;
- * - a superadmin with an unexpired, unrevoked `client_content_grants` row gets tenant context flagged as viaGrant;
- * - a superadmin WITHOUT a grant is forbidden, not silently elevated.
+ * - an operator (superadmin or agency_operator, MFA satisfied) with an unexpired, unrevoked
+ *   `client_content_grants` row gets tenant context flagged as viaGrant, carrying the operator roles;
+ * - an operator WITHOUT a grant is forbidden, not silently elevated; everyone else is forbidden.
  */
 export function decideTenantAccess(input: {
   authenticated: boolean;
@@ -96,13 +97,13 @@ export function decideTenantAccess(input: {
 }): TenantAccess {
   if (!input.authenticated) return { kind: "redirect", to: "/sign-in" };
   if (input.tenantRoles.length > 0) return { kind: "allow", roles: [...input.tenantRoles], viaGrant: false };
-  const isSuperadmin = input.agencyRoles.includes("superadmin");
-  if (!isSuperadmin) return { kind: "forbidden", reason: "no_membership" };
+  const operatorRoles = input.agencyRoles.filter((r) => (OPERATOR_ROLES as readonly string[]).includes(r));
+  if (operatorRoles.length === 0) return { kind: "forbidden", reason: "no_membership" };
   if (mfaGate({ roles: input.agencyRoles, twoFactorEnabled: input.twoFactorEnabled }) === "require_mfa") {
     return { kind: "redirect", to: "/account/security" };
   }
-  if (!input.hasActiveGrant) return { kind: "forbidden", reason: "superadmin_without_grant" };
-  return { kind: "allow", roles: ["superadmin"], viaGrant: true };
+  if (!input.hasActiveGrant) return { kind: "forbidden", reason: "operator_without_grant" };
+  return { kind: "allow", roles: operatorRoles, viaGrant: true };
 }
 
 /** True when a grant row is usable at `now`. */

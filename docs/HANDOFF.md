@@ -12,6 +12,7 @@ Last updated: 2026-11-09 (Milestone 1 delivery, branch `claude/second-brain-os-a
 | Agent runtime (M1-04/05) | `packages/agents`: `AgentRuntime`, Mastra adapter on `@ai-sdk/anthropic`, `SimulatedRuntime`, `ToolGateway`, Discovery prompt with untrusted-content wrapping, contract validation of every question; SKILL.md `discovery-interview` 0.1.0 seeded as immutable version | 3 tests; Mastra path typechecked only |
 | Autonomous worker (M1-06/07/14/17) | `apps/worker`: pg-boss queues with retries, backoff, dead-letter consumer; checkpointed executor (assemble, generate, persist, request approval, suspend, publish on approval); budget admission and pre-call cap; cron reconciliation from `schedules`; stall alarm; lease heartbeat and crash recovery; Resend and Pumble senders; `/healthz` | Autonomy Acceptance Test 11/11 (`docs/reports/autonomy-acceptance-2026-11-09.md`) |
 | Authentication (M1-01/02/19) | Better Auth 1.7.18: email/password + verification, organizations mapped to tenants, Google/Microsoft optional, TOTP required for superadmin/agency_operator, invitation-only, membership bridge into `memberships`, bootstrap script, request context resolving from session, break-glass rule in `requireTenantContext` | 16 web tests; bootstrap verified; browser flow verified with Playwright: MFA gate, TOTP enrolment, two-factor sign-in, 403 without content grant |
+| Break-glass (M1-18) | Operator requests content access per client in Mission Control (reason, 15 min to 8 h, fresh TOTP via `auth.api.verifyTOTP` plus replay guard `auth.break_glass_totp_replay`), grant + audit `break_glass.granted` + Pumble notice in one agency-scoped transaction, redirect to `/c/<slug>` with expiry badge, revoke by holder or superadmin (migration 0004 UPDATE policy), `knowledge_access_logs` row per request under a grant and `logContentAccess()` helper. `decideTenantAccess` now admits agency_operator with a grant | 16 tests in `apps/web/test/break-glass.test.ts` (validation, replay rule, real TOTP against an enrolled secret, grant/audit/notification rows, access log, revocation, expiry) |
 | Deployment artefacts (M1-15/16) | Dockerfiles (web standalone, worker without dev tooling), `railway.json` per service, `docker-compose.prod.yml` with backup sidecar and Caddy, `docs/deployment.md` | Dockerfile steps executed with pnpm in a clean copy; no Docker daemon in sandbox |
 | Contracts | 17 Zod contracts + JSON Schema | 35 tests |
 
@@ -30,7 +31,6 @@ Implemented and verified against the live worker: Overview with real counters, A
 
 ## Open (M1)
 
-- M1-18 break-glass request UI with fresh MFA verification (DB model and context rule exist).
 - M1-10 isolation tests: generic read guard exists; add per-table write attempts for the new tables.
 - M1-11 CI: workflow exists, never executed (push blocked).
 - First Railway staging deploy; formal "Claude Code closed" observation with timestamps; induced worker kill test.
@@ -45,7 +45,7 @@ Implemented and verified against the live worker: Overview with real counters, A
 | db | 14 |
 | core | 6 |
 | agents | 3 |
-| web | 16 |
+| web | 32 (auth 16, break-glass 16) |
 | worker | Autonomy Acceptance Test 11/11 against a live worker (twice, second time from a clean database) |
 | browser | Playwright: sign-in, MFA gate, TOTP enrolment, two-factor sign-in, 8 Mission Control pages, 403 on client workspace without grant |
 

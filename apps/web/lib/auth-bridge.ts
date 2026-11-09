@@ -211,11 +211,19 @@ export interface PrincipalMembership {
   roleKey: string;
 }
 
+export interface PrincipalGrant {
+  id: string;
+  tenantId: string;
+  expiresAt: Date;
+}
+
 export interface PrincipalData {
   publicUserId: string;
   memberships: PrincipalMembership[];
   /** Tenant ids with an unexpired, unrevoked client_content_grants row (ADR-017). */
   activeGrantTenantIds: string[];
+  /** The unexpired, unrevoked grants themselves (one per tenant at most in practice; the earliest expiry wins). */
+  activeGrants: PrincipalGrant[];
 }
 
 /** Everything the request context needs to authorise a signed-in user. Metadata only. */
@@ -226,16 +234,18 @@ export async function loadPrincipalData(authUser: AuthUserRef): Promise<Principa
     const m = await tx.execute<{ tenant_id: string; slug: string; kind: TenantKind; role_key: string }>(
       sql`SELECT m.tenant_id, t.slug, t.kind, m.role_key FROM memberships m JOIN tenants t ON t.id = m.tenant_id WHERE m.user_id = ${publicUserId}::uuid`
     );
-    const g = await tx.execute<{ tenant_id: string; expires_at: Date; revoked_at: Date | null }>(
-      sql`SELECT tenant_id, expires_at, revoked_at FROM client_content_grants WHERE user_id = ${publicUserId}::uuid`
+    const g = await tx.execute<{ id: string; tenant_id: string; expires_at: Date; revoked_at: Date | null }>(
+      sql`SELECT id, tenant_id, expires_at, revoked_at FROM client_content_grants WHERE user_id = ${publicUserId}::uuid ORDER BY expires_at ASC`
     );
     const now = new Date();
+    const activeGrants: PrincipalGrant[] = g.rows
+      .filter((r) => grantIsActive({ expiresAt: new Date(r.expires_at), revokedAt: r.revoked_at ? new Date(r.revoked_at) : null }, now))
+      .map((r) => ({ id: r.id, tenantId: r.tenant_id, expiresAt: new Date(r.expires_at) }));
     return {
       publicUserId,
       memberships: m.rows.map((r) => ({ tenantId: r.tenant_id, slug: r.slug, kind: r.kind, roleKey: r.role_key })),
-      activeGrantTenantIds: g.rows
-        .filter((r) => grantIsActive({ expiresAt: new Date(r.expires_at), revokedAt: r.revoked_at ? new Date(r.revoked_at) : null }, now))
-        .map((r) => r.tenant_id)
+      activeGrantTenantIds: [...new Set(activeGrants.map((r) => r.tenantId))],
+      activeGrants
     };
   });
 }

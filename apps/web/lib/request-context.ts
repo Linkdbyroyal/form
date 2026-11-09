@@ -3,8 +3,9 @@ import { forbidden, redirect } from "next/navigation";
 import { cache } from "react";
 import { operatorContext, tenantContext, type OperatorContext, type TenantContext } from "@sbos/db";
 import { auth, type Session } from "./auth";
-import { loadPrincipalData, type PrincipalData } from "./auth-bridge";
+import { loadPrincipalData, type PrincipalData, type PrincipalGrant } from "./auth-bridge";
 import { decideOperatorAccess, decideTenantAccess, mfaGate } from "./auth-policy";
+import { logContentAccess } from "./content-access";
 
 /**
  * Request-scoped authentication and authorisation (M1-01, ADR-015/017).
@@ -99,11 +100,15 @@ export interface ResolvedTenant {
   tenantId: string;
   slug: string;
   viaGrant: boolean;
+  /** The break-glass grant this access runs under, when `viaGrant` is true. */
+  grant: PrincipalGrant | null;
 }
 
 /**
- * Client workspace: a membership on the tenant, or a superadmin with an active content grant (break-glass).
- * A superadmin without a grant gets a 403, not tenant content. Unknown slug: null (caller renders 404).
+ * Client workspace: a membership on the tenant, or an operator (superadmin / agency_operator) with an active
+ * content grant (break-glass). An operator without a grant gets a 403, not tenant content. Unknown slug:
+ * null (caller renders 404). Under a grant, the first resolution in a request writes one
+ * `knowledge_access_logs` row (resource_type `page`, resource_id = pathname) as ADR-017 requires.
  */
 export async function requireTenantContext(slug: string): Promise<ResolvedTenant | null> {
   const p = await getPrincipal();
@@ -124,8 +129,14 @@ export async function requireTenantContext(slug: string): Promise<ResolvedTenant
   }
   if (decision.kind === "forbidden") forbidden();
   const ctx = tenantContext({ tenantId: tenant.id, actorType: "user", actorId: p.userId, roles: decision.roles });
-  resolved().tenants.set(tenant.id, ctx);
-  return { ctx, tenantId: tenant.id, slug: tenant.slug, viaGrant: decision.viaGrant };
+  const store = resolved();
+  const firstInRequest = !store.tenants.has(tenant.id);
+  store.tenants.set(tenant.id, ctx);
+  const grant = decision.viaGrant ? (p.data.activeGrants.find((g) => g.tenantId === tenant.id) ?? null) : null;
+  if (decision.viaGrant && firstInRequest) {
+    await logContentAccess(ctx, grant?.id ?? null, "page", await currentPath(`/c/${slug}`), "break_glass");
+  }
+  return { ctx, tenantId: tenant.id, slug: tenant.slug, viaGrant: decision.viaGrant, grant };
 }
 
 async function findTenantBySlugForPrincipal(p: Principal, slug: string): Promise<{ id: string; slug: string } | null> {
