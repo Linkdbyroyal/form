@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Badge, Card } from "@/components/ui";
+import { Badge, Card, buttonClass } from "@/components/ui";
 import { listClientWorkspaces } from "@/lib/queries";
 import { requireOperatorContext } from "@/lib/request-context";
 
@@ -10,9 +10,12 @@ export default async function ClientWorkspaces() {
   const rows = await listClientWorkspaces();
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-semibold">Client Workspaces</h1>
-        <p className="text-sm text-muted">Tenant headers and counts, read through the operator role. Content requires a client content grant and is logged.</p>
+      <header className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold">Client Workspaces</h1>
+          <p className="text-sm text-muted">Tenant headers and counts, read through the operator role. Content requires a client content grant and is logged.</p>
+        </div>
+        <Link href="/mission-control/clients/new" className={buttonClass}>New client</Link>
       </header>
       <Card>
         <table className="w-full text-sm">
