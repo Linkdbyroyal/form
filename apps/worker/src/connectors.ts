@@ -1,5 +1,6 @@
 import { operatorContext, type DbHandle } from "@sbos/db";
 import { dueConnections, type JobBackend } from "@sbos/core";
+import { markStaleData } from "@sbos/connectors";
 
 /** Every five minutes: queue one `connector.sync` per connection whose interval has elapsed (deduplicated per connection). */
 export async function enqueueDueSyncs(handle: DbHandle, jobs: JobBackend): Promise<number> {
@@ -11,4 +12,9 @@ export async function enqueueDueSyncs(handle: DbHandle, jobs: JobBackend): Promi
     if (id) queued++;
   }
   return queued;
+}
+
+/** Stale rule: connections that missed more than two intervals get stale observations and one incident. */
+export async function markStale(handle: DbHandle, jobs: JobBackend): Promise<{ connections: number; observations: number }> {
+  return markStaleData(handle, jobs);
 }

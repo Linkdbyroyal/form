@@ -3,7 +3,7 @@ import { PgBoss } from "pg-boss";
 import { createDb, tenantContext } from "@sbos/db";
 import { raiseIncident } from "@sbos/core";
 import { runConnectionSync } from "@sbos/connectors";
-import { enqueueDueSyncs } from "./connectors";
+import { enqueueDueSyncs, markStale } from "./connectors";
 import { BossJobBackend, DEAD_LETTER, ensureQueues } from "./boss-backend";
 import { readEnv } from "./env";
 import { executeRun, failRunFromDeadLetter, recoverExpiredLeases } from "./executor";
@@ -70,6 +70,8 @@ async function main(): Promise<void> {
   await boss.work("sync.tick", { batchSize: 1, pollingIntervalSeconds: 15 }, async () => {
     const queued = await enqueueDueSyncs(handle, jobs);
     if (queued > 0) log("info", "connector syncs queued", { queued });
+    const stale = await markStale(handle, jobs);
+    if (stale.connections > 0) log("warn", "stale connections marked", stale);
   });
 
   await boss.work("stall.check", { batchSize: 1, pollingIntervalSeconds: 10 }, async () => {

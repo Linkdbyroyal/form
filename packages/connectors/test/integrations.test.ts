@@ -3,7 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { agencyContext, createDb, operatorContext, runMigrations, schema, tenantContext, type DbHandle } from "@sbos/db";
 import { seed } from "@sbos/db/seed";
 import { MemoryJobBackend, advancePhase, dueConnections, grantConsent, proposeConnection, recordSecurityReview, registerCredentialReference, revokeConsent } from "@sbos/core";
-import { DESCRIPTORS, SandboxConnector, maskSecrets, parseSecretRef, runConnectionSync, getConnector } from "../src/index";
+import { DESCRIPTORS, SandboxConnector, markStaleData, maskSecrets, parseSecretRef, runConnectionSync, getConnector } from "../src/index";
 
 /** Milestone 5 acceptance: phases with consent, no network in metadata, lineage, isolation, secrets by reference. */
 const url = process.env.DATABASE_URL_TEST ?? "postgres://sbos:sbos@localhost:5432/sbos_test";
@@ -195,5 +195,34 @@ describe("connection phases with consent (ADR-011)", () => {
     expect(kpiStatus[0]!.status).toBe("missing_source");
     const skipped = await runConnectionSync(handle, jobs, { tenantId: tenantA, connectionId, trigger: "schedule" });
     expect(skipped.status).toBe("skipped");
+  });
+});
+
+describe("stale data rule", () => {
+  it("a connection that missed two intervals gets stale observations for its KPIs and one incident; a fresh one is untouched", async () => {
+    const ctxCeo = tenantContext({ tenantId: tenantB, actorType: "user", actorId: "ceo-b", roles: ["client_admin"] });
+    const ctxReviewer = agencyContext({ tenantId: tenantB, actorType: "user", actorId: "agency-reviewer", roles: ["agency_reviewer"] });
+    const ceoB = (await handle.withContext(ctxCeo, (tx) => tx.select({ userId: schema.memberships.userId }).from(schema.memberships).where(sql`tenant_id = ${tenantB} and role_key = 'client_admin'`)))[0]!.userId;
+    const connectionId = await handle.withContext(ctxCeo, (tx) => proposeConnection(tx, ctxCeo, { tenantId: tenantB, provider: "quickbooks", syncIntervalMinutes: 30 }));
+    await handle.withContext(ctxCeo, (tx) => grantConsent(tx, ctxCeo, { tenantId: tenantB, connectionId, scopes: ["com.intuit.quickbooks.accounting (read)"], reason: "hotel controller agreed to read-only invoice status", userId: ceoB }));
+    await handle.withContext(ctxReviewer, (tx) => recordSecurityReview(tx, ctxReviewer, { tenantId: tenantB, connectionId, outcome: "approved", note: "invoice balance and due date only; no customer data" }));
+    await handle.withContext(ctxReviewer, (tx) => advancePhase(tx, ctxReviewer, { tenantId: tenantB, connectionId, to: "read_only", reason: "sandbox" }));
+    const synced = await runConnectionSync(handle, jobs, { tenantId: tenantB, connectionId, trigger: "manual" });
+    expect(synced.status).toBe("succeeded");
+    // Fresh: nothing marked.
+    const fresh = await markStaleData(handle, jobs, tenantContext, new Date());
+    expect(fresh.connections).toBe(0);
+    // 61 minutes later (more than two 30-minute intervals): stale observations and one incident.
+    const later = new Date(Date.now() + 61 * 60_000);
+    const marked = await markStaleData(handle, jobs, tenantContext, later);
+    expect(marked.connections).toBe(1);
+    expect(marked.observations).toBe(2);
+    const statuses = await handle.withContext(ctxCeo, (tx) => tx.select({ key: schema.kpis.key, status: schema.kpis.status }).from(schema.kpis).where(sql`key in ('overdue_receivables_eur', 'open_invoices_count')`));
+    expect(statuses.every((s) => s.status === "stale")).toBe(true);
+    const incidents = await handle.withContext(ctxCeo, (tx) => tx.select({ kind: schema.incidents.kind, dedupeKey: schema.incidents.dedupeKey }).from(schema.incidents).where(sql`dedupe_key = ${`connector-stale:${connectionId}`}`));
+    expect(incidents).toHaveLength(1);
+    // Idempotent: a second pass writes no further observations.
+    const again = await markStaleData(handle, jobs, tenantContext, later);
+    expect(again.observations).toBe(0);
   });
 });
