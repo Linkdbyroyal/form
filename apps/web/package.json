@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@sbos/contracts": "workspace:*",
+    "@sbos/connectors": "workspace:*",
     "@sbos/core": "workspace:*",
     "@sbos/db": "workspace:*",
     "better-auth": "1.7.18",

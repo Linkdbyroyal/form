@@ -26,6 +26,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@sbos/connectors':
+        specifier: workspace:*
+        version: link:../../packages/connectors
       '@sbos/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
