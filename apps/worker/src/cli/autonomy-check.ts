@@ -39,11 +39,13 @@ async function waitFor<T>(label: string, fn: () => Promise<T | null>, timeoutMs 
 try {
   const ids = await handle.withContext(OPERATOR, async (tx) => {
     const ts = await tx.select({ id: tenants.id, slug: tenants.slug }).from(tenants);
-    const a = ts.find((t) => t.slug === "northline-events")!;
-    const b = ts.find((t) => t.slug === "harbour-view-hotel")!;
+    const a = ts.find((t) => t.slug === "northline-events");
+    const b = ts.find((t) => t.slug === "harbour-view-hotel");
+    if (!a || !b) throw new Error("seed data missing: demo tenants not found in this database");
     const [instA] = await tx.select({ id: agentInstances.id }).from(agentInstances).where(eq(agentInstances.tenantId, a.id));
     const [instB] = await tx.select({ id: agentInstances.id }).from(agentInstances).where(eq(agentInstances.tenantId, b.id));
-    return { tenantA: a.id, tenantB: b.id, instA: instA!.id, instB: instB!.id };
+    if (!instA || !instB) throw new Error("seed data missing: no agent instances for the demo tenants in this database (run pnpm db:seed against DATABASE_URL)");
+    return { tenantA: a.id, tenantB: b.id, instA: instA.id, instB: instB.id };
   });
   const svcA = { actorType: "system" as const, actorId: "autonomy-check", roles: ["agent_service"] };
   const ctxA = tenantContext({ tenantId: ids.tenantA, ...svcA });

@@ -1,7 +1,7 @@
 import { seed, seedHandleFromEnv } from "../seed";
 import { urlFor } from "./_env";
 
-const handle = seedHandleFromEnv(urlFor(process.argv));
+const handle = seedHandleFromEnv(urlFor(process.argv, "data"));
 try {
   const result = await seed(handle);
   console.log("seeded tenants:", Object.keys(result.tenantIds).join(", "));

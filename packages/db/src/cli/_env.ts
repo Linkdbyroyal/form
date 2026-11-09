@@ -15,11 +15,24 @@ export function loadDotEnv(): void {
   }
 }
 
-export function urlFor(argv: string[]): string {
+/**
+ * Connection string for a CLI run.
+ * - `--test`: always DATABASE_URL_TEST.
+ * - schema work (migrate, reset): DATABASE_URL_MIGRATE, falling back to DATABASE_URL.
+ * - data work (seed): DATABASE_URL, falling back to DATABASE_URL_MIGRATE. Seeds write through the
+ *   application role and must land in the database the application uses.
+ */
+export function urlFor(argv: string[], purpose: "schema" | "data" = "schema"): string {
   loadDotEnv();
-  const test = argv.includes("--test");
-  const key = test ? "DATABASE_URL_TEST" : "DATABASE_URL_MIGRATE";
-  const url = process.env[key] ?? (test ? undefined : process.env.DATABASE_URL);
-  if (!url) throw new Error(`${key} (or DATABASE_URL) must be set`);
-  return url;
+  if (argv.includes("--test")) {
+    const url = process.env.DATABASE_URL_TEST;
+    if (!url) throw new Error("DATABASE_URL_TEST must be set");
+    return url;
+  }
+  const order = purpose === "schema" ? ["DATABASE_URL_MIGRATE", "DATABASE_URL"] : ["DATABASE_URL", "DATABASE_URL_MIGRATE"];
+  for (const key of order) {
+    const url = process.env[key];
+    if (url) return url;
+  }
+  throw new Error(`${order.join(" or ")} must be set`);
 }
