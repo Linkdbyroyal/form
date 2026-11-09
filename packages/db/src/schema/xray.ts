@@ -185,7 +185,8 @@ export const kpiObservations = pgTable(
     computedByActorType: actorType("computed_by_actor_type").notNull(),
     computedByActorId: text("computed_by_actor_id").notNull(),
     lineage: jsonb("lineage").notNull().default(sql`'{}'::jsonb`),
-    runId: uuid("run_id").references(() => agentRuns.id, { onDelete: "set null" })
+    runId: uuid("run_id").references(() => agentRuns.id, { onDelete: "set null" }),
+    syncRunId: uuid("sync_run_id")
   },
   (t) => [index("kpi_observations_kpi_time_idx").on(t.kpiId, t.observedAt)]
 );
@@ -282,6 +283,10 @@ export const connections = pgTable(
     lastSyncAt: timestamp("last_sync_at", { withTimezone: true }),
     lastError: text("last_error"),
     config: jsonb("config").notNull().default(sql`'{}'::jsonb`),
+    syncIntervalMinutes: integer("sync_interval_minutes").notNull().default(60),
+    securityReviewedAt: timestamp("security_reviewed_at", { withTimezone: true }),
+    securityReviewedBy: text("security_reviewed_by"),
+    pausedReason: text("paused_reason"),
     createdAt: createdAt(),
     updatedAt: updatedAt()
   },

@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@sbos/agents": "workspace:*",
+    "@sbos/connectors": "workspace:*",
     "@sbos/contracts": "workspace:*",
     "@sbos/core": "workspace:*",
     "@sbos/db": "workspace:*",

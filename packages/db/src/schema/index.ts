@@ -6,3 +6,4 @@ export * from "./auth";
 export * from "./vault";
 export * from "./xray";
 export * from "./agency";
+export * from "./integrations";

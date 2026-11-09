@@ -2,6 +2,8 @@ import { createServer } from "node:http";
 import { PgBoss } from "pg-boss";
 import { createDb, tenantContext } from "@sbos/db";
 import { raiseIncident } from "@sbos/core";
+import { runConnectionSync } from "@sbos/connectors";
+import { enqueueDueSyncs } from "./connectors";
 import { BossJobBackend, DEAD_LETTER, ensureQueues } from "./boss-backend";
 import { readEnv } from "./env";
 import { executeRun, failRunFromDeadLetter, recoverExpiredLeases } from "./executor";
@@ -19,7 +21,7 @@ async function main(): Promise<void> {
   const handle = createDb({ connectionString: env.databaseUrl, max: 8 });
   const boss = new PgBoss({ connectionString: env.databaseUrl, schema: "pgboss", supervise: true, schedule: true });
   const jobs = new BossJobBackend(boss);
-  const state = { startedAt: new Date(), lastStallCheckAt: null as Date | null, lastReconcileAt: null as Date | null, runsStarted: 0, runsFailed: 0, mode: env.forceSimulated || !env.anthropicApiKey ? "simulated" : "live" };
+  const state = { startedAt: new Date(), lastStallCheckAt: null as Date | null, lastReconcileAt: null as Date | null, runsStarted: 0, runsFailed: 0, syncsRun: 0, mode: env.forceSimulated || !env.anthropicApiKey ? "simulated" : "live" };
 
   boss.on("error", (err) => log("error", "pg-boss error", { error: (err as Error).message }));
   await boss.start();
@@ -58,6 +60,18 @@ async function main(): Promise<void> {
     await sendNotification(handle, env, job.data.notificationId);
   });
 
+  // Integrations (M5): one sync job per due connection; the metadata phase never leaves the platform.
+  await boss.work<{ tenantId: string; connectionId: string; trigger: "schedule" | "manual" | "test" }>("connector.sync", { batchSize: 1, pollingIntervalSeconds: 5 }, async ([job]) => {
+    if (!job) return;
+    const result = await runConnectionSync(handle, jobs, { tenantId: job.data.tenantId, connectionId: job.data.connectionId, trigger: job.data.trigger });
+    log(result.status === "failed" ? "warn" : "info", "connector sync finished", { connectionId: job.data.connectionId, status: result.status, mode: result.mode, observations: result.observationsWritten, networkCalls: result.networkCalls });
+    state.syncsRun++;
+  });
+  await boss.work("sync.tick", { batchSize: 1, pollingIntervalSeconds: 15 }, async () => {
+    const queued = await enqueueDueSyncs(handle, jobs);
+    if (queued > 0) log("info", "connector syncs queued", { queued });
+  });
+
   await boss.work("stall.check", { batchSize: 1, pollingIntervalSeconds: 10 }, async () => {
     const missed = await checkStalledSchedules(handle, jobs);
     const recoveredNow = await recoverExpiredLeases(handle, jobs);
@@ -73,6 +87,9 @@ async function main(): Promise<void> {
       await failRunFromDeadLetter(handle, jobs, data.tenantId, data.runId, "job retries exhausted");
     } else if (typeof data.notificationId === "string") {
       await markNotificationFailed(handle, data.notificationId);
+    } else if (typeof data.connectionId === "string" && typeof data.tenantId === "string") {
+      const ctx = tenantContext({ tenantId: data.tenantId, actorType: "system", actorId: "worker:dead-letter", roles: ["system"] });
+      await handle.withContext(ctx, (tx) => raiseIncident(tx, jobs, { tenantId: data.tenantId as string, kind: "worker_error", severity: "high", title: "Connector sync failed after retries", details: { connectionId: data.connectionId }, dedupeKey: `connector-dead-letter:${data.connectionId}` }));
     } else if (typeof data.scheduleId === "string" && typeof data.tenantId === "string") {
       const ctx = tenantContext({ tenantId: data.tenantId, actorType: "system", actorId: "worker:dead-letter", roles: ["agent_service"] });
       await handle.withContext(ctx, (tx) => raiseIncident(tx, jobs, { tenantId: data.tenantId as string, kind: "worker_error", severity: "high", title: "Schedule tick failed after retries", details: { scheduleId: data.scheduleId }, scheduleId: data.scheduleId as string, dedupeKey: `tick:${data.scheduleId}` }));
@@ -82,6 +99,7 @@ async function main(): Promise<void> {
 
   // Internal clocks.
   await boss.schedule("stall.check", "*/5 * * * *", {}, { tz: "UTC", key: "stall-check" });
+  await boss.schedule("sync.tick", "*/5 * * * *", {}, { tz: "UTC", key: "sync-tick" });
   await reconcileSchedules(handle, boss, jobs);
   state.lastReconcileAt = new Date();
   const reconcileTimer = setInterval(() => {
@@ -93,7 +111,7 @@ async function main(): Promise<void> {
   // Health endpoint for the platform (Railway health check, Compose healthcheck).
   const server = createServer((req, res) => {
     if (req.url === "/healthz") {
-      const body = { status: "ok", mode: state.mode, startedAt: state.startedAt.toISOString(), lastStallCheckAt: state.lastStallCheckAt?.toISOString() ?? null, lastReconcileAt: state.lastReconcileAt?.toISOString() ?? null, runsStarted: state.runsStarted, runsFailed: state.runsFailed };
+      const body = { status: "ok", mode: state.mode, startedAt: state.startedAt.toISOString(), lastStallCheckAt: state.lastStallCheckAt?.toISOString() ?? null, lastReconcileAt: state.lastReconcileAt?.toISOString() ?? null, runsStarted: state.runsStarted, runsFailed: state.runsFailed, syncsRun: state.syncsRun };
       res.writeHead(200, { "content-type": "application/json" });
       res.end(JSON.stringify(body));
       return;

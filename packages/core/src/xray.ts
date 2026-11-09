@@ -74,6 +74,8 @@ export interface ObserveKpiInput {
   sourceId?: string | null;
   lineage: { query_or_formula: string; source_record_ids: string[] };
   runId?: string | null;
+  /** Set when a connector sync produced the observation (M5 lineage). */
+  syncRunId?: string | null;
 }
 
 /** Records an observation. Both the contract and the CHECK constraint forbid a number when data is missing or stale. */
@@ -95,7 +97,7 @@ export async function observeKpi(tx: Tx, ctx: RequestContext, input: ObserveKpiI
   });
   const [row] = await tx
     .insert(kpiObservations)
-    .values({ tenantId: input.tenantId, kpiId: input.kpiId, periodStart: input.periodStart, periodEnd: input.periodEnd, value: value === null ? null : String(value), status: input.status, sourceId: input.sourceId ?? null, computedByActorType: ctx.actorType, computedByActorId: ctx.actorId, lineage: input.lineage, runId: input.runId ?? null })
+    .values({ tenantId: input.tenantId, kpiId: input.kpiId, periodStart: input.periodStart, periodEnd: input.periodEnd, value: value === null ? null : String(value), status: input.status, sourceId: input.sourceId ?? null, computedByActorType: ctx.actorType, computedByActorId: ctx.actorId, lineage: input.lineage, runId: input.runId ?? null, syncRunId: input.syncRunId ?? null })
     .returning({ id: kpiObservations.id });
   const nextStatus = input.status === "ok" ? "active" : input.status === "stale_data" ? "stale" : input.status === "missing_data" ? "missing_source" : kpi.status;
   await tx.update(kpis).set({ status: nextStatus, ...(input.status === "ok" ? { lastSuccessfulSyncAt: new Date() } : {}) }).where(eq(kpis.id, input.kpiId));

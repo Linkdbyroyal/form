@@ -8,10 +8,10 @@
 import { and, desc, eq, sql } from "drizzle-orm";
 import { PgBoss } from "pg-boss";
 import { agencyContext, createDb, operatorContext, schema, tenantContext } from "@sbos/db";
-import { activateActionTask, answerQuestion, createActionTask, createRun, createTask, currentDashboard, decideApproval, latestObservations, setOpportunityState } from "@sbos/core";
+import { activateActionTask, advancePhase, answerQuestion, createActionTask, createRun, createTask, currentDashboard, decideApproval, grantConsent, latestObservations, proposeConnection, recordSecurityReview, setOpportunityState } from "@sbos/core";
 import { BossJobBackend } from "../boss-backend";
 
-const { tenants, agentInstances, agentRuns, questions, approvals, findings, opportunities, actionTasks, kpis, briefings, memberships, vaultDocuments, runEvents, schedules, knowledgePromotionRequests, agencyKnowledgeRecords } = schema;
+const { tenants, agentInstances, agentRuns, questions, approvals, findings, opportunities, actionTasks, kpis, briefings, memberships, vaultDocuments, runEvents, schedules, knowledgePromotionRequests, agencyKnowledgeRecords, connections, syncRuns, kpiObservations, systems } = schema;
 const url = process.env.DATABASE_URL;
 if (!url) throw new Error("DATABASE_URL required");
 const handle = createDb({ connectionString: url, max: 4 });
@@ -138,6 +138,23 @@ try {
   const abstracted = await handle.withContext(agencyCtx, (tx) => tx.select({ id: agencyKnowledgeRecords.id }).from(agencyKnowledgeRecords).where(eq(agencyKnowledgeRecords.origin, "abstracted_from_client")));
   const leakB = await handle.withContext(ctxB, (tx) => tx.select({ id: knowledgePromotionRequests.id }).from(knowledgePromotionRequests));
   record(10, "Agent nominated a reusable insight; it is only a nomination (state nominated), no agency record exists, tenant B cannot see it", nominations.length >= 1 && nominations.every((n) => n.state === "nominated") && abstracted.length === 0 && leakB.length === 0, `nominations=${nominations.map((n) => `${n.state}/${n.risk}`).join(",")}, abstracted records=${abstracted.length}, visible to tenant B=${leakB.length}`);
+
+  // Spec ADR-011 / M5: a connection runs through metadata -> consent -> security review -> read_only; the worker's
+  // connector.sync job writes observations with lineage from sandbox fixtures, nothing leaves the platform.
+  const [rentman] = await handle.withContext(ceoCtx, (tx) => tx.select({ id: systems.id }).from(systems).where(eq(systems.name, "Rentman")));
+  const connectionId = await handle.withContext(ceoCtx, (tx) => proposeConnection(tx, ceoCtx, { tenantId: t.tenantId, provider: "rentman", systemId: rentman?.id ?? null, syncIntervalMinutes: 30, reason: "demo flow: closed projects not invoiced" }));
+  await jobs.enqueue("connector.sync", { tenantId: t.tenantId, connectionId, trigger: "manual" as const });
+  const skipped = await waitFor("metadata sync skipped", () => handle.withContext(ceoCtx, async (tx) => (await tx.select().from(syncRuns).where(and(eq(syncRuns.connectionId, connectionId), eq(syncRuns.status, "skipped"))))[0] ?? null));
+  await handle.withContext(ceoCtx, (tx) => grantConsent(tx, ceoCtx, { tenantId: t.tenantId, connectionId, scopes: ["projects:read", "invoices:read"], reason: "demo flow: CEO consent, read-only, no amounts", userId: ceoUser!.userId }));
+  const reviewerCtx = agencyContext({ tenantId: t.tenantId, actorType: "user", actorId: "demo-reviewer", roles: ["agency_reviewer"] });
+  await handle.withContext(reviewerCtx, (tx) => recordSecurityReview(tx, reviewerCtx, { tenantId: t.tenantId, connectionId, outcome: "approved", note: "demo flow: scopes limited to status and dates" }));
+  await handle.withContext(reviewerCtx, (tx) => advancePhase(tx, reviewerCtx, { tenantId: t.tenantId, connectionId, to: "read_only", reason: "demo flow: sandbox fixtures" }));
+  await jobs.enqueue("connector.sync", { tenantId: t.tenantId, connectionId, trigger: "manual" as const });
+  const synced = await waitFor("sandbox sync succeeded", () => handle.withContext(ceoCtx, async (tx) => (await tx.select().from(syncRuns).where(and(eq(syncRuns.connectionId, connectionId), eq(syncRuns.status, "succeeded"))))[0] ?? null));
+  const lineage = await handle.withContext(ceoCtx, (tx) => tx.select({ status: kpiObservations.status, lineage: kpiObservations.lineage }).from(kpiObservations).where(eq(kpiObservations.syncRunId, synced.id)));
+  const connRow = await handle.withContext(ceoCtx, async (tx) => (await tx.select({ phase: connections.phase, status: connections.status, lastSyncAt: connections.lastSyncAt }).from(connections).where(eq(connections.id, connectionId)))[0]!);
+  const leakConn = await handle.withContext(ctxB, (tx) => tx.select({ id: syncRuns.id }).from(syncRuns));
+  record(11, "Connection phases: metadata sync skipped without network; after CEO consent, security review and read_only the worker wrote sandbox observations with lineage; tenant B sees nothing", (skipped.details as { networkCalls?: number }).networkCalls === 0 && synced.mode === "sandbox" && lineage.length >= 2 && lineage.every((l) => (l.lineage as { query_or_formula?: string }).query_or_formula?.includes("Rentman.")) && connRow.phase === "read_only" && connRow.status === "active" && !!connRow.lastSyncAt && leakConn.length === 0, `skipped run networkCalls=${(skipped.details as { networkCalls?: number }).networkCalls}, synced mode=${synced.mode}, observations=${lineage.map((l) => l.status).join(",")}, phase=${connRow.phase}/${connRow.status}, tenant B sync runs=${leakConn.length}`);
 } catch (err) {
   record(0, "unexpected error", false, (err as Error).message);
 } finally {
