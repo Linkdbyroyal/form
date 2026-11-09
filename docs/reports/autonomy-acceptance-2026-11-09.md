@@ -27,3 +27,15 @@ Score: 11/11 checks passed (two runs earlier in the session exposed two defects 
 ## Second run from a clean database (same day)
 
 Database reset, migrated, seeded and bootstrapped (`pnpm bootstrap-admin`), worker and production web build started as separate processes. Result: 11/11 again. Browser verification with Playwright afterwards: sign in as the bootstrapped superadmin, Mission Control refused with `mfa_required`, TOTP enrolled on `/account/security` (secret read from the displayed otpauth URI, code computed locally), Mission Control overview, agents, runs, run detail, approvals, costs, errors and schedules all rendered (HTTP 200) with the data produced by the worker; a fresh session was sent to `/two-factor` and admitted after a valid code; a superadmin without a content grant received HTTP 403 on a client workspace. One defect found and fixed during this pass: the sign-in form navigated to the target page before the two-factor redirect, which produced a redirect loop for TOTP users.
+
+## Third run, extended with the Vault MVP flow (same day, after Milestone 2 services)
+
+Clean database, migrations 0001 to 0005, worker as its own process. 14/14 checks passed. New steps:
+
+| Step | Requirement (spec 4G) | Result | Evidence |
+|---|---|---|---|
+| 11 | Employee answers a published question; answer stored as provisional knowledge with source | PASS | `vault_facts` row `unconfirmed` with one interview source, created from the department manager's answer |
+| 12 | An agent discovers a contradiction and asks for verification | PASS | round 2 run read 5 prior questions, 1 answer and 1 fact (retrieval audited); the answer negating QuickBooks Online versus the systems register produced one `fact_verification_requests` row and a `help_request` run event; the fact moved to `hypothesis`, not to a verdict |
+| 13 | A reviewer promotes the fact; another agent retrieves it with its source; tenant B cannot see it | PASS | client admin decision set `verified` (database trigger enforces the reviewer role); a second agent identity read the fact with its source id; tenant B query returned nothing |
+
+Covered separately by `packages/core/test/knowledge.test.ts`: forbidden documents (other tenant, or `restricted` classification for non-reviewers) are not returned by search; revision history reverts as a new revision; agent writes follow the tenant write-mode policy (draft or proposal).
