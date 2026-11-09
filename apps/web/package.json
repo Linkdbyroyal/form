@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "lint": "tsc --noEmit",
     "test": "vitest run",
-    "bootstrap-admin": "tsx scripts/bootstrap-admin.ts"
+    "bootstrap-admin": "tsx scripts/bootstrap-admin.ts",
+    "create-demo-users": "tsx scripts/create-demo-users.ts"
   },
   "dependencies": {
     "@sbos/contracts": "workspace:*",

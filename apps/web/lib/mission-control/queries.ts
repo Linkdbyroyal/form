@@ -645,3 +645,61 @@ export async function countIncidentsByState(): Promise<Array<{ state: IncidentSt
 export async function listTenantOptions(): Promise<Array<{ id: string; slug: string; name: string }>> {
   return operatorRead((tx) => tx.select({ id: tenants.id, slug: tenants.slug, name: tenants.name }).from(tenants).where(sql`${tenants.kind} <> 'agency'`).orderBy(tenants.name));
 }
+
+// Knowledge Vault metadata (M2-11) --------------------------------------------------------------------
+//
+// Operator-granted columns only: vault_documents (id, tenant_id, classification, verification, updated_at),
+// vault_facts (id, tenant_id, verification), fact_verification_requests (id, tenant_id, state),
+// vault_change_proposals (id, tenant_id, state), retrieval_audit (id, tenant_id, occurred_at). Never a title,
+// path, statement, body or query.
+
+export interface VaultMetadataRow {
+  tenantId: string;
+  tenantSlug: string;
+  tenantName: string;
+  documents: number;
+  restrictedDocuments: number;
+  factsTotal: number;
+  factsByVerification: Record<string, number>;
+  openVerificationRequests: number;
+  pendingProposals: number;
+  retrievalAudits7d: number;
+  lastDocumentUpdate: Date | null;
+}
+
+export async function getVaultMetadata(tenantId: string): Promise<Omit<VaultMetadataRow, "tenantId" | "tenantSlug" | "tenantName">> {
+  const { vaultDocuments, vaultFacts, factVerificationRequests, vaultChangeProposals, retrievalAudit } = schema;
+  return operatorRead(async (tx) => {
+    const [docs] = await tx
+      .select({ n: num(sql`count(${vaultDocuments.id})`), restricted: num(sql`count(${vaultDocuments.id}) filter (where ${vaultDocuments.classification} = 'restricted')`), last: sql<Date | null>`max(${vaultDocuments.updatedAt})` })
+      .from(vaultDocuments)
+      .where(eq(vaultDocuments.tenantId, tenantId));
+    const facts = await tx.select({ verification: vaultFacts.verification, n: num(sql`count(${vaultFacts.id})`) }).from(vaultFacts).where(eq(vaultFacts.tenantId, tenantId)).groupBy(vaultFacts.verification);
+    const [req] = await tx.select({ n: num(sql`count(${factVerificationRequests.id})`) }).from(factVerificationRequests).where(and(eq(factVerificationRequests.tenantId, tenantId), eq(factVerificationRequests.state, "open")));
+    const [prop] = await tx.select({ n: num(sql`count(${vaultChangeProposals.id})`) }).from(vaultChangeProposals).where(and(eq(vaultChangeProposals.tenantId, tenantId), eq(vaultChangeProposals.state, "pending")));
+    const [audit] = await tx.select({ n: num(sql`count(${retrievalAudit.id})`) }).from(retrievalAudit).where(and(eq(retrievalAudit.tenantId, tenantId), sql`${retrievalAudit.occurredAt} > now() - interval '7 days'`));
+    const factsByVerification: Record<string, number> = {};
+    for (const f of facts) factsByVerification[f.verification] = f.n;
+    return {
+      documents: docs?.n ?? 0,
+      restrictedDocuments: docs?.restricted ?? 0,
+      factsTotal: facts.reduce((a, f) => a + f.n, 0),
+      factsByVerification,
+      openVerificationRequests: req?.n ?? 0,
+      pendingProposals: prop?.n ?? 0,
+      retrievalAudits7d: audit?.n ?? 0,
+      lastDocumentUpdate: docs?.last ? new Date(docs.last) : null
+    };
+  });
+}
+
+/** Vault metadata for every non-agency tenant, for /mission-control/vaults. */
+export async function listVaultMetadata(): Promise<VaultMetadataRow[]> {
+  const tenantRows = await operatorRead((tx) => tx.select({ id: tenants.id, slug: tenants.slug, name: tenants.name }).from(tenants).where(sql`${tenants.kind} <> 'agency'`).orderBy(tenants.name));
+  const out: VaultMetadataRow[] = [];
+  for (const t of tenantRows) {
+    const m = await getVaultMetadata(t.id);
+    out.push({ tenantId: t.id, tenantSlug: t.slug, tenantName: t.name, ...m });
+  }
+  return out;
+}

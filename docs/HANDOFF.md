@@ -1,6 +1,6 @@
 # Handoff
 
-Last updated: 2026-11-09 (Milestone 1 delivery, branch `claude/second-brain-os-architecture-ovfky3`). Push to GitHub is blocked until the Claude GitHub App has write access to `Linkdbyroyal/form`; all work is committed locally.
+Last updated: 2026-11-09 (Milestone 2 delivery, branch `claude/second-brain-os-architecture-ovfky3`, pushed to GitHub).
 
 ## Implemented and verified
 
@@ -65,3 +65,27 @@ pnpm --filter @sbos/web dev      # :3000
 pnpm worker:dev                  # :8080/healthz
 pnpm autonomy:check              # 11 checks
 ```
+
+## Milestone 2 client UI (M2-03, M2-05, M2-06, M2-07, M2-11), session 2026-11-09
+
+Implemented in `apps/web` only (no changes to `packages/core` or `packages/db`); uncommitted at the time of writing.
+
+- Interview Inbox answer flow: `app/c/[slug]/inbox/page.tsx` renders a form per open question by `answer_type` (text, number, boolean, single_choice, multi_choice, date; file and system_reference as text with a note), posts to `answerQuestionAction` which calls `answerQuestion` from `@sbos/core` inside `withContext`. Recipient role or client_admin may answer; others see the question read-only. Drafts are visible to client_admin only. Answered questions show the answer, role, time and the fact's verification badge.
+- Vault browser `app/c/[slug]/vault/page.tsx`: 20 standard folders with counts (`VAULT_FOLDERS` in `lib/client/vault-helpers.ts`; names 04, 05, 06, 13 and 17 match existing paths, the other 15 labels follow the spec order and should be confirmed against the Masterprompt), document list per folder (`?folder=`), full-text search (`?q=`) through `searchVault` (retrieval audit written).
+- Document page `app/c/[slug]/vault/[...path]/page.tsx`: frontmatter table, Markdown rendered with `marked` 15.0.12 plus `sanitize-html` 2.18.1 allow-list (script, event handlers, javascript: URLs stripped; wikilinks resolve to document routes), backlinks, outgoing links with resolved/dangling state, revision list with Compare (own LCS line diff) and Restore (calls `revertDocument`), Edit and Create forms (`writeVaultDocument` + `syncDocumentLinks`). client_employee reads only; a 404 shows the restricted-document hint.
+- Review queue `app/c/[slug]/vault/review/page.tsx`: open verification requests with fact, contradicting facts, reason, raiser, evidence count; verified/rejected through `decideFactVerification` (UI gate client_admin, trigger enforces too). Pending change proposals with preview; approve/reject through `decideProposal` (client_admin, department_manager).
+- Facts `app/c/[slug]/vault/facts/page.tsx`: list with verification filter; client_admin promotes to verified or marks deprecated through `setFactVerification`.
+- Settings `app/c/[slug]/vault/settings/page.tsx`: `vault.agent_write_mode` default plus 20 folder overrides through `setTenantPolicy` (client_admin only).
+- Mission Control `/mission-control/vaults` (`listVaultMetadata`, `getVaultMetadata` in `lib/mission-control/queries.ts`): per-tenant counts through operator-granted columns only; linked from the Overview implementation-status card.
+- Tests: `apps/web/test/vault-ui.test.ts` (17 unit tests: folder tree, role rules, answer parsing per type, frontmatter, line diff, sanitiser, policy builder). `pnpm --filter @sbos/web typecheck` and `pnpm --filter @sbos/web test` (49 tests) green.
+- Verified against a dev server on port 3300 and database `sbos_m2` (seeded; auth users `owner@secondbrain.test` superadmin, `ceo@northline.test` client_admin, `finance@northline.test` department_manager, `staff@northline.test` client_employee, password `Local-Dev-Only-Password-2026!`, dev only): all routes 200 for the three client roles; the no-JS form path exercised every action (answers per type, refusals for the wrong role, verification decision, proposal approval creating a revision, restore v1 as v5, edit as v6 with link re-indexing and script stripped, policy save, fact promotion).
+- Open: the 15 folder labels without existing usage need owner confirmation; attachments for file answers (M5); fact detail page; proposal diff against the current document; agency reviewer grants (M4).
+
+
+## Milestone 2 summary (2026-11-09)
+
+Implemented and verified: Knowledge Vault schema (migration 0005) and services; Discovery round 2 with answers, facts and contradiction detection; client UI for inbox answers, vault browser, document view with sanitised Markdown, backlinks, revisions, compare and restore, review queue, facts, settings (write-mode policy); Obsidian-compatible export (`/c/[slug]/vault/export`) and import (`/c/[slug]/vault/import`); Mission Control `/mission-control/vaults` with counts only; break-glass access (M1-18). Acceptance: 14/14 steps of the extended acceptance script against the live worker; 120 automated tests across six packages; Playwright as client admin: vault browser, search, document, review, facts, inbox all render, export returns a zip with the tenant's documents.
+
+Dev tooling added: `pnpm demo-users` (`SBOS_DEMO_TENANT`, `SBOS_DEMO_PASSWORD`) creates or resets three demo client users (admin, department manager, employee) with organisation memberships; refuses in production. The auth pool now falls back to `DATABASE_URL` only (not `DATABASE_URL_MIGRATE`), so auth and tenant data always live in the same database unless `DATABASE_URL_AUTH` is set explicitly.
+
+Open after M2: semantic search with pgvector (M3), file attachments for answers (M5), fact detail page, proposal diff view, agency reviewer grants (M4), skip or delegate a question, graph view. CI: the workflow runs tests serially and the acceptance script; check the latest run on GitHub after each push.

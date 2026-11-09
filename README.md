@@ -2,7 +2,7 @@
 
 Multi-tenant business transformation platform: specialised AI agents that diagnose a company, ask only the questions that close an evidence gap, redesign processes, build approved automations and monitor results. Three sealed workspaces: **Mission Control** (operators), **Client Workspace + Knowledge Vault** (per client), **Agency Intelligence Vault** (our methods and skills).
 
-Status: **Milestone 1 in delivery.** Synthetic data only. No client system is connected. Agents run in the autonomous worker (`apps/worker`); without an `ANTHROPIC_API_KEY` they run in a clearly labelled simulated mode. See `docs/HANDOFF.md` for the exact implemented / simulated / not connected list.
+Status: **Milestone 2 delivered.** Synthetic data only. No client system is connected. Agents run in the autonomous worker (`apps/worker`); without an `ANTHROPIC_API_KEY` they run in a clearly labelled simulated mode. See `docs/HANDOFF.md` for the exact implemented / simulated / not connected list.
 
 ## Quick start
 

@@ -10,3 +10,4 @@ export * from "./tasks";
 export * from "./vault";
 export * from "./knowledge";
 export * from "./obsidian";
+export * from "./vault-taxonomy";

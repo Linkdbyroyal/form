@@ -64,3 +64,19 @@ html, body {
   border-radius: var(--sb-radius);
   box-shadow: var(--sb-shadow);
 }
+
+/* Rendered vault Markdown (marked + sanitize-html allow-list). Kept minimal; tokens only. */
+.sb-prose { font-size: 0.9rem; line-height: 1.6; color: var(--sb-text); }
+.sb-prose h1, .sb-prose h2, .sb-prose h3, .sb-prose h4 { font-weight: 600; margin: 1.2em 0 0.5em; line-height: 1.25; }
+.sb-prose h1 { font-size: 1.5rem; } .sb-prose h2 { font-size: 1.25rem; } .sb-prose h3 { font-size: 1.05rem; }
+.sb-prose p, .sb-prose ul, .sb-prose ol, .sb-prose blockquote, .sb-prose pre, .sb-prose table { margin: 0.6em 0; }
+.sb-prose ul { list-style: disc; padding-left: 1.4em; } .sb-prose ol { list-style: decimal; padding-left: 1.4em; }
+.sb-prose a { color: var(--sb-cyan); text-decoration: underline; }
+.sb-prose code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.85em; background: var(--sb-surface-2); padding: 0.1em 0.3em; border-radius: 4px; }
+.sb-prose pre { background: var(--sb-surface-2); border: 1px solid var(--sb-border); border-radius: 8px; padding: 0.75rem; overflow-x: auto; }
+.sb-prose pre code { background: transparent; padding: 0; }
+.sb-prose blockquote { border-left: 3px solid var(--sb-border); padding-left: 0.8em; color: var(--sb-text-muted); }
+.sb-prose table { border-collapse: collapse; width: 100%; font-size: 0.85em; }
+.sb-prose th, .sb-prose td { border: 1px solid var(--sb-border); padding: 0.3em 0.5em; text-align: left; }
+.sb-prose hr { border: 0; border-top: 1px solid var(--sb-border); margin: 1em 0; }
+.sb-prose img { max-width: 100%; }
