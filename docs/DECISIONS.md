@@ -95,3 +95,8 @@ Decision: Resend for invitations, email verification, executive reports, approva
 Consequences: `RESEND_API_KEY` and `PUMBLE_WEBHOOK_URL` live only in the worker; the web app enqueues notification jobs.
 
 Amendment 2026-11-09 (ADR-018): authentication e-mails (verification, password reset, invitations) are sent directly by the web app through Resend because they must be delivered synchronously with the request and contain no client content. All other notifications are queued and sent by the worker as decided.
+
+## ADR-019: Semantic search (pgvector) deferred from M3 to M5 (2026-11-09, accepted)
+Context: M3-11 planned pgvector embeddings for facts and documents. The development sandbox runs PostgreSQL 16 without the `vector` extension and cannot install it (no package source, no build toolchain allowed), so the feature could not be tested here. The spec 11 demo flow does not need semantic retrieval: Postgres full-text search with `pg_trgm` serves every retrieval in M3 and every retrieval is already logged in `retrieval_audit`.
+Decision: ship M3 without embeddings. `knowledge_embeddings` (per-tenant partitions, agency partition as a separate table) and the semantic retrieval path move to M5 together with the Langfuse exporter and the first real connector data, where they are developed against the `pgvector/pgvector:pg16` image used by CI and Docker Compose. Embedding calls will go through the same budget admission as model calls.
+Consequences: Vault search stays lexical (websearch syntax) in M3 and M4; the forbidden-document test for semantic search (M3-11 acceptance) is added in M5; `docs/ARCHITECTURE.md` section 7 keeps pgvector as the target and this ADR records the timing.

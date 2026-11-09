@@ -39,3 +39,21 @@ Clean database, migrations 0001 to 0005, worker as its own process. 14/14 checks
 | 13 | A reviewer promotes the fact; another agent retrieves it with its source; tenant B cannot see it | PASS | client admin decision set `verified` (database trigger enforces the reviewer role); a second agent identity read the fact with its source id; tenant B query returned nothing |
 
 Covered separately by `packages/core/test/knowledge.test.ts`: forbidden documents (other tenant, or `restricted` classification for non-reviewers) are not returned by search; revision history reverts as a new revision; agent writes follow the tenant write-mode policy (draft or proposal).
+
+## Fourth run: spec 11 demo flow (same day, after Milestone 3 services and flows)
+
+Database `sbos_m1` migrated (0001 to 0006) and seeded; worker as its own process in simulated mode (no API key). Script: `apps/worker/src/cli/demo-flow-check.ts`, run through `pnpm demo:check`. The script only writes rows the way the UI would (answers as CEO, approval decisions as CEO) and polls; every agent step is executed by the worker through pg-boss. 9/9 checks passed.
+
+| Step | Requirement (spec 11) | Result | Evidence |
+|---|---|---|---|
+| 1 | CEO answers the intake questions; departments and applications known | PASS | 5 intake questions answered as client_admin, 4 departments and 4 systems in the register |
+| 2 | Finance and Operations agents produce findings and follow-up questions | PASS | `finance-agent` and `operations-agent` runs: findings with `claim_type` and source ids, 2 follow-up questions each as drafts |
+| 3 | Follow-up questions published after CEO approval | PASS | approvals decided as CEO; runs resumed and published the questions to the inbox |
+| 4 | Agent delivers pain point (AS-IS), proposed workflow (TO-BE) and an opportunity | PASS | `process-redesign` run stored the process with AS-IS and TO-BE steps (intervention labels) and an opportunity with a labelled business case and an open approval |
+| 5 | CEO approves; risky change blocked before approval; owner receives a task with a verification schedule | PASS | activating the opportunity before the decision failed at the database trigger; after approval `activateActionTask` created the task and a verification schedule for `performance-agent` |
+| 6 | Verification does not assume completion | PASS | `action-verification` run set the task to `verifying` and drafted a question for the owner awaiting publication |
+| 7 | KPI registry with sources; external KPIs show missing data; dashboard spec validated | PASS | `ceo-intelligence` run defined KPIs with formula, source system and field; observations for unconnected systems carry `status = missing_data` and `value = null`; `DashboardSpecification` validated and versioned |
+| 8 | Executive briefing with eight sections and 5 to 7 priorities; vault holds the artefacts | PASS | `executive-briefing` run; vault documents for processes, findings, KPI registry and briefing in the standard folders |
+| 9 | Tenant isolation | PASS | tenant B context sees none of tenant A's findings, opportunities, KPIs, briefings or action tasks |
+
+Not covered: real model calls (simulated fixtures), semantic search (deferred, ADR-019), the client UI for dashboard, X-Ray and action center (built after this run and verified separately in the browser).

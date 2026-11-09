@@ -1,6 +1,6 @@
 # Handoff
 
-Last updated: 2026-11-09 (Milestone 2 delivery, branch `claude/second-brain-os-architecture-ovfky3`, pushed to GitHub).
+Last updated: 2026-11-09 (Milestone 3 backend and flows delivered, client UI in progress; Milestone 2 delivery, branch `claude/second-brain-os-architecture-ovfky3`, pushed to GitHub).
 
 ## Implemented and verified
 
@@ -89,3 +89,18 @@ Implemented and verified: Knowledge Vault schema (migration 0005) and services; 
 Dev tooling added: `pnpm demo-users` (`SBOS_DEMO_TENANT`, `SBOS_DEMO_PASSWORD`) creates or resets three demo client users (admin, department manager, employee) with organisation memberships; refuses in production. The auth pool now falls back to `DATABASE_URL` only (not `DATABASE_URL_MIGRATE`), so auth and tenant data always live in the same database unless `DATABASE_URL_AUTH` is set explicitly.
 
 Open after M2: semantic search with pgvector (M3), file attachments for answers (M5), fact detail page, proposal diff view, agency reviewer grants (M4), skip or delegate a question, graph view. CI: the workflow runs tests serially and the acceptance script; check the latest run on GitHub after each push.
+
+
+## Milestone 3 backend and agent flows (2026-11-09)
+
+Committed as `bc95b59` (migration 0006 and core services) and `0b0a2e7` (flow executor and six flows).
+
+- Migration `0006_xray_kpis.sql`: `processes`, `process_steps`, `pain_points`, `findings`, `opportunities` (+ `enforce_opportunity_approval`), `kpis` (formula, source system and field required), `kpi_observations` (CHECK: value only when status `ok`), `dashboards`, `dashboard_widgets` (whitelist enum), `action_tasks` (+ `enforce_action_task_approval`), `briefings`, `connections`, `credentials_metadata` (secret reference only). RLS forced, operator metadata grants, Drizzle schema in `packages/db/src/schema/xray.ts`.
+- `packages/core/src/xray.ts`: `defineKpi`, `observeKpi`, `latestObservations`, `createFinding`, `proposeOpportunity` (creates its approval), `setOpportunityState`, `createActionTask`, `activateActionTask` (schedules verification), `setActionTaskState`, `publishDashboard` (contract-validated, versioned), `currentDashboard`, `storeBriefing` (eight sections, 5 to 7 priorities), `upsertProcess`. 4 integration tests.
+- Worker `apps/worker/src/executor.ts` is now a generic flow runner: load run, budget admission, `flowFor(definition.key)`, step loop with a checkpoint per step and suspend/resume on approval, finalize. Flows in `apps/worker/src/flows/`: discovery, department-review (Finance and Operations), process-redesign, ceo-intelligence, executive-briefing, action-verification; registry in `flows/index.ts`. Shared helpers: tenant snapshot with retrieval audit, question drafts with contract validation, publication approval, vault notes through the write-mode policy.
+- `packages/agents`: prompt builder, draft schema and simulated fixture per flow (`department-review.ts`, `process-redesign.ts`, `ceo-intelligence.ts`, `executive-briefing.ts`, `action-verification.ts`); 5 tests.
+- Seed: seven agent definitions read from `packages/db/seed-data/skills/<key>/SKILL.md`; full instance pool for `northline-events`, Discovery only for `harbour-view-hotel`; schedules disabled except Discovery.
+- `pnpm demo:check` (`apps/worker/src/cli/demo-flow-check.ts`): nine checks of the spec 11 flow against the live worker, 9/9 locally, added to CI after the autonomy check (CI job `timeout-minutes: 20`).
+- Semantic search (M3-11) deferred to M5: ADR-019.
+
+Stale local processes: after changing worker code stop the old worker with `pkill -f "src/main.ts"`; an old process keeps consuming pg-boss jobs with old code.
