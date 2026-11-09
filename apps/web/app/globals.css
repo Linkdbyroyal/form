@@ -1,0 +1,66 @@
+@import "tailwindcss";
+
+/*
+ * Second Brain design tokens (v0.1). Deep navy / near-black base, cyan → blue → indigo gradient,
+ * white headings, subtle grey metadata. Tokens are the single source for colours; components
+ * never hard-code hex values.
+ */
+:root {
+  --sb-bg: #070b14;
+  --sb-surface: #0d1424;
+  --sb-surface-2: #121b30;
+  --sb-border: #1e2a44;
+  --sb-text: #f5f7fb;
+  --sb-text-muted: #8b95a7;
+  --sb-text-faint: #5b6577;
+  --sb-cyan: #22d3ee;
+  --sb-blue: #3b82f6;
+  --sb-indigo: #6366f1;
+  --sb-success: #34d399;
+  --sb-warning: #fbbf24;
+  --sb-danger: #f87171;
+  --sb-radius: 12px;
+  --sb-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+
+@theme inline {
+  --color-bg: var(--sb-bg);
+  --color-surface: var(--sb-surface);
+  --color-surface-2: var(--sb-surface-2);
+  --color-border: var(--sb-border);
+  --color-fg: var(--sb-text);
+  --color-muted: var(--sb-text-muted);
+  --color-faint: var(--sb-text-faint);
+  --color-cyan: var(--sb-cyan);
+  --color-blue: var(--sb-blue);
+  --color-indigo: var(--sb-indigo);
+  --color-success: var(--sb-success);
+  --color-warning: var(--sb-warning);
+  --color-danger: var(--sb-danger);
+  --radius-card: var(--sb-radius);
+}
+
+html, body {
+  background: var(--sb-bg);
+  color: var(--sb-text);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Inter, Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.sb-gradient-text {
+  background: linear-gradient(90deg, var(--sb-cyan), var(--sb-blue), var(--sb-indigo));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.sb-gradient-bar {
+  background: linear-gradient(90deg, var(--sb-cyan), var(--sb-blue), var(--sb-indigo));
+}
+
+.sb-card {
+  background: var(--sb-surface);
+  border: 1px solid var(--sb-border);
+  border-radius: var(--sb-radius);
+  box-shadow: var(--sb-shadow);
+}

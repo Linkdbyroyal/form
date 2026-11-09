@@ -1,0 +1,39 @@
+name: CI
+on:
+  push:
+    branches: ["main", "claude/**"]
+  pull_request:
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: sbos
+          POSTGRES_PASSWORD: sbos
+          POSTGRES_DB: sbos_dev
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U sbos -d sbos_dev"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      DATABASE_URL: postgres://sbos:sbos@localhost:5432/sbos_dev
+      DATABASE_URL_MIGRATE: postgres://sbos:sbos@localhost:5432/sbos_dev
+      DATABASE_URL_TEST: postgres://sbos:sbos@localhost:5432/sbos_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.28.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: PGPASSWORD=sbos psql -h localhost -U sbos -d sbos_dev -c "CREATE DATABASE sbos_test OWNER sbos"
+      - run: pnpm typecheck
+      - run: pnpm --filter @sbos/db migrate
+      - run: pnpm --filter @sbos/db seed
+      - run: pnpm test
+      - run: pnpm --filter @sbos/web build

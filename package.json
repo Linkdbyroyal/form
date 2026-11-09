@@ -1,14 +1,22 @@
 {
-  "name": "lbr-intake-backend",
-  "version": "3.0.0",
-  "description": "Linkd by Royal Discovery Intake: tweetalig formulier, server-side AI-analyse, dashboard, PDF-rapporten en mail naar eigenaar",
-  "main": "server.js",
-  "scripts": { "start": "node server.js" },
-  "engines": { "node": ">=18" },
-  "dependencies": {
-    "cors": "^2.8.5",
-    "dotenv": "^16.4.5",
-    "express": "^4.19.2",
-    "nodemailer": "^6.9.13"
+  "name": "second-brain-os",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Second Brain Business Transformation OS: multi-tenant agent platform with Mission Control, Client Workspaces and Knowledge Vaults",
+  "packageManager": "pnpm@10.28.0",
+  "engines": { "node": ">=22.12" },
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "db:migrate": "pnpm --filter @sbos/db migrate",
+    "db:seed": "pnpm --filter @sbos/db seed",
+    "db:reset": "pnpm --filter @sbos/db reset"
+  },
+  "devDependencies": {
+    "turbo": "^2.11.10",
+    "typescript": "^5.9.3"
   }
 }

@@ -1,29 +1,41 @@
-# Linkd by Royal — Intake Backend
+# Second Brain Business OS
 
-Kleine Node/Express-server die drie dingen doet:
-1. **/api/analyze**: stuurt de intake naar Claude met jouw geheime API-key (de key staat dus nooit in de browser)
-2. **/api/submit**: slaat elke inzending op als dossier in `data/` en verstuurt automatisch twee mails: een notificatie naar jou met het volledige dossier als bijlage, en een bevestiging met vervolgstappen naar de klant
-3. Serveert het intake-formulier zelf op de hoofdpagina (`public/index.html`)
+Multi-tenant business transformation platform: specialised AI agents that diagnose a company, ask only the questions that close an evidence gap, redesign processes, build approved automations and monitor results. Three sealed workspaces: **Mission Control** (operators), **Client Workspace + Knowledge Vault** (per client), **Agency Intelligence Vault** (our methods and skills).
 
-## Lokaal starten
+Status: **Milestone 0, foundation.** Synthetic data only. No client system is connected. No authentication yet (development operator). See `docs/HANDOFF.md` for the exact implemented / simulated / not connected list.
+
+## Quick start
+
 ```
-npm install
-cp .env.example .env    # vul je waarden in
-npm start               # draait op http://localhost:3000
+cp .env.example .env
+docker compose up -d postgres        # or use a local PostgreSQL 16 with role sbos/sbos and databases sbos_dev, sbos_test
+pnpm install
+pnpm db:migrate && pnpm db:seed
+pnpm --filter @sbos/web dev           # http://localhost:3000
+pnpm test                             # contracts tests + database isolation tests
 ```
 
-## Deployen (aanbevolen: Railway of Render, gratis tier volstaat om te starten)
-1. Zet deze map in een GitHub-repository
-2. Maak een nieuw project aan op railway.app of render.com en koppel de repo
-3. Vul de environment-variabelen uit `.env.example` in via het dashboard
-4. Deploy: je krijgt een URL zoals `https://intake.up.railway.app`, dat is meteen de link die je naar klanten stuurt
+## Repository map
 
-## E-mail
-Gebruik de SMTP-gegevens van je eigen mailprovider (bijv. je zakelijke mailbox bij je hostingpartij). Zonder SMTP-configuratie werkt alles behalve de mails: inzendingen worden dan alleen opgeslagen.
+| Path | What |
+|---|---|
+| `apps/web` | Next.js 16 app: Mission Control, Client Workspace, Agency Vault shells |
+| `apps/worker` | Autonomous agent worker (Milestone 1) |
+| `packages/db` | Drizzle schema, SQL migrations with Row-Level Security, seed, isolation tests |
+| `packages/contracts` | Zod 4 contracts (QuestionRequest, Finding, KpiDefinition, DashboardSpecification, …) + JSON Schema export |
+| `docs/` | Architecture, ADRs, roadmap, milestones, agent runtime, security, research, cases |
+| `legacy/lbr-intake` | Previous intake form, kept for reference, not deployed |
 
-## Dossiers inzien
-- Overzicht: `GET /api/submissions?token=JOUW_ADMIN_TOKEN`
-- Eén dossier: `GET /api/submissions/{id}?token=JOUW_ADMIN_TOKEN`
+## Key documents
 
-## Formulier
-`public/index.html` is het intake-formulier. Bovenin het script staat `BACKEND_URL`; standaard leeg = zelfde server. Wil je het formulier los hosten, vul daar dan de volledige backend-URL in.
+- `docs/PRODUCT_VISION.md`: what this is and is not
+- `docs/ARCHITECTURE.md`: stack, tenancy model, agent model, vaults, surfaces
+- `docs/agent-runtime.md`: autonomous worker design and the Autonomy Acceptance Test
+- `docs/DECISIONS.md`: ADR-001 … ADR-013
+- `docs/research/github-assessment.md`: Build / Adopt / Integrate / Reject matrix with license warnings
+- `docs/ROADMAP.md` and `docs/milestones/M1.md`: milestones, tickets, acceptance criteria
+- `docs/cases/`: event rental, hospitality, professional services scenarios (synthetic)
+
+## Principles
+
+Default deny and database-level tenant isolation. Agents propose; humans approve risky actions. Every number has a source or shows "missing data". Claude Code is the development environment, never the runtime.
