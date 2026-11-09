@@ -96,7 +96,9 @@ describe("search, classification and revisions", () => {
     await handle.withContext(ctxCeoB, (tx) => writeVaultDocument(tx, ctxCeoB, { tenantId: tenantB, path: "04_processes_as_is/check-in.md", title: "Check-in", frontmatter: {}, bodyMarkdown: "Invoices for group bookings are issued at check-out." }));
 
     const hitsA = await handle.withContext(ctxCeoA, (tx) => searchVault(tx, ctxCeoA, { tenantId: tenantA, query: "invoices" }));
-    expect(hitsA.map((h) => h.path).filter(Boolean).sort()).toEqual(["04_processes_as_is/quote-to-cash.md", "17_policies_and_security/salary-bands.md"]);
+    // Other suites share this database and may have written documents that also mention invoices; judge only the three documents written here.
+    const ownPaths = ["04_processes_as_is/quote-to-cash.md", "17_policies_and_security/salary-bands.md", "04_processes_as_is/check-in.md"];
+    expect(hitsA.map((h) => h.path).filter((p): p is string => !!p && ownPaths.includes(p)).sort()).toEqual(["04_processes_as_is/quote-to-cash.md", "17_policies_and_security/salary-bands.md"]);
     expect(hitsA.some((h) => h.path === "04_processes_as_is/check-in.md")).toBe(false);
 
     const hitsManager = await handle.withContext(ctxManagerA, (tx) => searchVault(tx, ctxManagerA, { tenantId: tenantA, query: "invoices" }));
