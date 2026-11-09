@@ -21,6 +21,8 @@ jobs:
       DATABASE_URL: postgres://sbos:sbos@localhost:5432/sbos_dev
       DATABASE_URL_MIGRATE: postgres://sbos:sbos@localhost:5432/sbos_dev
       DATABASE_URL_TEST: postgres://sbos:sbos@localhost:5432/sbos_test
+      BETTER_AUTH_SECRET: ci-only-secret-not-used-in-production-0123456789
+      BETTER_AUTH_URL: http://localhost:3000
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -35,5 +37,19 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm --filter @sbos/db migrate
       - run: pnpm --filter @sbos/db seed
-      - run: pnpm test
+      # Test suites share the test database, so they run one package at a time.
+      - run: pnpm turbo run test --concurrency=1
+      - name: Autonomy Acceptance Test (worker runs as its own process)
+        run: |
+          set -e
+          pnpm --filter @sbos/db exec tsx src/cli/reset.ts --test
+          DATABASE_URL_MIGRATE=$DATABASE_URL_TEST pnpm --filter @sbos/db migrate
+          DATABASE_URL=$DATABASE_URL_TEST pnpm --filter @sbos/db seed
+          (cd apps/worker && DATABASE_URL=$DATABASE_URL_TEST PORT=8081 pnpm exec tsx src/main.ts > worker.log 2>&1 &)
+          for i in $(seq 1 30); do curl -sf http://localhost:8081/healthz >/dev/null && break; sleep 2; done
+          cd apps/worker && DATABASE_URL=$DATABASE_URL_TEST WORKER_PORT=8081 timeout 600 pnpm exec tsx src/cli/autonomy-check.ts
+        timeout-minutes: 12
+      - name: Worker log on failure
+        if: failure()
+        run: cat apps/worker/worker.log || true
       - run: pnpm --filter @sbos/web build

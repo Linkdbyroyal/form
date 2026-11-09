@@ -334,7 +334,7 @@ export async function executeRun(handle: DbHandle, env: WorkerEnv, jobs: JobBack
   }
 }
 
-function classify(err: unknown): RunFailure["failureClass"] {
+export function classify(err: unknown): RunFailure["failureClass"] {
   const msg = String((err as Error)?.message ?? err).toLowerCase();
   if (msg.includes("401") || msg.includes("authentication") || msg.includes("x-api-key") || msg.includes("api key")) return "credential";
   if (msg.includes("429") || msg.includes("overloaded") || msg.includes("timeout") || msg.includes("econnreset") || msg.includes("fetch failed") || msg.includes("503") || msg.includes("529")) return "model";

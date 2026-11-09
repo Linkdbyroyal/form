@@ -12,3 +12,4 @@ coverage/
 .DS_Store
 legacy/lbr-intake/data/
 legacy/lbr-intake/node_modules/
+apps/worker/worker.log
