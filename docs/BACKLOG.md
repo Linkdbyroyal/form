@@ -25,8 +25,8 @@ See `docs/milestones/M1.md` tickets M1-01 … M1-15, including the autonomous wo
 ## M4 Agency Intelligence Vault (backend done, UI in progress)
 - Done: migration 0007, knowledge lifecycle with triggers, promotion requests/reviews gate, template adoptions with pinned versions and rollback, agency search isolation tests, agent nomination. Open: Mission Control module and /agency landing (in progress), Agency Knowledge Curator Agent (optional), consent-withdrawal review tooling.
 
-## M5 Integrations + observability (todo)
-- Connection phases and consent, Rentman/QuickBooks/Trengo/Dropbox read-only connectors, KPI observations with lineage, pgvector RAG, Langfuse exporter.
+## M5 Integrations + observability (in progress)
+- Done: connection phases with consent and security review (trigger), sandbox connectors for Rentman, QuickBooks Online, Trengo and Dropbox, sync runs with lineage, secret references with masking, worker sync jobs. Open: Integration Center and Connected Tools UI (in progress), live read-only connectors (owner decisions: first system, sandbox vs pilot consent), Langfuse exporter (owner decision), pgvector RAG (ADR-019), pilot read-only run and acceptance report.
 
 ## M6 Hardening + Tech Intelligence + pilot (todo)
 - Technology Intelligence Center, budget caps, retention/deletion jobs, security eval suite, external review, pilot.

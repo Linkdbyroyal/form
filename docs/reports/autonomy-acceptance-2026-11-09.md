@@ -67,3 +67,13 @@ Fresh database `sbos_m4flow` (migrations 0001 to 0007, seed with skill `process-
 | 10 | An agent may nominate a reusable insight from a client scenario; it is never published without a reviewer and a rights check | PASS | the process-redesign run wrote one `knowledge_promotion_requests` row in tenant A (`nominated`, identifiability risk low); zero agency records with origin `abstracted_from_client`; tenant B sees no request |
 
 Spec 4H acceptance criteria 1 to 6 are covered by `packages/core/test/agency-knowledge.test.ts` (5 tests against Postgres with RLS, see `docs/milestones/M4.md`).
+
+## Sixth run: integration phases through the worker (same day, after Milestone 5 services)
+
+Fresh database `sbos_m5flow` (migrations 0001 to 0008), worker as its own process in simulated mode. `pnpm autonomy:check` 14/14, `pnpm demo:check` 11/11. New step:
+
+| Step | Requirement (ADR-011, M5) | Result | Evidence |
+|---|---|---|---|
+| 11 | A connection starts in metadata and reads nothing; after the client admin's consent, the agency security review and the one-step advance to read_only, the worker syncs with lineage; tenant B sees nothing | PASS | first `connector.sync` job finished `skipped` with `networkCalls = 0`; after consent, review and advance the second job wrote two observations (`closed_projects_not_invoiced`, `quote_to_invoice_days`) from sandbox fixtures with formula, source field and `sync_run_id` in the lineage; connection `read_only/active` with `last_sync_at`; tenant B has zero sync runs |
+
+Not covered: live connectors (none implemented; the registry refuses `live` mode explicitly), real credentials (none exist in the sandbox), the Integration Center UI (built after this run).
