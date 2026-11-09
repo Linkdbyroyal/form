@@ -11,3 +11,4 @@ export * from "./vault";
 export * from "./knowledge";
 export * from "./obsidian";
 export * from "./vault-taxonomy";
+export * from "./xray";

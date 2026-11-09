@@ -4,3 +4,4 @@ export * from "./org";
 export * from "./agents";
 export * from "./auth";
 export * from "./vault";
+export * from "./xray";
