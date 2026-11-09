@@ -8,6 +8,10 @@ export type TenantKind = "client" | "agency" | "demo";
 export const OPERATOR_ROLES = ["superadmin", "agency_operator"] as const;
 export type OperatorRole = (typeof OPERATOR_ROLES)[number];
 
+/** Every role on the agency tenant. Agency staff without an operator role may use the Agency Intelligence Vault (M4). */
+export const AGENCY_ROLES = ["superadmin", "agency_operator", "agency_reviewer", "agency_consultant"] as const;
+export type AgencyRole = (typeof AGENCY_ROLES)[number];
+
 /** Roles whose holders must have a verified second factor before any session counts (ADR-015). */
 export const MFA_REQUIRED_ROLES: ReadonlySet<string> = new Set<string>(OPERATOR_ROLES);
 
@@ -69,6 +73,25 @@ export function decideOperatorAccess(input: { authenticated: boolean; agencyRole
   if (!input.authenticated) return { kind: "redirect", to: "/sign-in", reason: "unauthenticated" };
   const roles = input.agencyRoles.filter((r): r is OperatorRole => (OPERATOR_ROLES as readonly string[]).includes(r));
   if (roles.length === 0) return { kind: "redirect", to: "/sign-in", reason: "not_operator" };
+  if (mfaGate({ roles, twoFactorEnabled: input.twoFactorEnabled }) === "require_mfa") {
+    return { kind: "redirect", to: "/account/security", reason: "mfa_required" };
+  }
+  return { kind: "allow", roles: [...roles] };
+}
+
+export type AgencyAccess =
+  | { kind: "allow"; roles: string[] }
+  | { kind: "redirect"; to: "/sign-in" | "/account/security"; reason: "unauthenticated" | "not_agency" | "mfa_required" };
+
+/**
+ * Decides Agency Intelligence Vault access (spec 4H): any agency role on the agency tenant. Client roles never
+ * qualify. The MFA rule is unchanged: a superadmin or agency_operator without TOTP is sent to /account/security,
+ * exactly as for Mission Control; reviewers and consultants pass without MFA (optional for them).
+ */
+export function decideAgencyAccess(input: { authenticated: boolean; agencyRoles: readonly string[]; twoFactorEnabled: boolean }): AgencyAccess {
+  if (!input.authenticated) return { kind: "redirect", to: "/sign-in", reason: "unauthenticated" };
+  const roles = input.agencyRoles.filter((r): r is AgencyRole => (AGENCY_ROLES as readonly string[]).includes(r));
+  if (roles.length === 0) return { kind: "redirect", to: "/sign-in", reason: "not_agency" };
   if (mfaGate({ roles, twoFactorEnabled: input.twoFactorEnabled }) === "require_mfa") {
     return { kind: "redirect", to: "/account/security", reason: "mfa_required" };
   }

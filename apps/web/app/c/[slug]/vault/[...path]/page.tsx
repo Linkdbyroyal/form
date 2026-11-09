@@ -77,6 +77,11 @@ export default async function VaultDocumentPage({ params, searchParams }: { para
           <StateBadge kind="classification" value={doc.classification} />
           <VerificationBadge value={doc.verification} />
           <Badge>checksum {doc.checksum.slice(0, 12)}</Badge>
+          {typeof doc.frontmatter.sbos_template_key === "string" ? (
+            <span title={doc.frontmatter.sbos_template_revoked_at ? "The agency ended this adoption; the document stays in your vault." : "Installed from a Second Brain methodology template with your company's values. Agency knowledge itself is not visible from a client workspace."}>
+              <Badge tone="indigo">Adopted from agency template {doc.frontmatter.sbos_template_key}{typeof doc.frontmatter.sbos_template_version === "number" ? ` v${doc.frontmatter.sbos_template_version}` : ""}{doc.frontmatter.sbos_template_revoked_at ? " (adoption ended)" : ""}</Badge>
+            </span>
+          ) : null}
           {mayEdit ? (
             editing ? <Link href={here} className={smallButtonClass}>Cancel edit</Link> : <Link href={`${here}?edit=1`} className={smallButtonClass}>Edit</Link>
           ) : (

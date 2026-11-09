@@ -1,10 +1,10 @@
 import { headers } from "next/headers";
 import { forbidden, redirect } from "next/navigation";
 import { cache } from "react";
-import { operatorContext, tenantContext, type OperatorContext, type TenantContext } from "@sbos/db";
+import { agencyContext, operatorContext, tenantContext, type AgencyContext, type OperatorContext, type TenantContext } from "@sbos/db";
 import { auth, type Session } from "./auth";
 import { loadPrincipalData, type PrincipalData, type PrincipalGrant } from "./auth-bridge";
-import { decideOperatorAccess, decideTenantAccess, mfaGate } from "./auth-policy";
+import { decideAgencyAccess, decideOperatorAccess, decideTenantAccess, mfaGate } from "./auth-policy";
 import { logContentAccess } from "./content-access";
 
 /**
@@ -30,10 +30,11 @@ export interface Principal {
 
 interface Resolved {
   operator: OperatorContext | null;
+  agency: AgencyContext | null;
   tenants: Map<string, TenantContext>;
 }
 
-const resolved = cache((): Resolved => ({ operator: null, tenants: new Map() }));
+const resolved = cache((): Resolved => ({ operator: null, agency: null, tenants: new Map() }));
 
 export const getSession = cache(async (): Promise<Session | null> => {
   return auth.api.getSession({ headers: await headers() });
@@ -92,6 +93,26 @@ export async function requireOperatorContext(): Promise<OperatorContext> {
   }
   const ctx = operatorContext({ actorType: "user", actorId: p!.userId, roles: decision.roles });
   store.operator = ctx;
+  return ctx;
+}
+
+/**
+ * Agency Intelligence Vault (spec 4H): any agency role (superadmin, agency_operator, agency_reviewer,
+ * agency_consultant) on the agency tenant. Client roles are rejected. The MFA rule for superadmin and
+ * agency_operator is the same as for Mission Control. The returned context runs as `sbos_app` in agency scope
+ * without a tenant, which is the only scope that can read agency knowledge bodies (RLS, migration 0007).
+ */
+export async function requireAgencyContext(): Promise<AgencyContext> {
+  const store = resolved();
+  if (store.agency) return store.agency;
+  const p = await getPrincipal();
+  const decision = decideAgencyAccess({ authenticated: p !== null, agencyRoles: p?.agencyRoles ?? [], twoFactorEnabled: p?.twoFactorEnabled ?? false });
+  if (decision.kind === "redirect") {
+    if (decision.to === "/sign-in") signInRedirect(await currentPath("/agency"));
+    redirect(`/account/security?reason=${decision.reason}`);
+  }
+  const ctx = agencyContext({ tenantId: null, actorType: "user", actorId: p!.userId, roles: decision.roles });
+  store.agency = ctx;
   return ctx;
 }
 

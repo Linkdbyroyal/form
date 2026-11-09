@@ -73,6 +73,15 @@ export const MISSION_CONTROL_NAV: NavItem[] = [
   { href: "/mission-control/agency-vault", label: "Agency Intelligence Vault", milestone: "M4" }
 ];
 
+/** Navigation for agency staff without an operator role (agency_reviewer, agency_consultant): the Agency Intelligence Vault only. */
+export const AGENCY_STAFF_NAV: NavItem[] = [
+  { href: "/agency", label: "Overview", milestone: "M4" },
+  { href: "/mission-control/agency-vault", label: "Knowledge Library", milestone: "M4" },
+  { href: "/mission-control/agency-vault/reviews", label: "Pending Knowledge Reviews", milestone: "M4" },
+  { href: "/mission-control/agency-vault/templates", label: "Templates & adoptions", milestone: "M4" },
+  { href: "/mission-control/agency-vault/history", label: "Version History", milestone: "M4" }
+];
+
 export function clientNav(slug: string): NavItem[] {
   return [
     { href: `/c/${slug}`, label: "Workspace", milestone: "M0" },

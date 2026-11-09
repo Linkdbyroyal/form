@@ -49,6 +49,11 @@ export function withNotice(returnTo: string, notice: { ok?: string; error?: stri
 
 /** Turns a thrown value (usually a Postgres error from a trigger or grant) into a short message for the UI. */
 export function errorMessage(err: unknown): string {
-  if (err instanceof Error) return err.message.slice(0, 300);
+  if (err instanceof Error) {
+    // drizzle wraps a Postgres error as "Failed query: <sql>" with the trigger text in `cause`; show the cause.
+    const cause = (err as { cause?: unknown }).cause;
+    if (cause instanceof Error && cause.message && err.message.startsWith("Failed query")) return cause.message.slice(0, 300);
+    return err.message.slice(0, 300);
+  }
   return String(err).slice(0, 300);
 }
