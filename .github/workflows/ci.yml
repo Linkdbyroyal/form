@@ -48,7 +48,8 @@ jobs:
           (cd apps/worker && DATABASE_URL=$DATABASE_URL_TEST PORT=8081 pnpm exec tsx src/main.ts > worker.log 2>&1 &)
           for i in $(seq 1 30); do curl -sf http://localhost:8081/healthz >/dev/null && break; sleep 2; done
           cd apps/worker && DATABASE_URL=$DATABASE_URL_TEST WORKER_PORT=8081 timeout 600 pnpm exec tsx src/cli/autonomy-check.ts
-        timeout-minutes: 12
+          DATABASE_URL=$DATABASE_URL_TEST WORKER_PORT=8081 timeout 600 pnpm exec tsx src/cli/demo-flow-check.ts
+        timeout-minutes: 20
       - name: Worker log on failure
         if: failure()
         run: cat apps/worker/worker.log || true

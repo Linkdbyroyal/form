@@ -19,7 +19,8 @@
     "worker:dev": "pnpm --filter @sbos/worker dev",
     "autonomy:check": "pnpm --filter @sbos/worker exec tsx src/cli/autonomy-check.ts",
     "bootstrap-admin": "pnpm --filter @sbos/web bootstrap-admin",
-    "demo-users": "pnpm --filter @sbos/web create-demo-users"
+    "demo-users": "pnpm --filter @sbos/web create-demo-users",
+    "demo:check": "pnpm --filter @sbos/worker exec tsx src/cli/demo-flow-check.ts"
   },
   "devDependencies": {
     "turbo": "^2.11.10",

@@ -1,49 +1,15 @@
-import { and, desc, eq, sql } from "drizzle-orm";
-import { schema, tenantContext, writeAudit, type DbHandle, type TenantContext } from "@sbos/db";
-import {
-  RunFailure,
-  appendRunEvent,
-  assertWithinRunCap,
-  checkBudget,
-  estimateCostUsd,
-  markActionExecuted,
-  queueNotification,
-  raiseIncident,
-  recordCost,
-  registerAction,
-  requestApproval,
-  saveCheckpoint,
-  setTaskState,
-  transitionRun,
-  agentWriteDocument,
-  createFact,
-  readFactsForAgent,
-  requestFactVerification,
-  type JobBackend
-} from "@sbos/core";
-import { MastraAgentRuntime, SimulatedRuntime, ToolGateway, detectSystemContradictions, discoveryFixture, runDiscoveryModelStep, type AgentRuntime, type DiscoveryContext } from "@sbos/agents";
+import { and, eq, sql } from "drizzle-orm";
+import { schema, tenantContext, type DbHandle, type TenantContext, type Tx } from "@sbos/db";
+import { RunFailure, appendRunEvent, assertWithinRunCap, checkBudget, estimateCostUsd, raiseIncident, recordCost, saveCheckpoint, setTaskState, transitionRun, type JobBackend } from "@sbos/core";
+import { MastraAgentRuntime, SimulatedRuntime, ToolGateway, type AgentRuntime, type TenantSnapshot } from "@sbos/agents";
 import type { WorkerEnv } from "./env";
 import { log } from "./log";
 import { OPERATOR } from "./platform";
+import { flowFor } from "./flows";
+import { assembleSnapshot } from "./flows/snapshot";
+import type { BaseCheckpoint, FlowRuntime } from "./flows/types";
 
-const { agentRuns, agentInstances, agentDefinitions, skillVersions, tenants, departments, systems, questions, interviewRounds, approvedActions, approvals, memberships, answers, sources } = schema;
-
-type Step = "assemble_context" | "generate" | "persist" | "request_publication" | "publish" | "done";
-
-interface Checkpoint {
-  step: Step;
-  roundId?: string;
-  roundNumber?: number;
-  context?: DiscoveryContext;
-  draft?: unknown;
-  contracts?: unknown[];
-  questionIds?: string[];
-  documentId?: string;
-  actionId?: string;
-  approvalId?: string;
-  model?: string;
-  simulated?: boolean;
-}
+const { agentRuns, agentInstances, agentDefinitions, skillVersions, tenants } = schema;
 
 export interface ExecuteInput {
   tenantId: string;
@@ -61,12 +27,12 @@ export interface PlatformBudget {
 const TERMINAL = ["succeeded", "failed", "cancelled", "timed_out"];
 
 /**
- * Executes one run step by step. Every step is its own transaction; the checkpoint makes a crashed or
- * redeployed worker resume from the last completed step without repeating a model call.
+ * Generic run executor. Loads the run, admits it (state, budget), then drives the flow registered for the
+ * agent definition step by step. Every step persists a checkpoint; a crashed or redeployed worker resumes
+ * from the last completed step without repeating model calls. Steps may suspend (approval, input).
  */
 export async function executeRun(handle: DbHandle, env: WorkerEnv, jobs: JobBackend, platform: PlatformBudget | null, input: ExecuteInput): Promise<void> {
   const { tenantId, runId } = input;
-
   const loaded = await handle.withContext(tenantContext({ tenantId, actorType: "system", actorId: "worker:loader", roles: ["agent_service"] }), async (tx) => {
     const [run] = await tx.select().from(agentRuns).where(and(eq(agentRuns.id, runId), eq(agentRuns.tenantId, tenantId)));
     if (!run) return null;
@@ -83,20 +49,21 @@ export async function executeRun(handle: DbHandle, env: WorkerEnv, jobs: JobBack
   if (!definition || !skill || !tenant) throw new RunFailure("bug", "run is missing definition, skill version or tenant");
 
   const ctx: TenantContext = tenantContext({ tenantId, actorType: "agent", actorId: instance.serviceIdentity, roles: ["agent_service"] });
-
-  if (TERMINAL.includes(run.state)) {
-    log("info", "run already terminal, skipping", { runId, state: run.state });
-    return;
-  }
-  if (run.state === "paused" || run.state === "waiting_for_approval" || run.state === "waiting_for_input") {
-    log("info", "run not runnable in its current state, skipping", { runId, state: run.state });
-    return;
-  }
+  if (TERMINAL.includes(run.state)) return log("info", "run already terminal, skipping", { runId, state: run.state });
+  if (run.state === "paused" || run.state === "waiting_for_approval" || run.state === "waiting_for_input") return log("info", "run not runnable in its current state, skipping", { runId, state: run.state });
 
   if (instance.state === "paused" || instance.state === "disabled") {
     await handle.withContext(ctx, async (tx) => {
       await transitionRun(tx, { tenantId, runId, to: "cancelled", summary: `cancelled: agent instance is ${instance.state}` });
       await raiseIncident(tx, jobs, { tenantId, kind: "admission_refused", severity: "low", title: "Run refused: agent instance paused or disabled", runId, agentInstanceId: instance.id });
+    });
+    return;
+  }
+  const flow = flowFor(definition.key);
+  if (!flow) {
+    await handle.withContext(ctx, async (tx) => {
+      await transitionRun(tx, { tenantId, runId, to: "failed", summary: `no flow for definition ${definition.key}`, patch: { error: { code: "no_flow", message: definition.key } } });
+      await raiseIncident(tx, jobs, { tenantId, kind: "worker_error", severity: "high", title: `No flow registered for agent definition ${definition.key}`, runId, agentInstanceId: instance.id, dedupeKey: `noflow:${definition.key}` });
     });
     return;
   }
@@ -117,195 +84,62 @@ export async function executeRun(handle: DbHandle, env: WorkerEnv, jobs: JobBack
   const gateway = new ToolGateway(definition.allowedTools, skill.allowedTools);
   const model = instance.model ?? definition.defaultModel;
   const simulated = env.forceSimulated || !env.anthropicApiKey;
-  let checkpoint: Checkpoint = (run.checkpoint as Checkpoint | null) ?? { step: "assemble_context" };
+  let checkpoint: BaseCheckpoint = (run.checkpoint as BaseCheckpoint | null) ?? flow.initial();
+
+  const rt: FlowRuntime = {
+    handle,
+    env,
+    jobs,
+    ctx,
+    gateway,
+    simulated,
+    model,
+    runCapUsd: budget.runCapUsd,
+    run: { id: run.id, taskId: run.taskId, scheduleId: run.scheduleId, state: run.state, attempt: run.attempt, checkpoint: run.checkpoint },
+    instance: { id: instance.id, serviceIdentity: instance.serviceIdentity, model: instance.model, definitionId: instance.definitionId, state: instance.state, config: instance.config },
+    definition: { id: definition.id, key: definition.key, name: definition.name, department: definition.department, defaultModel: definition.defaultModel, allowedTools: definition.allowedTools },
+    skill: { id: skill.id, version: skill.version, skillMd: skill.skillMd, allowedTools: skill.allowedTools },
+    tenant: { id: tenant.id, slug: tenant.slug, name: tenant.name, industry: tenant.industry, locale: tenant.locale, kind: tenant.kind },
+    tx: <T,>(fn: (tx: Tx) => Promise<T>) => handle.withContext(ctx, fn),
+    runtime: (fixture) => (simulated ? new SimulatedRuntime(() => fixture()) : new MastraAgentRuntime({ apiKey: env.anthropicApiKey!, model, agentId: `${definition.key}-${instance.id}` })) as AgentRuntime,
+    async generate(g) {
+      const projected = estimateCostUsd(model, Math.ceil((skill.skillMd.length + g.prompt.length) / 4), g.maxOutputTokens ?? 3000);
+      assertWithinRunCap(projected, budget.runCapUsd);
+      const runtime = rt.runtime(g.fixture);
+      const r = await runtime.generateStructured({ instructions: skill.skillMd, prompt: g.prompt, schema: g.schema, maxOutputTokens: g.maxOutputTokens ?? 3000 });
+      const cost = estimateCostUsd(r.model, r.usage.inputTokens, r.usage.outputTokens);
+      await handle.withContext(ctx, async (tx) => {
+        await recordCost(tx, { tenantId, runId, agentInstanceId: instance.id, taskId: run.taskId, model: r.model, tokensInput: r.usage.inputTokens, tokensOutput: r.usage.outputTokens, costUsd: cost, simulated: r.simulated });
+        await tx.update(agentRuns).set({ tokensInput: sql`${agentRuns.tokensInput} + ${r.usage.inputTokens}`, tokensOutput: sql`${agentRuns.tokensOutput} + ${r.usage.outputTokens}`, costUsd: sql`${agentRuns.costUsd} + ${cost}`, simulated: r.simulated }).where(eq(agentRuns.id, runId));
+        await appendRunEvent(tx, { tenantId, runId, kind: "model_call", summary: `${r.simulated ? "simulated model" : r.model}: ${g.summary}`, payload: { model: r.model, simulated: r.simulated }, classification: "confidential", tokensInput: r.usage.inputTokens, tokensOutput: r.usage.outputTokens, costUsd: cost, durationMs: r.durationMs });
+      });
+      return { object: r.object, simulated: r.simulated, model: r.model };
+    },
+    event: (kind, summary, payload, classification) => handle.withContext(ctx, (tx) => appendRunEvent(tx, { tenantId, runId, kind: kind as never, summary, payload, classification })),
+    saveCheckpoint: (cp, summary) => handle.withContext(ctx, (tx) => saveCheckpoint(tx, tenantId, runId, cp, summary)),
+    snapshot: (): Promise<TenantSnapshot> => handle.withContext(ctx, (tx) => assembleSnapshot(tx, ctx, gateway, { id: tenant.id, name: tenant.name, industry: tenant.industry, locale: tenant.locale, kind: tenant.kind }, runId))
+  };
 
   const heartbeat = setInterval(() => {
-    handle
-      .withContext(ctx, (tx) => tx.update(agentRuns).set({ leaseExpiresAt: new Date(Date.now() + 90_000) }).where(eq(agentRuns.id, runId)))
-      .catch((err) => log("warn", "heartbeat failed", { runId, error: (err as Error).message }));
+    handle.withContext(ctx, (tx) => tx.update(agentRuns).set({ leaseExpiresAt: new Date(Date.now() + 90_000) }).where(eq(agentRuns.id, runId))).catch((err) => log("warn", "heartbeat failed", { runId, error: (err as Error).message }));
   }, 30_000);
 
   try {
+    let guard = 0;
     while (checkpoint.step !== "done") {
-      switch (checkpoint.step) {
-        case "assemble_context": {
-          checkpoint = await handle.withContext(ctx, async (tx) => {
-            gateway.authorize("systems.read");
-            gateway.authorize("questions.read");
-            const deps = await tx.select({ key: departments.key, name: departments.name, headRole: departments.headRole }).from(departments);
-            const sys = await tx.select({ name: systems.name, vendor: systems.vendor, function: systems.function, claimStatus: systems.claimStatus, apiCapabilities: systems.apiCapabilities, sourceOfTruthFor: systems.sourceOfTruthFor }).from(systems);
-            const prior = await tx.select({ department: questions.department, question_text: questions.questionText, state: questions.state }).from(questions).where(sql`${questions.state} <> 'superseded'`);
-            gateway.authorize("vault.read");
-            const answerRows = await tx
-              .select({ question_text: questions.questionText, answer_text: answers.answerText, department: questions.department, answered_by_role: answers.answeredByRole, fact_id: answers.factId })
-              .from(answers)
-              .innerJoin(questions, eq(questions.id, answers.questionId))
-              .orderBy(desc(answers.answeredAt));
-            const factRows = await readFactsForAgent(tx, ctx, { tenantId, runId, limit: 100 });
-            const [last] = await tx.select({ n: interviewRounds.roundNumber }).from(interviewRounds).orderBy(desc(interviewRounds.roundNumber)).limit(1);
-            const roundNumber = (last?.n ?? 0) + 1;
-            const [round] = await tx.insert(interviewRounds).values({ tenantId, runId, roundNumber, rationale: "pending" }).returning({ id: interviewRounds.id });
-            const context: DiscoveryContext = {
-              tenantId,
-              company: { name: tenant.name, industry: tenant.industry, locale: tenant.locale, kind: tenant.kind },
-              departments: deps,
-              systems: sys.map((s) => ({ ...s, apiCapabilities: s.apiCapabilities as string[] })),
-              priorQuestions: prior,
-              answers: answerRows,
-              facts: factRows.map((f) => ({ id: f.id, statement: f.statement, verification: f.verification, subject_key: f.subjectKey })),
-              roundNumber
-            };
-            await appendRunEvent(tx, { tenantId, runId, kind: "tool_call", summary: `read ${deps.length} departments, ${sys.length} systems, ${prior.length} prior questions, ${answerRows.length} answers, ${factRows.length} facts (retrieval audited)`, payload: { tools: ["systems.read", "questions.read", "vault.read"] } });
-            const next: Checkpoint = { step: "generate", roundId: round!.id, roundNumber, context, model, simulated };
-            await saveCheckpoint(tx, tenantId, runId, next as unknown as Record<string, unknown>, "context assembled");
-            return next;
-          });
-          break;
-        }
-        case "generate": {
-          const context = checkpoint.context!;
-          const runtime: AgentRuntime = simulated
-            ? new SimulatedRuntime(() => discoveryFixture(context))
-            : new MastraAgentRuntime({ apiKey: env.anthropicApiKey!, model, agentId: `discovery-${instance.id}` });
-          const projected = estimateCostUsd(model, Math.ceil((skill.skillMd.length + JSON.stringify(context).length) / 4), 3000);
-          assertWithinRunCap(projected, budget.runCapUsd);
-          const out = await runDiscoveryModelStep(runtime, skill.skillMd, context, { agentInstanceId: instance.id, roundId: checkpoint.roundId! });
-          const cost = estimateCostUsd(out.model, out.usage.inputTokens, out.usage.outputTokens);
-          checkpoint = await handle.withContext(ctx, async (tx) => {
-            await recordCost(tx, { tenantId, runId, agentInstanceId: instance.id, taskId: run.taskId, model: out.model, tokensInput: out.usage.inputTokens, tokensOutput: out.usage.outputTokens, costUsd: cost, simulated: out.simulated });
-            await tx
-              .update(agentRuns)
-              .set({ tokensInput: sql`${agentRuns.tokensInput} + ${out.usage.inputTokens}`, tokensOutput: sql`${agentRuns.tokensOutput} + ${out.usage.outputTokens}`, costUsd: sql`${agentRuns.costUsd} + ${cost}`, simulated: out.simulated })
-              .where(eq(agentRuns.id, runId));
-            await appendRunEvent(tx, {
-              tenantId,
-              runId,
-              kind: "model_call",
-              summary: `${out.simulated ? "simulated model" : out.model}: ${out.contracts.length} questions drafted`,
-              payload: { model: out.model, simulated: out.simulated, questionCount: out.contracts.length },
-              classification: "confidential",
-              tokensInput: out.usage.inputTokens,
-              tokensOutput: out.usage.outputTokens,
-              costUsd: cost,
-              durationMs: out.durationMs
-            });
-            const next: Checkpoint = { ...checkpoint, step: "persist", draft: out.draft, contracts: out.contracts, simulated: out.simulated, model: out.model };
-            await saveCheckpoint(tx, tenantId, runId, next as unknown as Record<string, unknown>, "questions drafted");
-            return next;
-          });
-          break;
-        }
-        case "persist": {
-          const draft = checkpoint.draft as { round_rationale: string; summary: string };
-          const contracts = checkpoint.contracts as Array<{ question_id: string; department: string; recipient_role: string; question_text: string; reason: string; evidence_gap: string; priority: "critical" | "high" | "medium" | "low"; answer_type: string; options?: string[]; confidence: number }>;
-          checkpoint = await handle.withContext(ctx, async (tx) => {
-            gateway.authorize("questions.create");
-            gateway.authorize("vault.write_draft");
-            await tx.update(interviewRounds).set({ rationale: draft.round_rationale }).where(eq(interviewRounds.id, checkpoint.roundId!));
-            const ids: string[] = [];
-            for (const q of contracts) {
-              const [row] = await tx
-                .insert(questions)
-                .values({ id: q.question_id, tenantId, roundId: checkpoint.roundId!, runId, department: q.department, recipientRole: q.recipient_role, questionText: q.question_text, reason: q.reason, evidenceGap: q.evidence_gap, priority: q.priority, answerType: q.answer_type, options: q.options ?? [], state: "draft", confidence: String(q.confidence), askedByAgentInstanceId: instance.id })
-                .returning({ id: questions.id });
-              ids.push(row!.id);
-              await appendRunEvent(tx, { tenantId, runId, kind: "question_created", summary: `question drafted for ${q.department} (${q.priority})`, payload: { questionId: row!.id }, classification: "confidential" });
-            }
-            const path = `13_interviews_and_open_questions/round-${String(checkpoint.roundNumber).padStart(3, "0")}.md`;
-            const body = [
-              `# Discovery round ${checkpoint.roundNumber}`,
-              "",
-              `> Status: draft questions awaiting publication approval. Source: agent run ${runId}. ${checkpoint.simulated ? "Model: simulated (no API key)." : `Model: ${checkpoint.model}.`}`,
-              "",
-              "## Rationale",
-              draft.round_rationale,
-              "",
-              "## Questions",
-              ...contracts.map((q, i) => `${i + 1}. **[${q.priority}] ${q.department} to ${q.recipient_role}**: ${q.question_text}\n   - Why: ${q.reason}\n   - Evidence gap: ${q.evidence_gap}\n   - Answer type: ${q.answer_type}; confidence ${q.confidence}`)
-            ].join("\n");
-            // Contradictions between answers and the systems register become verification requests for a reviewer (never verdicts).
-            const contradictions = detectSystemContradictions({ answers: checkpoint.context!.answers, systems: checkpoint.context!.systems });
-            for (const c of contradictions) {
-              gateway.authorize("approvals.request");
-              const [src] = await tx.insert(sources).values({ tenantId, system: "systems_register", locator: `system:${c.systemName}`, retrievedAt: new Date(), createdByActorType: "agent", createdByActorId: instance.serviceIdentity }).returning({ id: sources.id });
-              const registerFactId = await createFact(tx, ctx, { tenantId, statement: `Systems register lists ${c.systemName} as a system in use (claim status: stated by the client)`, subjectType: "system", subjectKey: c.systemName, sourceIds: [src!.id], originSystem: "agent", verification: "hypothesis", confidence: 0.4, runId });
-              const requestId = await requestFactVerification(tx, ctx, { tenantId, factId: c.answerFactId, conflictingFactIds: [registerFactId], reason: `Answer says ${c.systemName} is not used ("${c.snippet}") while the systems register lists it. A reviewer must decide which is true.`, runId });
-              await appendRunEvent(tx, { tenantId, runId, kind: "help_request", summary: `contradiction flagged for reviewer: ${c.systemName}`, payload: { requestId, systemName: c.systemName }, classification: "confidential" });
-            }
-            const doc = await agentWriteDocument(tx, ctx, {
-              tenantId,
-              path,
-              title: `Discovery round ${checkpoint.roundNumber}`,
-              frontmatter: { round: checkpoint.roundNumber, run_id: runId, agent: definition.key, skill_version: skill.version, simulated: checkpoint.simulated, status: "draft", source_ids: [runId], confidence: 0.5, verification: "unconfirmed", contradictions: contradictions.length },
-              bodyMarkdown: body,
-              runId,
-              changeNote: "Discovery agent draft"
-            });
-            await appendRunEvent(tx, { tenantId, runId, kind: "output_written", summary: doc.mode === "auto_draft" ? `vault document written (v${doc.version})` : "vault change proposal created (policy requires review)", payload: { documentId: doc.documentId ?? null, proposalId: doc.proposalId ?? null, path } });
-            const next: Checkpoint = { ...checkpoint, step: "request_publication", questionIds: ids, documentId: doc.documentId };
-            await saveCheckpoint(tx, tenantId, runId, next as unknown as Record<string, unknown>, "questions and vault note persisted");
-            return next;
-          });
-          break;
-        }
-        case "request_publication": {
-          // Publishing questions to client staff is communication to the client: T3, needs client_admin approval.
-          await handle.withContext(ctx, async (tx) => {
-            gateway.authorize("approvals.request");
-            const actionId = await registerAction(tx, { tenantId, runId, actionType: "publish_questions", risk: "medium", payload: { questionIds: checkpoint.questionIds, roundId: checkpoint.roundId } });
-            const next: Checkpoint = { ...checkpoint, step: "publish", actionId };
-            await tx.update(agentRuns).set({ checkpoint: next as unknown as Record<string, unknown> }).where(eq(agentRuns.id, runId));
-            const { approvalId } = await requestApproval(tx, ctx, {
-              tenantId,
-              runId,
-              taskId: run.taskId,
-              subjectType: "approved_action",
-              subjectId: actionId,
-              requestedBy: { actorType: "agent", actorId: instance.serviceIdentity },
-              approverRole: "client_admin",
-              risk: "medium",
-              summary: `Publish ${checkpoint.questionIds?.length ?? 0} discovery questions (round ${checkpoint.roundNumber}) to department heads`,
-              rationale: "Questions are sent to client staff; the client admin decides what reaches the organisation.",
-              evidenceIds: []
-            });
-            await tx.update(approvedActions).set({ approvalId }).where(eq(approvedActions.id, actionId));
-            await tx.update(agentRuns).set({ checkpoint: { ...next, approvalId } as unknown as Record<string, unknown> }).where(eq(agentRuns.id, runId));
-            if (run.taskId) await setTaskState(tx, tenantId, run.taskId, "waiting_approval");
-            const admins = await tx.select({ userId: memberships.userId }).from(memberships).where(and(eq(memberships.tenantId, tenantId), eq(memberships.roleKey, "client_admin")));
-            for (const a of admins) {
-              await queueNotification(tx, jobs, { tenantId, channel: "email", template: "approval.requested", subject: "Approval requested: publish discovery questions", payload: { approvalId, tenantSlug: tenant.slug, runId }, recipientRole: "client_admin", recipientUserId: a.userId });
-            }
-            await queueNotification(tx, jobs, { tenantId, channel: "pumble", template: "approval.requested", subject: `Approval pending for ${tenant.slug}: publish discovery questions`, payload: { approvalId, tenantSlug: tenant.slug, runId } });
-          });
-          clearInterval(heartbeat);
-          log("info", "run suspended for approval", { runId, tenantId });
-          return; // The resume job continues at step "publish" after the decision.
-        }
-        case "publish": {
-          checkpoint = await handle.withContext(ctx, async (tx) => {
-            const [approval] = await tx.select().from(approvals).where(eq(approvals.id, checkpoint.approvalId!));
-            if (!approval || approval.state !== "approved") throw new RunFailure("policy", `approval ${checkpoint.approvalId} is ${approval?.state ?? "missing"}`);
-            // The database trigger is the real gate; this update throws if the approval is not approved.
-            await markActionExecuted(tx, { tenantId, actionId: checkpoint.actionId!, result: { published: checkpoint.questionIds?.length ?? 0 } });
-            await tx.update(questions).set({ state: "open" }).where(and(eq(questions.roundId, checkpoint.roundId!), eq(questions.state, "draft")));
-            await appendRunEvent(tx, { tenantId, runId, kind: "output_written", summary: `${checkpoint.questionIds?.length ?? 0} questions published to Interview Inbox`, payload: { roundId: checkpoint.roundId } });
-            await writeAudit(tx, ctx, { action: "questions.published", entityType: "interview_round", entityId: checkpoint.roundId ?? null, after: { count: checkpoint.questionIds?.length ?? 0, approvalId: checkpoint.approvalId } });
-            const recipients = await tx.select({ userId: memberships.userId, role: memberships.roleKey }).from(memberships).where(and(eq(memberships.tenantId, tenantId), sql`${memberships.roleKey} in ('client_admin','department_manager')`));
-            for (const r of recipients) {
-              await queueNotification(tx, jobs, { tenantId, channel: "email", template: "questions.published", subject: "New discovery questions are waiting for you", payload: { roundId: checkpoint.roundId, tenantSlug: tenant.slug }, recipientRole: r.role, recipientUserId: r.userId });
-            }
-            const next: Checkpoint = { ...checkpoint, step: "done" };
-            await saveCheckpoint(tx, tenantId, runId, next as unknown as Record<string, unknown>, "published");
-            return next;
-          });
-          break;
-        }
-        default:
-          throw new RunFailure("bug", `unknown step ${String(checkpoint.step)}`);
+      if (++guard > 50) throw new RunFailure("bug", "flow exceeded 50 steps");
+      const step = flow.steps[checkpoint.step];
+      if (!step) throw new RunFailure("bug", `unknown step ${checkpoint.step} in flow ${flow.key}`);
+      const outcome = await step(rt, checkpoint);
+      checkpoint = outcome.checkpoint;
+      await rt.saveCheckpoint(checkpoint, `step ${checkpoint.step}`);
+      if (outcome.kind === "suspend") {
+        clearInterval(heartbeat);
+        log("info", "run suspended", { runId, tenantId, reason: outcome.reason });
+        return; // the resume job continues at checkpoint.step
       }
     }
-
-    const draft = checkpoint.draft as { summary?: string } | undefined;
+    const final = await flow.finalize(rt, checkpoint);
     await handle.withContext(ctx, async (tx) => {
       const result = {
         tenant_id: tenantId,
@@ -317,14 +151,14 @@ export async function executeRun(handle: DbHandle, env: WorkerEnv, jobs: JobBack
         run_id: runId,
         agent_id: instance.id,
         status: "succeeded",
-        summary: draft?.summary ?? "Discovery round completed",
-        outputs: (checkpoint.questionIds ?? []).map((id) => ({ contract: "QuestionRequest", ref_id: id })),
+        summary: final.summary,
+        outputs: final.outputs,
         tools_used: gateway.list()
       };
-      await transitionRun(tx, { tenantId, runId, to: "succeeded", summary: draft?.summary ?? "succeeded", patch: { result, summary: draft?.summary ?? "Discovery round completed" } });
+      await transitionRun(tx, { tenantId, runId, to: "succeeded", summary: final.summary, patch: { result, summary: final.summary } });
       if (run.taskId) await setTaskState(tx, tenantId, run.taskId, "done");
     });
-    log("info", "run succeeded", { runId, tenantId, simulated });
+    log("info", "run succeeded", { runId, tenantId, flow: flow.key, simulated });
   } catch (err) {
     const failure = err instanceof RunFailure ? err : new RunFailure(classify(err), (err as Error).message);
     await handle.withContext(ctx, async (tx) => {
@@ -334,20 +168,12 @@ export async function executeRun(handle: DbHandle, env: WorkerEnv, jobs: JobBack
         await transitionRun(tx, { tenantId, runId, to: "interrupted", summary: "interrupted, will retry", patch: { error: { code: failure.failureClass, message: failure.message } } });
       } else {
         await transitionRun(tx, { tenantId, runId, to: "failed", summary: `failed: ${failure.failureClass}`, patch: { error: { code: failure.failureClass, message: failure.message, details: failure.details } } });
-        await raiseIncident(tx, jobs, {
-          tenantId,
-          kind: failure.failureClass === "credential" ? "credential_invalid" : failure.failureClass === "policy" ? "tool_denied" : "run_failed",
-          severity: "high",
-          title: `Run failed (${failure.failureClass})`,
-          details: { runId, class: failure.failureClass },
-          runId,
-          agentInstanceId: instance.id
-        });
+        await raiseIncident(tx, jobs, { tenantId, kind: failure.failureClass === "credential" ? "credential_invalid" : failure.failureClass === "policy" ? "tool_denied" : "run_failed", severity: "high", title: `Run failed (${failure.failureClass})`, details: { runId, class: failure.failureClass }, runId, agentInstanceId: instance.id });
         if (run.taskId) await setTaskState(tx, tenantId, run.taskId, "failed");
       }
     });
     log("error", "run failed", { runId, tenantId, class: failure.failureClass, retryable: failure.retryable });
-    if (failure.retryable) throw err; // pg-boss retries with backoff; exhausted retries land in dead-letter
+    if (failure.retryable) throw err;
   } finally {
     clearInterval(heartbeat);
   }

@@ -42,8 +42,8 @@ try {
     const a = ts.find((t) => t.slug === "northline-events");
     const b = ts.find((t) => t.slug === "harbour-view-hotel");
     if (!a || !b) throw new Error("seed data missing: demo tenants not found in this database");
-    const [instA] = await tx.select({ id: agentInstances.id }).from(agentInstances).where(eq(agentInstances.tenantId, a.id));
-    const [instB] = await tx.select({ id: agentInstances.id }).from(agentInstances).where(eq(agentInstances.tenantId, b.id));
+    const [instA] = await tx.select({ id: agentInstances.id }).from(agentInstances).where(and(eq(agentInstances.tenantId, a.id), sql`${agentInstances.serviceIdentity} like 'agent:discovery-interview:%'`));
+    const [instB] = await tx.select({ id: agentInstances.id }).from(agentInstances).where(and(eq(agentInstances.tenantId, b.id), sql`${agentInstances.serviceIdentity} like 'agent:discovery-interview:%'`));
     if (!instA || !instB) throw new Error("seed data missing: no agent instances for the demo tenants in this database (run pnpm db:seed against DATABASE_URL)");
     return { tenantA: a.id, tenantB: b.id, instA: instA.id, instB: instB.id };
   });
