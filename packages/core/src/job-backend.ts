@@ -57,6 +57,27 @@ export interface NotifyJob {
   tenantId: string | null;
 }
 
+/** pg-boss `send` options derived from a queue policy. Keys are only present when defined: pg-boss rejects an explicit `undefined`. */
+export interface BossSendOptions {
+  singletonKey?: string;
+  startAfter?: number;
+  retryLimit: number;
+  retryDelay: number;
+  retryBackoff: boolean;
+  expireInSeconds: number;
+  deadLetter: string;
+  priority?: number;
+}
+
+export function toBossSendOptions(name: JobName, options?: EnqueueOptions): BossSendOptions {
+  const q = QUEUE_OPTIONS[name];
+  const out: BossSendOptions = { retryLimit: options?.retryLimit ?? q.retryLimit, retryDelay: q.retryDelay, retryBackoff: q.retryBackoff, expireInSeconds: q.expireInSeconds, deadLetter: DEAD_LETTER };
+  if (options?.singletonKey !== undefined) out.singletonKey = options.singletonKey;
+  if (options?.startAfterSeconds !== undefined) out.startAfter = options.startAfterSeconds;
+  if (options?.priority !== undefined) out.priority = options.priority;
+  return out;
+}
+
 /** In-memory backend for tests and for the web app when no queue is configured in dev. */
 export class MemoryJobBackend implements JobBackend {
   public readonly jobs: Array<{ name: JobName; payload: object; options?: EnqueueOptions }> = [];

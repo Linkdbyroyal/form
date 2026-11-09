@@ -1,5 +1,5 @@
 import { PgBoss } from "pg-boss";
-import { DEAD_LETTER, QUEUE_OPTIONS, type EnqueueOptions, type JobBackend, type JobName } from "@sbos/core";
+import { DEAD_LETTER, QUEUE_OPTIONS, toBossSendOptions, type EnqueueOptions, type JobBackend, type JobName } from "@sbos/core";
 
 // Queue policies live in @sbos/core so the web app enqueues with the same retry and expiry settings.
 export { DEAD_LETTER, QUEUE_OPTIONS };
@@ -9,19 +9,8 @@ export class BossJobBackend implements JobBackend {
   constructor(private readonly boss: PgBoss) {}
 
   async enqueue<T extends object>(name: JobName, payload: T, options?: EnqueueOptions): Promise<string | null> {
-    const q = QUEUE_OPTIONS[name];
-    // pg-boss validates option types strictly and rejects explicit `undefined`, so only set keys that have values.
-    const sendOptions: Record<string, unknown> = {
-      retryLimit: options?.retryLimit ?? q.retryLimit,
-      retryDelay: q.retryDelay,
-      retryBackoff: q.retryBackoff,
-      expireInSeconds: q.expireInSeconds,
-      deadLetter: DEAD_LETTER
-    };
-    if (options?.singletonKey) sendOptions.singletonKey = options.singletonKey;
-    if (options?.startAfterSeconds !== undefined) sendOptions.startAfter = options.startAfterSeconds;
-    if (options?.priority !== undefined) sendOptions.priority = options.priority;
-    return this.boss.send(name, payload, sendOptions as Parameters<PgBoss["send"]>[2]);
+    // pg-boss asserts on an explicit `priority: undefined`, so only defined keys are passed.
+    return this.boss.send(name, payload, toBossSendOptions(name, options));
   }
 }
 

@@ -19,7 +19,7 @@ export function SignInForm({ next, providers }: { next: string; providers: Provi
     setBusy(true);
     setError(null);
     setUnverified(false);
-    const { error: err } = await authClient.signIn.email({ email, password, callbackURL: next });
+    const { data, error: err } = await authClient.signIn.email({ email, password, callbackURL: next });
     setBusy(false);
     if (err) {
       if (err.status === 403) {
@@ -30,7 +30,11 @@ export function SignInForm({ next, providers }: { next: string; providers: Provi
       setError(err.message ?? "Sign-in failed");
       return;
     }
-    // A user with TOTP enabled is redirected to /two-factor by the twoFactor client plugin.
+    // A user with TOTP enabled must verify the second factor before the session is usable.
+    if ((data as { twoFactorRedirect?: boolean } | null)?.twoFactorRedirect) {
+      window.location.href = `/two-factor?next=${encodeURIComponent(next)}`;
+      return;
+    }
     window.location.href = next;
   }
 

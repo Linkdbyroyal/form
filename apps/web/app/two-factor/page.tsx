@@ -22,7 +22,8 @@ export default function TwoFactorPage() {
       setError(err.message ?? "Invalid code");
       return;
     }
-    window.location.href = "/";
+    const next = new URLSearchParams(window.location.search).get("next");
+    window.location.href = next && next.startsWith("/") && !next.startsWith("//") ? next : "/";
   }
 
   return (

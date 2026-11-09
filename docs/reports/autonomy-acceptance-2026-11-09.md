@@ -23,3 +23,7 @@ Score: 11/11 checks passed (two runs earlier in the session exposed two defects 
 - Worker restart mid-run (recovery path) was unit-level only: `recoverExpiredLeases()` runs at startup and in the stall check; an induced kill test is part of the staging checklist.
 - Actual e-mail and Pumble delivery (credentials absent). The sender code paths for Resend and the Pumble webhook are implemented but unexercised.
 - The formal "Claude Code completely closed" observation: to be recorded with timestamps on the first Railway staging deploy (M1-16 open item: Docker daemon unavailable in the sandbox, images not built).
+
+## Second run from a clean database (same day)
+
+Database reset, migrated, seeded and bootstrapped (`pnpm bootstrap-admin`), worker and production web build started as separate processes. Result: 11/11 again. Browser verification with Playwright afterwards: sign in as the bootstrapped superadmin, Mission Control refused with `mfa_required`, TOTP enrolled on `/account/security` (secret read from the displayed otpauth URI, code computed locally), Mission Control overview, agents, runs, run detail, approvals, costs, errors and schedules all rendered (HTTP 200) with the data produced by the worker; a fresh session was sent to `/two-factor` and admitted after a valid code; a superadmin without a content grant received HTTP 403 on a client workspace. One defect found and fixed during this pass: the sign-in form navigated to the target page before the two-factor redirect, which produced a redirect loop for TOTP users.
