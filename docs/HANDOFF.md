@@ -1,6 +1,6 @@
 # Handoff
 
-Last updated: 2026-11-09 (Milestone 3 delivered; Milestone 2 delivery, branch `claude/second-brain-os-architecture-ovfky3`, pushed to GitHub).
+Last updated: 2026-11-09 (Milestone 4 delivered; Milestone 3 delivered; Milestone 2 delivery, branch `claude/second-brain-os-architecture-ovfky3`, pushed to GitHub).
 
 ## Implemented and verified
 
@@ -115,3 +115,57 @@ Implemented in `apps/web` only. Committed in two parts: `061f1f2` (work in progr
 - Tests: `apps/web/test/dashboard.test.ts` (19: widget map equals the contract enum, specification refusals, KPI state and threshold colouring, maturity score determinism and uncertainty, wizard parsers, server-rendered widget states including sanitised markdown). `vitest.config.ts` now compiles JSX (`oxc.jsx.runtime = automatic`). Web suite 68 tests, typecheck green.
 - Verified against `sbos_m1` on port 3400 (demo users and superadmin created there, `two_factor_enabled` toggled on the auth row for the curl session): dashboard, two KPI lineage pages, briefing, X-Ray and actions return 200 as client admin; `/mission-control/clients/new` 200 and one submission created tenant `demo-wizard-test` (2 departments, 2 systems, 7 instances, 4 schedules, 8 budgets, 10 audit rows, organisation linked, invitation pending, accept page renders).
 - Open: visual regression snapshots per widget state (Playwright); owner notification on task assignment; task detail page; operator editing of departments and systems after creation; resend or revoke an invitation; pain points per process step are not shown (table is empty on the demo tenant); the maturity "evidence" component uses tenant-wide facts because facts have no department column.
+
+## Milestone 4 backend and agent nomination (2026-11-09)
+
+Committed as `e746e2c` (migration 0007, schema, services, tests, seed) and `79e9a9c` (nomination step, demo flow step 10).
+
+- Migration `0007_agency_vault.sql`: agency tables without tenant_id (agency scope only, operator metadata grants), `knowledge_promotion_requests` as tenant rows readable by reviewers in agency scope, triggers `enforce_knowledge_transition` (+ `log_knowledge_transition`), `enforce_promotion_insert`, `enforce_promotion_transition`, `enforce_adoption`, immutable versions. Drizzle schema in `packages/db/src/schema/agency.ts`.
+- `packages/core/src/agency-knowledge.ts`: record lifecycle, versions, release and rollback (`setCurrentVersion`), deprecation with impact count, `searchAgencyVault` (agency tables only, logged in `audit_events`), templates with `{{parameter}}` rendering, `adoptTemplate` (agency scope pinned to the tenant, writes the client document, pins the version, supersedes the previous adoption), `rollbackAdoption`, `revokeAdoption`, `nominateReusableInsight`, `reviewPromotion`, `publishPromotion`, evaluation cases. Tests: `packages/core/test/agency-knowledge.test.ts` (spec 4H acceptance 1 to 6).
+- Seed `seedAgencyKnowledge`: two published records, one draft, template `project-closure-invoice-readiness`. Seed actor holds superadmin, so self-approval is allowed and recorded.
+- Process Redesign agent: optional `reusable_insight` in the draft, written as a nomination through tool `knowledge.nominate` (SKILL.md 0.2.0). Instances pinned to 0.1.0 skip and log. `demo-flow-check.ts` step 10 verifies nomination only.
+- Decisions: ADR-020. Plan and status: `docs/milestones/M4.md`. Next milestone plan: `docs/milestones/M5.md` (owner decisions listed at the end).
+- Inspecting RLS tables with psql: the owner role sees nothing under FORCE RLS; use `SET ROLE sbos_app` plus `set_config('app.actor_scope','agency',false)` and `set_config('app.roles','superadmin',false)`.
+- Shared test database: suites in one package run sequentially but share `sbos_test`; assertions must judge only their own rows (fixed in `knowledge.test.ts` after CI run 17).
+
+## Milestone 4 Agency Vault UI (2026-11-09)
+
+Implemented in `apps/web` only (no changes to `packages/db` migrations or `packages/core` services); uncommitted at the time of writing. All UI text is English.
+
+### Files
+
+- `lib/auth-policy.ts`: `AGENCY_ROLES` and `decideAgencyAccess` (any agency role on the agency tenant; client roles rejected; the MFA rule for superadmin and agency_operator is applied exactly as `decideOperatorAccess` does, reviewers and consultants pass without TOTP).
+- `lib/request-context.ts`: `requireAgencyContext()` returns an `AgencyContext` (`sbos_app`, `app.actor_scope = 'agency'`, no tenant) with the principal's agency roles; cached per request like the operator context.
+- `lib/format.ts`: `errorMessage` now prefers the Postgres `cause` when drizzle wraps a trigger error as "Failed query: ...", so the trigger text reaches the `?error=` notice.
+- `lib/mission-control/agency-vault-helpers.ts`: pure helpers (state tones, `recordActionsFor` mirroring `enforce_knowledge_transition`, `buildAgencyFolderTree` over the 18 folders, `AGENCY_MODULES` for Interview Library 04, Industry Blueprints 05, Design System 08, Tech Watch 13, `buildRecordPath`, `parseTemplateParameters` for `key | label | required | default` lines, `collectParameterValues`, `sourceRefCounts`, `sanitizeSnippet`).
+- `lib/mission-control/agency-vault-queries.ts`: all reads in agency scope (summary, library with folder and state counts and `searchAgencyVault`, record detail, skills registry, promotion requests, templates view with adoption matrix metadata, cross-record history). Pin counts for the Skills Registry come from `agent_instances` through the operator role and only when the caller holds an operator role.
+- `lib/mission-control/agency-vault-actions.ts`: server actions (create record, add version, lifecycle transitions and deprecate/reinstate/archive, make current (release or rollback), evaluation case upsert and result, create template, adopt, roll back, revoke, review promotion, publish promotion). Adoption, rollback and revoke run in agency scope pinned to the target tenant.
+- `components/agency-vault-ui.tsx`: sub-navigation, state badges, the shared "Implementation status" card.
+- Pages: `app/mission-control/agency-vault/page.tsx` (Knowledge Library with 18 folders, module tabs, state filters, search, Skills Registry view), `records/[id]/page.tsx`, `new/page.tsx`, `reviews/page.tsx`, `templates/page.tsx`, `history/page.tsx`; `app/agency/page.tsx` is now a real landing page for agency staff; the `agency-vault` placeholder was removed from `app/mission-control/[module]/page.tsx`.
+- `app/mission-control/layout.tsx`: for paths under `/mission-control/agency-vault` the layout resolves `requireAgencyContext()` (every agency role, operator MFA rule unchanged) and shows `AGENCY_STAFF_NAV` to staff without an operator role; every other Mission Control path still requires the operator context. The pathname comes from the `x-sbos-pathname` header that `proxy.ts` sets on every `/mission-control` request (it overwrites any client value); without the header the layout falls back to the operator rule.
+- `components/shell.tsx`: `AGENCY_STAFF_NAV`.
+- `app/c/[slug]/vault/[...path]/page.tsx`: "Adopted from agency template <key> v<version>" badge when the frontmatter carries `sbos_template_key` (marked "adoption ended" after a revoke); no link into the agency vault.
+- Tests: `test/agency-vault.test.ts` (17 unit tests: access rule and MFA, folder tree, modules, record paths, lifecycle buttons, parameter line parser round trip, parameter collection, placeholders, list and JSON parsers, source ref counts, snippet sanitiser, errorMessage cause).
+
+### Decisions
+
+- Reviewer-only buttons (approve, publish, deprecate, reinstate, archive, make current, promotion review and publish) are rendered for `agency_reviewer` and `superadmin` only; the database triggers remain the gate and their text is shown through `?error=`.
+- Promotion requests are visible to reviewers and superadmin only (RLS); the reviews page tells other agency roles so instead of showing an empty queue. Source references are rendered as counts per key, the source tenant by name and slug only.
+- The adoption matrix shows version, state and time per tenant and template; `template_adoptions.parameters` is never selected for it (acceptance 6). Adoptions stay untouched by releases, rollbacks and deprecations (acceptance 5); the UI reports the number of active adoptions on each event.
+- Evaluation results are recorded by hand; the Agency Knowledge Curator Agent is marked planned on every page. Semantic search stays deferred to M5 (ADR-019); the library search is lexical and logged in `audit_events`.
+- `agency_consultant` is a bridge-managed role: a membership inserted directly is removed by `syncMemberships` at the next sign-in. Agency staff must be organisation members (role `member`) of the agency organisation; `agency_reviewer` is not bridge-managed and is granted directly in `memberships`.
+
+### Verification
+
+- `pnpm --filter @sbos/web typecheck` green; `pnpm --filter @sbos/web test` 85 tests (68 existing + 17 new) green.
+- Dev server on port 3500 against `sbos_m4`; superadmin created with `pnpm bootstrap-admin`; the TOTP gate was satisfied by toggling `two_factor_enabled` on the auth user row after a curl sign-in (dev database only). All vault routes return 200 for superadmin and agency_reviewer; `/mission-control` redirects a reviewer and a consultant to sign-in (`not_operator`); a client admin is redirected from `/agency` and `/mission-control/agency-vault`.
+- Playwright (chromium) through the real forms, twice: create record (06), submit for review, approve (self-approval by superadmin recorded on the transition), publish, add v2 (stored, not released), evaluation case saved and marked pass, template created from the record (3 parameters), adopted into northline-events (Rentman, finance, 2 days) and harbour-view-hotel (Mews PMS, hotel controller, 1 day), northline upgraded to v2 then rolled back (client document revision 3 holds the v1 text), record deprecated with both adoptions still active (`affected_adoptions = 2`), adoption of the deprecated record refused with the trigger text, nomination made programmatically as an agent in tenant context, approval without checks refused with the trigger text, approval with all checks and consent granted plus rights basis, publication to `15_approved_reusable_insights` whose body contains neither the tenant name nor the finding ids. Client documents verified in each tenant's context; tenant scope sees 0 agency records and 0 of the other tenant's documents. Client admin sees the adopted-template badge on the document page.
+- Screenshots: `m4_library.png`, `m4_record_detail.png`, `m4_reviews.png`, `m4_templates.png`, `m4_history.png`, `m4_agency_landing.png` in the session scratchpad.
+
+### Open items
+
+- Nominating an insight from the client workspace (client admin UI) is planned; `nominateReusableInsight` exists and agents use it.
+- Agent Skills & Versions management (editing, release channels) stays a placeholder; the Skills Registry is read-only.
+- A separate route group for the agency vault (instead of the pathname check in the Mission Control layout) would be cleaner once more non-operator agency surfaces exist.
+- The templates page renders every template's adopt form; with many templates it should become a per-template page.
+- `/mission-control/agency-vault?view=skills` pin counts require an operator role; a metadata grant for reviewers could replace that.
