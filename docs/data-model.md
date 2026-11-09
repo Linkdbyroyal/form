@@ -43,11 +43,11 @@ RLS summary: `tenants` readable by members and agency roles; all other tenant ta
 
 `processes`, `process_steps`, `pain_points`, `findings`, `opportunities`, `kpis`, `kpi_observations`, `dashboards`, `dashboard_widgets`, `tasks` (management action center), `briefings`, `connections`, `credentials_metadata`.
 
-## Migration 0005 (M4): agency intelligence vault
+## Migration 0007 (M4, delivered): agency intelligence vault
 
-`agency_knowledge_records`, `agency_knowledge_versions`, `methodology_templates`, `knowledge_promotion_requests`, `knowledge_promotion_reviews`, `template_adoptions`, `evaluation_cases`, `knowledge_deprecation_events`.
+`agency_knowledge_records` (no tenant_id, agency scope only), `agency_knowledge_versions` (immutable), `agency_knowledge_transitions` (actor, roles, note per state change), `methodology_templates` (parameters as `{{key}}` placeholders, target client folder), `template_adoptions` (tenant row, pinned `record_version_id`, parameters, state active/superseded/rolled_back/revoked, link to the client `vault_documents` copy), `knowledge_promotion_requests` (tenant row; reviewers read all in agency scope), `knowledge_promotion_reviews`, `evaluation_cases`, `knowledge_deprecation_events` (release, deprecate, rollback, reinstate, archive, consent_review with affected adoption count). Actual migration numbers differ from the early plan: 0004 break-glass, 0005 vault, 0006 X-Ray and KPIs, 0007 agency vault.
 
-**Knowledge record lifecycle**: `draft → in_review → approved → published → deprecated → archived`, reviewer recorded on every transition.
+**Knowledge record lifecycle**: `draft → in_review → approved → published → deprecated → archived`, reviewer recorded on every transition (trigger), no self-approval except superadmin, no agent approvals. **Promotion lifecycle**: `nominated → in_review → approved → published` (or rejected, withdrawn); approval requires a human review with rights, security and identifiability checks and consent `granted` or `not_required`.
 
 ## Migration 0006 (M5/M6): integrations and upgrades
 

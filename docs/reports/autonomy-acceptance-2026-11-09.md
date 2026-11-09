@@ -57,3 +57,13 @@ Database `sbos_m1` migrated (0001 to 0006) and seeded; worker as its own process
 | 9 | Tenant isolation | PASS | tenant B context sees none of tenant A's findings, opportunities, KPIs, briefings or action tasks |
 
 Not covered: real model calls (simulated fixtures), semantic search (deferred, ADR-019), the client UI for dashboard, X-Ray and action center (built after this run and verified separately in the browser).
+
+## Fifth run: spec 11 demo flow with the Agency Vault nomination (same day, after Milestone 4 services)
+
+Fresh database `sbos_m4flow` (migrations 0001 to 0007, seed with skill `process-redesign` 0.2.0), worker as its own process in simulated mode. `pnpm autonomy:check` 14/14, then `pnpm demo:check` 10/10. New step:
+
+| Step | Requirement (spec 4H) | Result | Evidence |
+|---|---|---|---|
+| 10 | An agent may nominate a reusable insight from a client scenario; it is never published without a reviewer and a rights check | PASS | the process-redesign run wrote one `knowledge_promotion_requests` row in tenant A (`nominated`, identifiability risk low); zero agency records with origin `abstracted_from_client`; tenant B sees no request |
+
+Spec 4H acceptance criteria 1 to 6 are covered by `packages/core/test/agency-knowledge.test.ts` (5 tests against Postgres with RLS, see `docs/milestones/M4.md`).

@@ -22,8 +22,8 @@ See `docs/milestones/M1.md` tickets M1-01 … M1-15, including the autonomous wo
 ## M3 Business X-Ray + CEO Dashboard (todo)
 - Migration 0004, systems register UI, AS-IS/TO-BE maps, findings/opportunities with business case, KPI registry, dashboard renderer with widget whitelist, Executive Briefing, Management Action Center, CopilotKit spike.
 
-## M4 Agency Intelligence Vault (todo)
-- Migration 0005, knowledge lifecycle, promotion requests/reviews, template adoptions with pinned versions, agency search isolation tests, Mission Control module.
+## M4 Agency Intelligence Vault (backend done, UI in progress)
+- Done: migration 0007, knowledge lifecycle with triggers, promotion requests/reviews gate, template adoptions with pinned versions and rollback, agency search isolation tests, agent nomination. Open: Mission Control module and /agency landing (in progress), Agency Knowledge Curator Agent (optional), consent-withdrawal review tooling.
 
 ## M5 Integrations + observability (todo)
 - Connection phases and consent, Rentman/QuickBooks/Trengo/Dropbox read-only connectors, KPI observations with lineage, pgvector RAG, Langfuse exporter.
