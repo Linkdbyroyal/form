@@ -3,3 +3,4 @@ export * from "./core";
 export * from "./org";
 export * from "./agents";
 export * from "./auth";
+export * from "./vault";

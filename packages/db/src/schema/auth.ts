@@ -1,4 +1,4 @@
-import { boolean, index, integer, pgSchema, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import { bigint, boolean, index, integer, pgSchema, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 
 /**
  * Better Auth tables (ADR-015). Generated with `@better-auth/cli generate` against the 1.7.18 config
@@ -138,6 +138,16 @@ export const authTwoFactor = authSchema.table(
   },
   (t) => [index("two_factor_secret_idx").on(t.secret), index("two_factor_user_id_idx").on(t.userId)]
 );
+
+/**
+ * Break-glass replay guard (migration 0004, ticket M1-18): the last TOTP time counter a user verified
+ * for a break-glass request. Not a Better Auth model, so it is not part of `betterAuthSchema`.
+ */
+export const authBreakGlassTotpReplay = authSchema.table("break_glass_totp_replay", {
+  userId: text("user_id").primaryKey().references(() => authUser.id, { onDelete: "cascade" }),
+  lastCounter: bigint("last_counter", { mode: "number" }).notNull(),
+  usedAt: ts("used_at").notNull().defaultNow()
+});
 
 /**
  * Schema object keyed by Better Auth model name. Pass this same object to `drizzle()` and to

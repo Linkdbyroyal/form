@@ -1,5 +1,7 @@
 import { sql } from "drizzle-orm";
-import { boolean, index, integer, jsonb, numeric, pgEnum, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { boolean, customType, index, integer, jsonb, numeric, pgEnum, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+
+const tsvector = customType<{ data: string }>({ dataType: () => "tsvector" });
 import { actorType } from "./enums";
 import { clientContentGrants, tenants, users } from "./core";
 
@@ -391,6 +393,8 @@ export const vaultDocuments = pgTable(
     createdByActorType: actorType("created_by_actor_type").notNull(),
     createdByActorId: text("created_by_actor_id").notNull(),
     updatedByActorId: text("updated_by_actor_id").notNull(),
+    /** Generated column (migration 0005). Never written by the application. */
+    search: tsvector("search"),
     createdAt: createdAt(),
     updatedAt: updatedAt()
   },

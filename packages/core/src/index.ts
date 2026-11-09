@@ -8,3 +8,4 @@ export * from "./notifications";
 export * from "./budgets";
 export * from "./tasks";
 export * from "./vault";
+export * from "./knowledge";
