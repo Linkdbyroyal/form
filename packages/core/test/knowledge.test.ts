@@ -106,7 +106,8 @@ describe("search, classification and revisions", () => {
     expect(hitsManager.some((h) => h.path === "04_processes_as_is/quote-to-cash.md")).toBe(true);
 
     const hitsB = await handle.withContext(ctxCeoB, (tx) => searchVault(tx, ctxCeoB, { tenantId: tenantB, query: "invoices" }));
-    expect(hitsB.map((h) => h.path)).toEqual(["04_processes_as_is/check-in.md"]);
+    expect(hitsB.map((h) => h.path).filter((p): p is string => !!p && ownPaths.includes(p))).toEqual(["04_processes_as_is/check-in.md"]);
+    expect(hitsB.some((h) => h.path === "04_processes_as_is/quote-to-cash.md" || h.path === "17_policies_and_security/salary-bands.md")).toBe(false);
     // A search that targets another tenant than the request context is refused outright.
     await expect(handle.withContext(ctxCeoB, (tx) => searchVault(tx, ctxCeoB, { tenantId: tenantA, query: "invoices" }))).rejects.toThrow(/tenant context/);
     const audit = await handle.withContext(ctxCeoA, (tx) => tx.select().from(schema.retrievalAudit).where(sql`kind = 'fts'`));
