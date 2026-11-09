@@ -6,7 +6,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { agentDefinitions, agentInstances, budgets, departments, memberships, schedules, skillReleaseChannels, skillVersions, skills, systems, tenants, users } from "./schema/index";
+import { agencyKnowledgeRecords, agencyKnowledgeVersions, agentDefinitions, agentInstances, budgets, departments, memberships, methodologyTemplates, schedules, skillReleaseChannels, skillVersions, skills, systems, tenants, users } from "./schema/index";
 
 /**
  * Synthetic seed data. Two demo client tenants and the agency tenant. No real company data.
@@ -87,7 +87,121 @@ export async function seed(handle: DbHandle): Promise<SeedResult> {
   await seedTenantAgents(handle, ids.tenantIds["northline-events"]!, "northline", catalogue, true);
   await seedTenantAgents(handle, ids.tenantIds["harbour-view-hotel"]!, "harbourview", catalogue, false);
 
+  // 5. Agency Intelligence Vault starter records (agency scope, own knowledge only).
+  await seedAgencyKnowledge(handle);
+
   return { agencyTenantId, tenantIds: ids.tenantIds, userIds: ids.userIds };
+}
+
+/**
+ * Second Brain's own starter knowledge: a published methodology template with a client-facing template
+ * definition, a published interview set and one draft research note. Nothing here derives from a client.
+ * The lifecycle transitions go through the database trigger (seed actor holds superadmin, so self-approval
+ * is allowed and recorded on the transition).
+ */
+const AGENCY_RECORDS: Array<{ path: string; title: string; kind: "method_template" | "interview_set" | "research_note" | "decision"; publish: boolean; body: string; frontmatter: Record<string, unknown>; related: string[]; template?: { key: string; name: string; description: string; targetFolder: string; parameters: Array<{ key: string; label: string; required: boolean; default?: string; description?: string }> } }> = [
+  {
+    path: "06_process_patterns_and_sops/project-closure-invoice-readiness.md",
+    title: "Project closure to invoice readiness check",
+    kind: "method_template",
+    publish: true,
+    related: ["process-redesign", "finance-agent"],
+    frontmatter: { pattern: "closure_gate", interventions: ["integrate", "automate", "keep_human", "standardize"], evidence: "synthetic pilot scenario; no client data" },
+    body: `# Project closure to invoice readiness check
+
+A reusable process module for companies that invoice from a project or job system. The specific analysis,
+figures and people of any client stay in that client's vault; this pattern carries only the generic steps.
+
+Trigger: a project in {{project_system}} reaches the state "{{closure_state}}".
+
+| # | Kind | Step | Owner | Intervention |
+|---|---|---|---|---|
+| 1 | trigger | All returns and deliveries registered in {{project_system}} | operations | integrate |
+| 2 | control | Automatic closure check: returns complete, extra costs captured, damages recorded | system | automate |
+| 3 | decision | Exceptions routed to {{finance_owner}} for review | {{finance_owner}} | keep_human |
+| 4 | activity | Invoice lines prepared from the project record in {{accounting_system}} | finance | automate |
+| 5 | output | Invoice reviewed and sent within {{invoice_days}} working days | finance | standardize |
+
+## Quality criteria
+
+- No invoice is prepared while the closure check reports open exceptions.
+- Every exception has an owner and a decision within one working day.
+- The KPI "closed projects not invoiced" is measured from {{project_system}} and {{accounting_system}}, never estimated.
+
+## Configurable integration interface
+
+The project system and accounting system are parameters; the check itself is system-neutral.`,
+    template: {
+      key: "project-closure-invoice-readiness",
+      name: "Project closure to invoice readiness check",
+      description: "Closure gate before invoicing: returns, extra costs and damages verified before invoice preparation. Parameters: project system, closure state, finance owner, accounting system, invoice days.",
+      targetFolder: "05_processes_to_be",
+      parameters: [
+        { key: "project_system", label: "Project or job system", required: true, description: "Where projects are planned and closed (for example Rentman, a PMS, an ERP)." },
+        { key: "closure_state", label: "Closure state", required: true, description: "The state that marks a project as operationally finished." },
+        { key: "finance_owner", label: "Finance owner for exceptions", required: true, default: "finance" },
+        { key: "accounting_system", label: "Accounting system", required: true },
+        { key: "invoice_days", label: "Invoice within (working days)", required: false, default: "2" }
+      ]
+    }
+  },
+  {
+    path: "04_discovery_questions_and_assessments/intake-round-1-universal.md",
+    title: "Universal intake questions, round 1",
+    kind: "interview_set",
+    publish: true,
+    related: ["discovery-interview"],
+    frontmatter: { audience: "client_admin", max_questions: 5, answer_types: ["text", "single_choice", "multi_choice", "number"] },
+    body: `# Universal intake questions, round 1
+
+Five questions the Discovery agent may draw from for any company. Each question states the evidence gap it closes.
+
+1. Which departments exist and who leads each one? (organisation map)
+2. Which software systems hold your projects, invoices, customers and documents? (systems register)
+3. Where does work wait for a person today: hand-offs, approvals, re-typing? (pain points)
+4. Which three numbers would you check every morning if they were reliable? (decision needs)
+5. Which decisions must always stay with a person, whatever the automation? (keep_human boundaries)`
+  },
+  {
+    path: "13_research_updates_and_release_reviews/github-assessment-2026-11.md",
+    title: "GitHub assessment, November 2026 (draft)",
+    kind: "research_note",
+    publish: false,
+    related: [],
+    frontmatter: { source: "docs/research/github-assessment.md", status: "draft" },
+    body: `# GitHub assessment, November 2026
+
+Draft summary of the Build / Adopt / Integrate / Reject matrix (see the repository document for licences and
+rationale). A repository is never an automatically verified best practice; every adoption goes through an
+UpgradeProposal with tests.`
+  }
+];
+
+async function seedAgencyKnowledge(handle: DbHandle): Promise<void> {
+  const ctx = agencyContext({ tenantId: null, ...SYSTEM_ACTOR });
+  await handle.withContext(ctx, async (tx) => {
+    for (const r of AGENCY_RECORDS) {
+      const folder = r.path.split("/")[0]!;
+      const [rec] = await tx
+        .insert(agencyKnowledgeRecords)
+        .values({ folder, path: r.path, title: r.title, kind: r.kind, ownerActorId: SYSTEM_ACTOR.actorId, classification: "internal", origin: "own", license: "Second Brain internal", allowedUses: ["client_delivery", "agent_context"], relatedSkillKeys: r.related, createdByActorType: "system", createdByActorId: SYSTEM_ACTOR.actorId })
+        .onConflictDoNothing({ target: agencyKnowledgeRecords.path })
+        .returning({ id: agencyKnowledgeRecords.id });
+      if (!rec) continue; // already seeded
+      const checksum = createHash("sha256").update(JSON.stringify(r.frontmatter)).update("\n").update(r.body).digest("hex");
+      const [ver] = await tx.insert(agencyKnowledgeVersions).values({ recordId: rec.id, version: 1, frontmatter: r.frontmatter, bodyMarkdown: r.body, changelog: "seeded starter version", checksum, createdByActorType: "system", createdByActorId: SYSTEM_ACTOR.actorId }).returning({ id: agencyKnowledgeVersions.id });
+      await tx.update(agencyKnowledgeRecords).set({ currentVersionId: ver!.id }).where(sql`id = ${rec.id}`);
+      if (r.publish) {
+        for (const state of ["in_review", "approved", "published"] as const) {
+          await tx.update(agencyKnowledgeRecords).set({ state }).where(sql`id = ${rec.id}`);
+        }
+      }
+      if (r.template) {
+        await tx.insert(methodologyTemplates).values({ key: r.template.key, recordId: rec.id, name: r.template.name, description: r.template.description, targetFolder: r.template.targetFolder, parameters: r.template.parameters }).onConflictDoNothing({ target: methodologyTemplates.key });
+      }
+      await writeAudit(tx, ctx, { action: "agency_knowledge.seeded", entityType: "agency_knowledge_record", entityId: rec.id, after: { path: r.path, published: r.publish } });
+    }
+  });
 }
 
 interface OrgSeed {
