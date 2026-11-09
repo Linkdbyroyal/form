@@ -47,14 +47,11 @@ export function Status({ state }: { state: "implemented" | "simulated" | "not_co
   return <Badge tone={s.tone}>{s.label}</Badge>;
 }
 
-export function DevBanner() {
-  return (
-    <div className="border-b border-warning/30 bg-warning/10 px-4 py-2 text-xs text-warning">
-      Development mode: no authentication is active (Milestone 0). Every request acts as the seeded development operator. Replaced by ticket M1-01.
-    </div>
-  );
-}
-
 export function Empty({ children }: { children: ReactNode }) {
   return <div className="rounded-card border border-dashed border-border p-6 text-center text-sm text-muted">{children}</div>;
 }
+
+/** Form field styling shared by the authentication pages. */
+export const inputClass = "w-full rounded-md border border-border bg-surface-2 px-3 py-2 text-sm text-fg placeholder:text-faint focus:border-cyan/60 focus:outline-none";
+export const buttonClass = "inline-flex items-center justify-center rounded-md bg-blue px-4 py-2 text-sm font-medium text-white hover:bg-indigo disabled:opacity-50";
+export const buttonSecondaryClass = "inline-flex items-center justify-center rounded-md border border-border px-4 py-2 text-sm text-muted hover:bg-surface-2 hover:text-fg";

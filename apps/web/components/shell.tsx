@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { DevBanner } from "./ui";
+import { getPrincipal } from "@/lib/request-context";
+import { Badge } from "./ui";
 
 export interface NavItem {
   href: string;
@@ -8,10 +9,11 @@ export interface NavItem {
   milestone: "M0" | "M1" | "M2" | "M3" | "M4" | "M5" | "M6";
 }
 
-export function Shell({ title, subtitle, nav, children }: { title: string; subtitle: string; nav: NavItem[]; children: ReactNode }) {
+export async function Shell({ title, subtitle, nav, children }: { title: string; subtitle: string; nav: NavItem[]; children: ReactNode }) {
+  const principal = await getPrincipal();
   return (
     <div className="flex min-h-screen">
-      <aside className="hidden w-64 shrink-0 border-r border-border bg-surface md:block">
+      <aside className="hidden w-64 shrink-0 flex-col border-r border-border bg-surface md:flex">
         <div className="px-5 py-5">
           <Link href="/" className="block text-xs uppercase tracking-[0.2em] text-faint">Second Brain</Link>
           <div className="mt-1 text-lg font-semibold sb-gradient-text">{title}</div>
@@ -26,9 +28,27 @@ export function Shell({ title, subtitle, nav, children }: { title: string; subti
             </Link>
           ))}
         </nav>
+        <div className="mt-auto border-t border-border px-5 py-4 text-xs">
+          {principal ? (
+            <div className="space-y-2">
+              <div className="truncate font-medium text-fg" title={principal.email}>{principal.name || principal.email}</div>
+              <div className="flex flex-wrap gap-1">
+                {principal.agencyRoles.map((r) => <Badge key={r} tone="indigo">{r}</Badge>)}
+                <Badge tone={principal.twoFactorEnabled ? "success" : "warning"}>{principal.twoFactorEnabled ? "MFA on" : "MFA off"}</Badge>
+              </div>
+              <div className="flex gap-3">
+                <Link href="/account/security" className="text-muted underline hover:text-fg">Security</Link>
+                <form method="post" action="/sign-out">
+                  <button type="submit" className="text-muted underline hover:text-fg">Sign out</button>
+                </form>
+              </div>
+            </div>
+          ) : (
+            <Link href="/sign-in" className="text-muted underline hover:text-fg">Sign in</Link>
+          )}
+        </div>
       </aside>
       <div className="flex min-w-0 flex-1 flex-col">
-        <DevBanner />
         <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 md:px-8">{children}</main>
         <footer className="border-t border-border px-4 py-3 text-[11px] text-faint">
           Second Brain Business OS v0.1.0 · synthetic data only · every page states what is implemented, simulated or not connected

@@ -1,0 +1,222 @@
+# Second Brain Business OS: portable production stack (ADR-014, Hetzner or any Docker host).
+#
+# Usage (from the repository root, on the server):
+#   docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build
+#
+# `.env.production` is NOT committed. It is read for variable interpolation only; every service
+# below lists explicitly which variables it receives, so the web service never sees
+# ANTHROPIC_API_KEY, RESEND_API_KEY or PUMBLE_WEBHOOK_URL (ADR-016, ADR-018).
+# Requires Docker Compose v2.23 or newer (inline `configs`). See docs/deployment.md, "Hetzner".
+
+name: sbos
+
+x-worker-image: &worker-image
+  build:
+    context: .
+    dockerfile: apps/worker/Dockerfile
+  image: sbos-worker:local
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:-sbos}
+    volumes:
+      - sbos_pgdata:/var/lib/postgresql/data
+    # Not published on the host: web, worker and the backup sidecar reach it on the internal network.
+    expose:
+      - "5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    shm_size: 256mb
+    networks: [backend]
+
+  # Daily logical backup (pg_dump, custom format, gzip) into the sbos_backups volume, kept for
+  # BACKUP_RETENTION_DAYS (default 14). Copy the volume off the host weekly (rclone/restic, see
+  # docs/deployment.md, "Backups"). Uses the same image as postgres so pg_dump matches the server.
+  pg-backup:
+    image: pgvector/pgvector:pg16
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGHOST: postgres
+      PGUSER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      PGDATABASE: ${POSTGRES_DB:-sbos}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
+    volumes:
+      - sbos_backups:/backups
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -eu
+        while true; do
+          ts=$$(date -u +%Y%m%dT%H%M%SZ)
+          pg_dump --format=custom --no-owner --no-privileges --file="/backups/sbos-$${ts}.dump"
+          gzip -f "/backups/sbos-$${ts}.dump"
+          find /backups -name 'sbos-*.dump.gz' -mtime +"$${BACKUP_RETENTION_DAYS}" -delete
+          echo "backup written: sbos-$${ts}.dump.gz"
+          sleep 86400
+        done
+    healthcheck:
+      # Healthy when a dump newer than 25 hours exists (or none exists yet, right after first start).
+      test: ["CMD-SHELL", "find /backups -name 'sbos-*.dump.gz' -mmin -1500 | grep -q . || [ $$(find /backups -name 'sbos-*.dump.gz' | wc -l) -eq 0 ]"]
+      interval: 1h
+      timeout: 10s
+      retries: 2
+      start_period: 5m
+    networks: [backend]
+
+  # One-shot: applies pending SQL migrations with the schema-owner role, then exits.
+  # web and worker wait for it to complete successfully. Re-run on every deploy:
+  #   docker compose --env-file .env.production -f docker-compose.prod.yml run --rm migrate
+  migrate:
+    <<: *worker-image
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_URL_MIGRATE: ${DATABASE_URL_MIGRATE:?DATABASE_URL_MIGRATE is required}
+    command: ["node", "--import", "tsx", "node_modules/@sbos/db/src/cli/migrate.ts"]
+    healthcheck:
+      disable: true
+    networks: [backend]
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    image: sbos-web:local
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      HOSTNAME: 0.0.0.0
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?BETTER_AUTH_SECRET is required}
+      BETTER_AUTH_URL: https://${SBOS_DOMAIN:?SBOS_DOMAIN is required}
+      SBOS_DOMAIN: ${SBOS_DOMAIN}
+      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
+      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
+      LANGFUSE_BASE_URL: ${LANGFUSE_BASE_URL:-}
+    expose:
+      - "3000"
+    # Same probe as the Dockerfile HEALTHCHECK (/api/health), restated so Compose shows it explicitly.
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    # edge gives outbound HTTPS (OAuth providers); postgres stays reachable over backend only.
+    networks: [backend, edge]
+
+  worker:
+    <<: *worker-image
+    restart: always
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          memory: 1g
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      NODE_ENV: production
+      PORT: "8080"
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:?ANTHROPIC_API_KEY is required}
+      SBOS_DEFAULT_MODEL: ${SBOS_DEFAULT_MODEL:-claude-sonnet-5-5}
+      SBOS_PLATFORM_BUDGET_USD_MONTH: ${SBOS_PLATFORM_BUDGET_USD_MONTH:-25}
+      SBOS_WORKER_CONCURRENCY: ${SBOS_WORKER_CONCURRENCY:-2}
+      RESEND_API_KEY: ${RESEND_API_KEY:?RESEND_API_KEY is required}
+      RESEND_FROM_EMAIL: ${RESEND_FROM_EMAIL:?RESEND_FROM_EMAIL is required}
+      PUMBLE_WEBHOOK_URL: ${PUMBLE_WEBHOOK_URL:?PUMBLE_WEBHOOK_URL is required}
+      BETTER_AUTH_URL: https://${SBOS_DOMAIN}
+      SBOS_DOMAIN: ${SBOS_DOMAIN}
+      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
+      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
+      LANGFUSE_BASE_URL: ${LANGFUSE_BASE_URL:-}
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8080/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    # edge gives outbound HTTPS to the Anthropic API, Resend and Pumble.
+    networks: [backend, edge]
+
+  # Reverse proxy with automatic HTTPS (Let's Encrypt) for SBOS_DOMAIN. Only caddy publishes ports.
+  caddy:
+    image: caddy:2.10-alpine
+    restart: always
+    depends_on:
+      web:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    configs:
+      - source: caddyfile
+        target: /etc/caddy/Caddyfile
+    volumes:
+      - sbos_caddy_data:/data
+      - sbos_caddy_config:/config
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:2019/config/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks: [backend, edge]
+
+configs:
+  caddyfile:
+    content: |
+      {
+        email ${CADDY_ACME_EMAIL:?CADDY_ACME_EMAIL is required}
+        admin 127.0.0.1:2019
+      }
+      ${SBOS_DOMAIN:?SBOS_DOMAIN is required} {
+        encode zstd gzip
+        header {
+          Strict-Transport-Security "max-age=31536000; includeSubDomains"
+          X-Content-Type-Options "nosniff"
+          Referrer-Policy "strict-origin-when-cross-origin"
+          -Server
+        }
+        reverse_proxy web:3000 {
+          health_uri /api/health
+          health_interval 30s
+        }
+      }
+
+volumes:
+  sbos_pgdata:
+  sbos_backups:
+  sbos_caddy_data:
+  sbos_caddy_config:
+
+networks:
+  backend:
+    internal: true
+  edge:

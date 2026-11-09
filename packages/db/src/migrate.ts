@@ -42,11 +42,12 @@ export async function runMigrations(connectionString: string, log: (msg: string)
   return applied;
 }
 
-/** Drops everything in `public` so a database can be rebuilt from migrations (dev/test only). */
+/** Drops everything in `public` and `auth` so a database can be rebuilt from migrations (dev/test only). */
 export async function resetDatabase(connectionString: string): Promise<void> {
   const client = new pg.Client({ connectionString });
   await client.connect();
   try {
+    await client.query("DROP SCHEMA IF EXISTS auth CASCADE");
     await client.query("DROP SCHEMA public CASCADE");
     await client.query("CREATE SCHEMA public");
     await client.query("GRANT ALL ON SCHEMA public TO public");

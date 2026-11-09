@@ -2,7 +2,11 @@ import { sql } from "drizzle-orm";
 import { createDb, type DbHandle } from "./client";
 import { agencyContext, tenantContext } from "./context";
 import { writeAudit } from "./audit";
-import { departments, memberships, systems, tenants, users } from "./schema/index";
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { agentDefinitions, agentInstances, budgets, departments, memberships, schedules, skillReleaseChannels, skillVersions, skills, systems, tenants, users } from "./schema/index";
 
 /**
  * Synthetic seed data. Two demo client tenants and the agency tenant. No real company data.
@@ -14,7 +18,7 @@ export interface SeedResult {
   userIds: Record<string, string>;
 }
 
-const SYSTEM_ACTOR = { actorType: "system" as const, actorId: "seed", roles: ["agency_superadmin"] };
+const SYSTEM_ACTOR = { actorType: "system" as const, actorId: "seed", roles: ["superadmin"] };
 
 export async function seed(handle: DbHandle): Promise<SeedResult> {
   const agencyCtx = agencyContext({ tenantId: null, ...SYSTEM_ACTOR });
@@ -59,10 +63,10 @@ export async function seed(handle: DbHandle): Promise<SeedResult> {
 
   // 2. Memberships per tenant (tenant scope, because WITH CHECK requires tenant_id = app.tenant_id).
   const membershipPlan: Array<{ slug: string; email: string; role: string; department?: string }> = [
-    { slug: "second-brain-agency", email: "operator@secondbrain.test", role: "agency_superadmin" },
-    { slug: "northline-events", email: "ceo@northline.test", role: "client_ceo" },
-    { slug: "northline-events", email: "finance@northline.test", role: "client_manager", department: "finance" },
-    { slug: "harbour-view-hotel", email: "ceo@harbourview.test", role: "client_ceo" }
+    { slug: "second-brain-agency", email: "operator@secondbrain.test", role: "superadmin" },
+    { slug: "northline-events", email: "ceo@northline.test", role: "client_admin" },
+    { slug: "northline-events", email: "finance@northline.test", role: "department_manager", department: "finance" },
+    { slug: "harbour-view-hotel", email: "ceo@harbourview.test", role: "client_admin" }
   ];
   for (const m of membershipPlan) {
     const tenantId = ids.tenantIds[m.slug]!;
@@ -77,6 +81,11 @@ export async function seed(handle: DbHandle): Promise<SeedResult> {
   // 3. Organisation map and software register for the two demo tenants.
   await seedTenantOrg(handle, ids.tenantIds["northline-events"]!, NORTHLINE);
   await seedTenantOrg(handle, ids.tenantIds["harbour-view-hotel"]!, HARBOUR_VIEW);
+
+  // 4. Agent catalogue (agency scope) and one Discovery agent instance per demo tenant.
+  const catalogue = await seedAgentCatalogue(handle);
+  await seedTenantAgents(handle, ids.tenantIds["northline-events"]!, "northline", catalogue, true);
+  await seedTenantAgents(handle, ids.tenantIds["harbour-view-hotel"]!, "harbourview", catalogue, false);
 
   return { agencyTenantId, tenantIds: ids.tenantIds, userIds: ids.userIds };
 }
@@ -97,10 +106,10 @@ interface OrgSeed {
 
 const NORTHLINE: OrgSeed = {
   departments: [
-    { key: "management", name: "Management", headRole: "client_ceo" },
-    { key: "sales", name: "Sales and Quotes", headRole: "client_manager" },
-    { key: "operations", name: "Operations and Warehouse", headRole: "client_manager" },
-    { key: "finance", name: "Finance", headRole: "client_manager" }
+    { key: "management", name: "Management", headRole: "client_admin" },
+    { key: "sales", name: "Sales and Quotes", headRole: "department_manager" },
+    { key: "operations", name: "Operations and Warehouse", headRole: "department_manager" },
+    { key: "finance", name: "Finance", headRole: "department_manager" }
   ],
   systems: [
     { name: "Rentman", vendor: "Rentman", function: "Projects, equipment, crew planning, quotes, invoices", department: "operations", sourceOfTruthFor: ["projects", "equipment", "crew"], dataTypes: ["projects", "subprojects", "projectequipment", "invoices"], apiCapabilities: ["api", "mcp"], notes: "SYNTHETIC: stated by the CEO in intake; no connection verified." },
@@ -112,10 +121,10 @@ const NORTHLINE: OrgSeed = {
 
 const HARBOUR_VIEW: OrgSeed = {
   departments: [
-    { key: "management", name: "Management", headRole: "client_ceo" },
-    { key: "front_office", name: "Front Office and Reservations", headRole: "client_manager" },
-    { key: "food_beverage", name: "Food and Beverage", headRole: "client_manager" },
-    { key: "finance", name: "Finance", headRole: "client_manager" }
+    { key: "management", name: "Management", headRole: "client_admin" },
+    { key: "front_office", name: "Front Office and Reservations", headRole: "department_manager" },
+    { key: "food_beverage", name: "Food and Beverage", headRole: "department_manager" },
+    { key: "finance", name: "Finance", headRole: "department_manager" }
   ],
   systems: [
     { name: "Property Management System", vendor: "Unknown (to verify)", function: "Reservations, rooms, folios", department: "front_office", sourceOfTruthFor: ["reservations"], dataTypes: ["bookings", "folios"], apiCapabilities: ["export"], notes: "SYNTHETIC: vendor to be confirmed in discovery." },
@@ -160,4 +169,95 @@ async function seedTenantOrg(handle: DbHandle, tenantId: string, org: OrgSeed): 
 
 export function seedHandleFromEnv(url: string): DbHandle {
   return createDb({ connectionString: url, max: 2 });
+}
+
+interface Catalogue { definitionId: string; skillVersionId: string }
+
+const here = dirname(fileURLToPath(import.meta.url));
+
+/** Skills and agent definitions are agency assets; versions are immutable and pinned by instances. */
+async function seedAgentCatalogue(handle: DbHandle): Promise<Catalogue> {
+  const ctx = agencyContext({ tenantId: null, ...SYSTEM_ACTOR });
+  const skillMd = readFileSync(join(here, "..", "seed-data", "skills", "discovery-interview", "SKILL.md"), "utf8");
+  const checksum = createHash("sha256").update(skillMd).digest("hex");
+  return handle.withContext(ctx, async (tx) => {
+    const [skill] = await tx
+      .insert(skills)
+      .values({ key: "discovery-interview", name: "Discovery & Interview", description: "Builds company knowledge and asks only the next useful question." })
+      .onConflictDoNothing({ target: skills.key })
+      .returning({ id: skills.id });
+    const skillId = skill?.id ?? (await tx.select({ id: skills.id }).from(skills).where(sql`key = 'discovery-interview'`))[0]!.id;
+
+    const [version] = await tx
+      .insert(skillVersions)
+      .values({ skillId, version: "0.1.0", skillMd, contracts: ["QuestionRequest"], allowedTools: ["vault.read", "systems.read", "questions.read", "questions.create", "vault.write_draft", "approvals.request"], releaseChannel: "stable", checksum, createdBy: "seed" })
+      .onConflictDoNothing()
+      .returning({ id: skillVersions.id });
+    const skillVersionId = version?.id ?? (await tx.select({ id: skillVersions.id }).from(skillVersions).where(sql`skill_id = ${skillId} and version = '0.1.0'`))[0]!.id;
+
+    await tx.insert(skillReleaseChannels).values({ skillId, channel: "stable", skillVersionId, updatedBy: "seed" }).onConflictDoNothing();
+
+    const [def] = await tx
+      .insert(agentDefinitions)
+      .values({
+        key: "discovery-interview",
+        name: "Discovery & Interview Agent",
+        mission: "Understand the business and ask adaptive, targeted questions that close evidence gaps.",
+        department: "cross-functional",
+        skillId,
+        defaultModel: "claude-sonnet-5-5",
+        modelPolicy: { default: "claude-sonnet-5-5", classification: "claude-haiku-5-5" },
+        allowedTools: ["vault.read", "systems.read", "questions.read", "questions.create", "vault.write_draft", "approvals.request"],
+        requiredData: ["company_profile", "departments", "systems", "prior_questions"],
+        authority: "t1",
+        defaultScheduleCron: "0 7 * * 1-5",
+        escalationRole: "client_admin",
+        defaultBudgetUsdMonth: "5.00",
+        defaultRunCapUsd: "0.25",
+        inputContracts: [],
+        outputContracts: ["QuestionRequest", "AgentRunResult"],
+        qualityCriteria: ["max 5 questions per round", "no re-asking answered questions", "reason and evidence_gap present"],
+        ownerRole: "superadmin"
+      })
+      .onConflictDoNothing({ target: agentDefinitions.key })
+      .returning({ id: agentDefinitions.id });
+    const definitionId = def?.id ?? (await tx.select({ id: agentDefinitions.id }).from(agentDefinitions).where(sql`key = 'discovery-interview'`))[0]!.id;
+
+    // Platform budget (ADR-016): USD 25 per month, hard stop.
+    await tx.insert(budgets).values({ scope: "platform", capUsdMonth: "25.00", runCapUsd: "0.50" }).onConflictDoNothing();
+    return { definitionId, skillVersionId };
+  });
+}
+
+async function seedTenantAgents(handle: DbHandle, tenantId: string, slugPart: string, catalogue: Catalogue, withSchedule: boolean): Promise<void> {
+  const ctx = tenantContext({ tenantId, ...SYSTEM_ACTOR });
+  await handle.withContext(ctx, async (tx) => {
+    const serviceIdentity = `agent:discovery:${slugPart}`;
+    const [inst] = await tx
+      .insert(agentInstances)
+      .values({ tenantId, definitionId: catalogue.definitionId, skillVersionId: catalogue.skillVersionId, name: "Discovery & Interview", state: "idle", serviceIdentity })
+      .onConflictDoNothing()
+      .returning({ id: agentInstances.id });
+    const instanceId = inst?.id ?? (await tx.select({ id: agentInstances.id }).from(agentInstances).where(sql`service_identity = ${serviceIdentity}`))[0]!.id;
+
+    await tx.insert(budgets).values({ tenantId, scope: "tenant", capUsdMonth: "10.00", runCapUsd: "0.50" }).onConflictDoNothing();
+    await tx.insert(budgets).values({ tenantId, scope: "agent_instance", agentInstanceId: instanceId, capUsdMonth: "5.00", runCapUsd: "0.25" }).onConflictDoNothing();
+
+    if (withSchedule) {
+      const existing = await tx.select({ id: schedules.id }).from(schedules).where(sql`agent_instance_id = ${instanceId}`);
+      if (existing.length === 0) {
+        await tx.insert(schedules).values({
+          tenantId,
+          agentInstanceId: instanceId,
+          name: "Discovery round (weekdays 07:00 UTC)",
+          cron: "0 7 * * 1-5",
+          timezone: "UTC",
+          enabled: true,
+          expectedBySeconds: 900,
+          instruction: "Run the next discovery round: review open evidence gaps and produce the next 3 to 5 questions."
+        });
+      }
+    }
+    await writeAudit(tx, ctx, { action: "agent_instance.activated", entityType: "agent_instance", entityId: instanceId, after: { definition: "discovery-interview" } });
+  });
 }

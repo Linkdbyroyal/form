@@ -1,0 +1,32 @@
+{
+  "name": "@sbos/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "start": "tsx src/main.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@sbos/agents": "workspace:*",
+    "@sbos/contracts": "workspace:*",
+    "@sbos/core": "workspace:*",
+    "@sbos/db": "workspace:*",
+    "cron-parser": "^5.10.4",
+    "drizzle-orm": "^0.45.4",
+    "pg": "^8.16.3",
+    "pg-boss": "^12.38.1",
+    "resend": "^6.9.1",
+    "tsx": "^4.20.6",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.0",
+    "@types/pg": "^8.15.5",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.99"
+  }
+}

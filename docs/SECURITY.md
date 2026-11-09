@@ -13,14 +13,21 @@
 ## Roles
 | Role | Scope | Can |
 |---|---|---|
-| agency_superadmin | agency | manage tenants, roles, policies; cross-client operational metadata; grant content access (logged) |
-| agency_operator | agency | Mission Control metadata for all clients; content only with a grant |
-| agency_consultant | agency + assigned tenants | content of assigned tenants via grant |
-| agency_reviewer | agency | review knowledge promotions and skill releases |
-| client_ceo | tenant | all tenant content, approvals, delegations |
-| client_manager | tenant + department | department content, answer questions, propose actions |
+| superadmin | agency | manage tenants, roles, policies, budgets; cross-client operational metadata; approve break-glass; MFA mandatory |
+| agency_operator | agency | Mission Control metadata for all clients; content only via break-glass grant; MFA mandatory |
+| agency_consultant | agency + assigned tenants | content of assigned tenants via grant (later milestone) |
+| agency_reviewer | agency | review knowledge promotions and skill releases (M4) |
+| client_admin | tenant | CEO: all tenant content, approvals, delegations, invites |
+| department_manager | tenant + department | department content, answer questions, propose actions |
+| agent_service | tenant + agent instance | non-interactive service identity for one agent instance; tools authorised per skill version |
 | client_employee | tenant + department | answer assigned questions, view assigned tasks |
 | client_auditor | tenant | read-only including audit trails |
+
+## Break-glass (ADR-017)
+Operator requests content access to one tenant with a reason → fresh MFA verification → `client_content_grants` row (max 8 h) → audit event + Pumble notice → every content read logged in `knowledge_access_logs` → automatic expiry, revocable by superadmin.
+
+## Budget and model access (ADR-016)
+`ANTHROPIC_API_KEY` only in the worker. Caps per platform, tenant and agent instance; hard stop creates an incident. Costs recorded per call.
 
 ## Policy register (to be filled per tenant)
 Data minimisation, consent per system, retention and deletion schedule, audit log retention, incident procedure, regional/privacy requirements (Curaçao, NL/EU where applicable), sub-processor list (Anthropic, hosting).

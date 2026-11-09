@@ -4,7 +4,9 @@
   "version": "0.1.0",
   "description": "Second Brain Business Transformation OS: multi-tenant agent platform with Mission Control, Client Workspaces and Knowledge Vaults",
   "packageManager": "pnpm@10.28.0",
-  "engines": { "node": ">=22.12" },
+  "engines": {
+    "node": ">=22.12"
+  },
   "scripts": {
     "dev": "turbo run dev",
     "build": "turbo run build",
@@ -13,10 +15,16 @@
     "test": "turbo run test",
     "db:migrate": "pnpm --filter @sbos/db migrate",
     "db:seed": "pnpm --filter @sbos/db seed",
-    "db:reset": "pnpm --filter @sbos/db reset"
+    "db:reset": "pnpm --filter @sbos/db reset",
+    "worker:dev": "pnpm --filter @sbos/worker dev",
+    "autonomy:check": "pnpm --filter @sbos/worker exec tsx src/cli/autonomy-check.ts",
+    "bootstrap-admin": "pnpm --filter @sbos/web bootstrap-admin"
   },
   "devDependencies": {
     "turbo": "^2.11.10",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "@opentelemetry/api": "^1.10.0",
+    "kysely": "^0.29.8",
+    "@types/pg": "^8.15.5"
   }
 }

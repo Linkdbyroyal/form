@@ -2,11 +2,13 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Badge, Card, Status } from "@/components/ui";
 import { getTenantOperatorView } from "@/lib/queries";
+import { requireOperatorContext } from "@/lib/request-context";
 
 export const dynamic = "force-dynamic";
 
 export default async function ClientOperatorView({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
+  await requireOperatorContext();
   const view = await getTenantOperatorView(slug);
   if (!view) notFound();
   return (

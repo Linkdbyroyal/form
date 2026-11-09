@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { Badge, Card } from "@/components/ui";
 import { listClientWorkspaces } from "@/lib/queries";
+import { requireOperatorContext } from "@/lib/request-context";
 
 export const dynamic = "force-dynamic";
 
 export default async function ClientWorkspaces() {
+  await requireOperatorContext();
   const rows = await listClientWorkspaces();
   return (
     <div className="space-y-6">

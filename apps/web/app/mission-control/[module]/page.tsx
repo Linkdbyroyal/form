@@ -1,15 +1,12 @@
 import { notFound } from "next/navigation";
 import { Card, Status } from "@/components/ui";
 
+/**
+ * Placeholder for Mission Control modules that are not built yet. Implemented modules (agents, tasks, runs,
+ * approvals, schedules, costs, errors) have their own routes and take precedence over this catch-all.
+ */
 const MODULES: Record<string, { title: string; milestone: string; text: string }> = {
-  agents: { title: "Agents", milestone: "M1", text: "Agent definitions, instances per tenant, Agent Detail with assign task, feedback, pause, resume, stop, re-run." },
-  tasks: { title: "Tasks", milestone: "M1", text: "AgentTask contract with owner, priority, due date and state machine." },
-  runs: { title: "Runs & Traces", milestone: "M1", text: "Run timeline with steps, tools, inputs read, tokens, costs, outputs and masked secrets." },
-  approvals: { title: "Approvals", milestone: "M1", text: "Approval queue. Risky actions are blocked by database constraints until approved." },
-  skills: { title: "Agent Skills & Versions", milestone: "M1", text: "SKILL.md versions, release channels, eval results." },
-  schedules: { title: "Schedules", milestone: "M1", text: "Cron and event schedules per agent instance, expected-by times and the stall alarm." },
-  costs: { title: "Costs", milestone: "M1", text: "Token and API cost per tenant, agent and run; budget caps." },
-  errors: { title: "Errors & Incidents", milestone: "M1", text: "Failed runs, dead-letter jobs, missed schedules, connection errors." },
+  skills: { title: "Agent Skills & Versions", milestone: "M1", text: "SKILL.md versions, release channels, eval results. The data model (skills, skill_versions, skill_release_channels) exists and is pinned by agent instances; the management UI is not built yet." },
   tools: { title: "Connected Tools", milestone: "M5", text: "Connections per tenant with phase metadata → read-only → sandbox → write and consent status." },
   "agency-vault": { title: "Agency Intelligence Vault", milestone: "M4", text: "Knowledge Library, Skills Registry, Interview Library, Industry Blueprints, Design System, Tech Watch, Pending Knowledge Reviews, Version History." }
 };

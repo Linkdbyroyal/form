@@ -157,3 +157,46 @@ async function expectDbError(promise: Promise<unknown>, pattern: RegExp): Promis
 function seededOperatorId(): string {
   return "00000000-0000-0000-0000-00000000000a";
 }
+
+describe("generic cross-tenant guard (every tenant table)", () => {
+  it("no tenant table exposes another tenant's rows to tenant A", async () => {
+    const tables = await handle.db.execute<{ table_name: string }>(sql`
+      SELECT c.table_name FROM information_schema.columns c
+      JOIN pg_class cls ON cls.relname = c.table_name
+      JOIN pg_namespace ns ON ns.oid = cls.relnamespace AND ns.nspname = 'public'
+      WHERE c.table_schema = 'public' AND c.column_name = 'tenant_id' AND cls.relkind = 'r'
+      ORDER BY 1`);
+    expect(tables.rows.length).toBeGreaterThan(15);
+    const ctx = tenantContext({ tenantId: tenantA, ...actor });
+    for (const { table_name } of tables.rows) {
+      const leaked = await handle.withContext(ctx, (tx) =>
+        tx.execute<{ n: number }>(sql`SELECT count(*)::int AS n FROM ${sql.identifier(table_name)} WHERE tenant_id = ${tenantB}`)
+      );
+      expect(Number(leaked.rows[0]?.n ?? -1), `${table_name} leaked tenant B rows`).toBe(0);
+      const own = await handle.withContext(ctx, (tx) =>
+        tx.execute<{ n: number }>(sql`SELECT count(*)::int AS n FROM ${sql.identifier(table_name)} WHERE tenant_id IS NOT NULL AND tenant_id <> ${tenantA}`)
+      );
+      expect(Number(own.rows[0]?.n ?? -1), `${table_name} shows foreign tenant rows`).toBe(0);
+    }
+  });
+
+  it("operator role cannot read any designated content column", async () => {
+    const op = operatorContext({ actorType: "user", actorId: "op", roles: ["agency_operator"] });
+    const contentColumns: Array<[string, string]> = [
+      ["systems", "notes"],
+      ["agent_tasks", "instruction"],
+      ["agent_runs", "checkpoint"],
+      ["agent_runs", "result"],
+      ["run_events", "payload"],
+      ["questions", "question_text"],
+      ["vault_documents", "body_markdown"],
+      ["vault_revisions", "body_markdown"]
+    ];
+    for (const [table, column] of contentColumns) {
+      await expectDbError(
+        handle.withContext(op, (tx) => tx.execute(sql`SELECT ${sql.identifier(column)} FROM ${sql.identifier(table)} LIMIT 1`)),
+        /permission denied/
+      );
+    }
+  });
+});

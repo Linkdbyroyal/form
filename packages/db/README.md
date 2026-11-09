@@ -41,3 +41,7 @@ The application connects as a role that can `SET ROLE` to both but is not a supe
 3. Grant privileges to `sbos_app`; grant only metadata columns to `sbos_operator`.
 4. Add the Drizzle table in `src/schema/`.
 5. Extend `test/isolation.test.ts`. The schema guard test fails automatically if RLS is missing.
+
+## Data migrations and RLS
+
+The migration role owns the tables and has no RLS policy of its own. With `FORCE ROW LEVEL SECURITY` it therefore sees zero rows. A migration that must update existing tenant rows wraps the statement in `ALTER TABLE <t> NO FORCE ROW LEVEL SECURITY; ... ; ALTER TABLE <t> FORCE ROW LEVEL SECURITY;` (see 0002, role rename). Schema-only migrations need nothing special.

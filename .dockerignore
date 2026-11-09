@@ -1,0 +1,39 @@
+# Build context for apps/web/Dockerfile and apps/worker/Dockerfile (context = repository root).
+# Keep the context small and free of secrets. Workspace sources (apps/*, packages/*) stay in.
+
+# Dependencies and build outputs (reinstalled / rebuilt inside the image)
+**/node_modules
+**/.pnpm-store
+**/.next
+**/.turbo
+**/dist
+**/out
+**/coverage
+**/tsconfig.tsbuildinfo
+*.log
+
+# Version control, CI, editor and tooling metadata
+.git
+.gitignore
+.github
+.editorconfig
+.vscode
+.idea
+.claude
+CLAUDE.md
+
+# Secrets and local environment files (never in an image; variables come from the platform)
+.env
+.env.*
+!.env.example
+
+# Not deployed
+legacy
+docs
+scripts
+docker-compose.yml
+docker-compose.prod.yml
+apps/**/railway.json
+
+# Documentation (not needed at build or run time)
+**/*.md

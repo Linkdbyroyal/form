@@ -1,52 +1,66 @@
 # Handoff
 
-Last updated: 2026-11-09 (Milestone 0 delivery, branch `claude/second-brain-os-architecture-ovfky3`).
+Last updated: 2026-11-09 (Milestone 1 delivery, branch `claude/second-brain-os-architecture-ovfky3`). Push to GitHub is blocked until the Claude GitHub App has write access to `Linkdbyroyal/form`; all work is committed locally.
 
 ## Implemented and verified
 
-| Item | Evidence |
-|---|---|
-| Monorepo (pnpm 10, Turborepo, TypeScript strict) with `apps/web`, `packages/db`, `packages/contracts` | `pnpm install`, `pnpm -r typecheck` green |
-| Migration 0001: tenants, users, roles, memberships, client_content_grants, audit_events, departments, systems; RLS enabled and forced on every tenant table and on users; NOLOGIN roles `sbos_app` and `sbos_operator`; column-level grants hide `systems.notes` from operators; audit table append-only | `packages/db/migrations/0001_core.sql`; 12 isolation tests green (`packages/db/test/isolation.test.ts`) |
-| `withContext()` transaction wrapper with `SET LOCAL ROLE` and `set_config` per request; fail-closed when context missing; no context leak across pooled connections | tests `fail closed`, `does not leak` |
-| Seed: agency tenant + two synthetic demo tenants (Northline Events, Harbour View Hotel), four users, departments, claimed systems | `pnpm db:seed` |
-| Contracts package: 17 Zod 4 contracts with agent output envelope, JSON Schema export | 35 tests green |
-| Web: landing, Mission Control shell (Overview with live counters, Client Workspaces, operator drill-down), Client Workspace page in tenant context with audit write, Agency Vault placeholder, `/api/health` | `next build` green; smoke test: all routes 200, unknown tenant 404, operator page contains no `notes`, tenant A page contains no tenant B systems |
-| Design tokens (Second Brain palette) in `apps/web/app/globals.css` | rendered pages |
-| CI workflow (GitHub Actions with pgvector Postgres service) | `.github/workflows/ci.yml` (not yet executed on GitHub at time of writing) |
-| Documentation: vision, architecture, 13 ADRs, roadmap, M1 plan with 15 tickets, data model, agent registry, security, agent runtime design, research matrix, durable execution comparison, three cases | `docs/` |
+| Area | What | Evidence |
+|---|---|---|
+| Tenancy foundation (M0) | Migration 0001, RLS forced on all tenant tables, roles `sbos_app`/`sbos_operator`, append-only audit | `packages/db` 14 tests |
+| Agent runtime schema (M1-03) | Migration 0002: skills, skill versions, agent definitions/instances, tasks, runs, run events, approvals, approved actions, schedules, incidents, budgets, cost events, feedback, notifications, access logs, interview rounds, questions, vault documents/revisions; run state machine trigger; approval gate trigger; operator column grants | core tests 6, generic cross-tenant guard over all tenant tables, operator content-column guard |
+| Core services (M1) | `packages/core`: createRun/transitionRun/appendRunEvent/checkpoints, requestApproval/decideApproval/registerAction/markActionExecuted, raiseIncident, queueNotification (payload allow-list), checkBudget/recordCost/pricing, tasks, feedback, vault write with revisions, `JobBackend` | tests |
+| Agent runtime (M1-04/05) | `packages/agents`: `AgentRuntime`, Mastra adapter on `@ai-sdk/anthropic`, `SimulatedRuntime`, `ToolGateway`, Discovery prompt with untrusted-content wrapping, contract validation of every question; SKILL.md `discovery-interview` 0.1.0 seeded as immutable version | 3 tests; Mastra path typechecked only |
+| Autonomous worker (M1-06/07/14/17) | `apps/worker`: pg-boss queues with retries, backoff, dead-letter consumer; checkpointed executor (assemble, generate, persist, request approval, suspend, publish on approval); budget admission and pre-call cap; cron reconciliation from `schedules`; stall alarm; lease heartbeat and crash recovery; Resend and Pumble senders; `/healthz` | Autonomy Acceptance Test 11/11 (`docs/reports/autonomy-acceptance-2026-11-09.md`) |
+| Authentication (M1-01/02/19) | Better Auth 1.7.18: email/password + verification, organizations mapped to tenants, Google/Microsoft optional, TOTP required for superadmin/agency_operator, invitation-only, membership bridge into `memberships`, bootstrap script, request context resolving from session, break-glass rule in `requireTenantContext` | 16 web tests; bootstrap verified on dev DB |
+| Deployment artefacts (M1-15/16) | Dockerfiles (web standalone, worker without dev tooling), `railway.json` per service, `docker-compose.prod.yml` with backup sidecar and Caddy, `docs/deployment.md` | Dockerfile steps executed with pnpm in a clean copy; no Docker daemon in sandbox |
+| Contracts | 17 Zod contracts + JSON Schema | 35 tests |
 
-## Simulated or placeholder
+## Simulated
 
-| Item | Note |
-|---|---|
-| Authentication | none; every request is the development operator (`apps/web/lib/request-context.ts`); banner shown; replaced in M1-01 |
-| Mission Control modules Agents, Tasks, Runs, Approvals, Skills, Schedules, Costs, Errors, Tools, Agency Vault | placeholder pages stating the milestone; no mock data |
-| Client Workspace sub-pages (dashboard, x-ray, inbox, actions, agents, integrations, vault) | navigation only; routes not created yet |
+- Model calls: without `ANTHROPIC_API_KEY` the worker runs `SimulatedRuntime` (deterministic fixture, labelled `simulated` on runs, events, cost events and vault notes). First live call must happen on staging under the USD 25 cap.
+- Notification delivery: without `RESEND_API_KEY` / `PUMBLE_WEBHOOK_URL` the sender logs `[mail:dev]` / `[pumble:dev]` and marks the row `sent` with `delivery: "logged"`.
 
 ## Not connected
 
-Rentman, QuickBooks, Trengo, Pumble, Dropbox, Make, Google Sheets, any LLM call. `systems.claim_status` is `stated` for every seeded row.
+Rentman, QuickBooks, Trengo, Pumble (as data source), Dropbox, Make, Google Sheets. Systems register rows remain `claim_status = stated`.
 
-## Not yet built (next)
+## Mission Control modules (M1-08)
 
-`apps/worker`, `packages/core`, `packages/agents`, migration 0002, Mastra adapter, pg-boss scheduler, approvals, incidents, notifications, Autonomy Acceptance Test script. All in `docs/milestones/M1.md`.
+See the "Mission Control" section appended below once the module work is merged into this branch.
 
-## Tests run in this session
+## Open (M1)
 
-- `pnpm -r typecheck`: 3 packages pass.
-- `packages/db`: 12/12 pass against local PostgreSQL 16.15 (`sbos_test`).
-- `packages/contracts`: 35/35 pass.
-- `apps/web`: production build passes; HTTP smoke test of 10 routes passes.
+- M1-18 break-glass request UI with fresh MFA verification (DB model and context rule exist).
+- M1-10 isolation tests: generic read guard exists; add per-table write attempts for the new tables.
+- M1-11 CI: workflow exists, never executed (push blocked).
+- First Railway staging deploy; formal "Claude Code closed" observation with timestamps; induced worker kill test.
+- Mastra adapter live verification; shadcn/Recharts components (M3).
+- `apps/web/lib/queries.ts` still exports `getTenantDetail` and an `authStatus` string that are no longer used.
 
-## Known gaps and risks
+## Tests run (this session)
 
-- pgvector is not installed in the sandbox Postgres (apt package unavailable, source build denied); Docker image `pgvector/pgvector:pg16` covers local and CI. Needed from M2.
-- `legacy/lbr-intake/server.js` has a hard-coded admin token fallback; not deployed, fix before any reuse.
-- Better Auth not yet verified (spike M1-01).
-- CI workflow has not run on GitHub yet; first push will show.
+| Package | Tests |
+|---|---|
+| contracts | 35 |
+| db | 14 |
+| core | 6 |
+| agents | 3 |
+| web | 16 |
+| worker | Autonomy Acceptance Test 11/11 against a live worker |
+
+## Known risks
+
+- Mastra 1.82 and `ai` 7.0 differ in one LanguageModelV4 type detail; the adapter casts. Verify on first live run.
+- pgvector not installed in the sandbox Postgres (needed from M2; the Docker image covers it).
+- Legacy intake form has a hard-coded admin token fallback; not deployed.
 
 ## How to resume
 
-1. `cp .env.example .env`, start Postgres, `pnpm install`, `pnpm db:migrate && pnpm db:seed`, `pnpm --filter @sbos/web dev`.
-2. Read `docs/milestones/M1.md`, start with M1-03 (migration 0002) and M1-06 (worker) in parallel with M1-01 (auth).
+```
+pnpm install
+pnpm db:migrate && pnpm db:seed
+SBOS_ADMIN_EMAIL=... SBOS_ADMIN_PASSWORD=... pnpm bootstrap-admin
+pnpm --filter @sbos/web dev      # :3000
+pnpm worker:dev                  # :8080/healthz
+pnpm autonomy:check              # 11 checks
+```
