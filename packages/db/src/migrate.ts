@@ -86,6 +86,11 @@ export async function ensureAppLoginRole(connectionString: string, input: { role
     await client.query(`GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA auth TO ${ident}`);
     await client.query(`ALTER DEFAULT PRIVILEGES IN SCHEMA auth GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO ${ident}`);
     await client.query(`GRANT SELECT ON schema_migrations TO ${ident}`);
+    // pg-boss (worker job queue) owns its own schema `pgboss` and creates it on first start with CREATE SCHEMA,
+    // which Postgres allows only with CREATE on the database. Tenant tables stay owned by the migration role
+    // with FORCE ROW LEVEL SECURITY; this grant does not touch them.
+    const dbName = (await client.query<{ name: string }>("SELECT current_database() AS name")).rows[0]!.name;
+    await client.query(`GRANT CREATE ON DATABASE "${dbName.replace(/"/g, '""')}" TO ${ident}`);
   } finally {
     await client.end();
   }
