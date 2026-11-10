@@ -30,11 +30,12 @@ RUN corepack enable && corepack prepare pnpm@10.28.0 --activate
 WORKDIR /app
 
 # ---------------------------------------------------------------------------
-# fetch: production packages from the lockfile only (cached until pnpm-lock.yaml changes)
+# fetch: packages from the lockfile (cached until pnpm-lock.yaml changes). The full fetch is needed because
+# the legacy deploy resolves every workspace manifest; `deploy --prod` still leaves dev packages out of /out.
 # ---------------------------------------------------------------------------
 FROM base AS fetch
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
-RUN pnpm fetch --prod
+RUN pnpm fetch
 
 # ---------------------------------------------------------------------------
 # deploy: materialise @sbos/worker plus its workspace packages (@sbos/agents, @sbos/core,
