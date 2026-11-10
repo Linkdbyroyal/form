@@ -3,6 +3,7 @@ import { AuthLayout } from "@/components/auth-layout";
 import { Badge } from "@/components/ui";
 import { MFA_REQUIRED_ROLES } from "@/lib/auth-policy";
 import { principalNeedsMfa, requireSignedIn } from "@/lib/request-context";
+import { ChangePassword } from "./change-password";
 import { TotpEnrollment } from "./totp-enrollment";
 
 export const dynamic = "force-dynamic";
@@ -39,6 +40,7 @@ export default async function SecurityPage({ searchParams }: { searchParams: Pro
         )}
       </div>
       <TotpEnrollment enabled={p.twoFactorEnabled} />
+      <ChangePassword />
     </AuthLayout>
   );
 }

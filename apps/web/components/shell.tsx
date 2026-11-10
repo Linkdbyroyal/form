@@ -72,7 +72,8 @@ export const MISSION_CONTROL_NAV: NavItem[] = [
   { href: "/mission-control/tools", label: "Connected Tools", milestone: "M5" },
   { href: "/mission-control/agency-vault", label: "Agency Intelligence Vault", milestone: "M4" },
   { href: "/mission-control/tech-watch", label: "Tech Watch", milestone: "M6" },
-  { href: "/mission-control/governance", label: "Data governance", milestone: "M6" }
+  { href: "/mission-control/governance", label: "Data governance", milestone: "M6" },
+  { href: "/mission-control/team", label: "Agency Team", milestone: "M1" }
 ];
 
 /** Navigation for agency staff without an operator role (agency_reviewer, agency_consultant): the Agency Intelligence Vault only. */
