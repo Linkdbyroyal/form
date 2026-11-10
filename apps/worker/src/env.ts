@@ -11,6 +11,8 @@ export interface WorkerEnv {
   forceSimulated: boolean;
   /** Tech Watch records fixture items instead of contacting approved sources (sandbox, CI). */
   techWatchOffline: boolean;
+  /** Runs the idempotent synthetic seed (agency tenant, agent catalogue, demo tenants) before the queue starts. One-time, staging. */
+  seedOnStart: boolean;
 }
 
 export function readEnv(): WorkerEnv {
@@ -27,6 +29,7 @@ export function readEnv(): WorkerEnv {
     port: Number(process.env.PORT || 8080),
     concurrency: Number(process.env.SBOS_WORKER_CONCURRENCY || 2),
     forceSimulated: process.env.SBOS_FORCE_SIMULATED === "1",
-    techWatchOffline: process.env.SBOS_TECH_WATCH_OFFLINE === "1"
+    techWatchOffline: process.env.SBOS_TECH_WATCH_OFFLINE === "1",
+    seedOnStart: process.env.SBOS_SEED_ON_START === "1"
   };
 }

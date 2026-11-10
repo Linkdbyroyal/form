@@ -1,6 +1,6 @@
 import { createServer } from "node:http";
 import { PgBoss } from "pg-boss";
-import { createDb, tenantContext } from "@sbos/db";
+import { createDb, seed, tenantContext } from "@sbos/db";
 import { raiseIncident } from "@sbos/core";
 import { runConnectionSync } from "@sbos/connectors";
 import { enqueueDueSyncs, markStale } from "./connectors";
@@ -24,6 +24,14 @@ async function main(): Promise<void> {
   const boss = new PgBoss({ connectionString: env.databaseUrl, schema: "pgboss", supervise: true, schedule: true });
   const jobs = new BossJobBackend(boss);
   const state = { startedAt: new Date(), lastStallCheckAt: null as Date | null, lastReconcileAt: null as Date | null, runsStarted: 0, runsFailed: 0, syncsRun: 0, mode: env.forceSimulated || !env.anthropicApiKey ? "simulated" : "live" };
+
+  // One-time bootstrap of a fresh database (docs/deployment.md 3.11): the seed is idempotent and synthetic
+  // (agency tenant, agent catalogue, approved tech sources, two demo tenants marked synthetic). Remove the
+  // variable after the first start; the seed never touches real client data.
+  if (env.seedOnStart) {
+    const seeded = await seed(handle);
+    log("warn", "seed on start executed (SBOS_SEED_ON_START=1); remove the variable", { tenants: Object.keys(seeded.tenantIds) });
+  }
 
   boss.on("error", (err) => log("error", "pg-boss error", { error: (err as Error).message }));
   await boss.start();

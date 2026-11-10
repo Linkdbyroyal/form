@@ -50,6 +50,9 @@ Service column: `web`, `worker`, `migrate` (the migration command, which runs in
 | `PORT` | web, worker | no | Listening port. Railway injects it; Compose sets 3000 and 8080. |
 | `HOSTNAME` | web | no | `0.0.0.0` so the standalone server binds all interfaces (set in the Dockerfile). |
 | `NODE_ENV` | web, worker | no | `production` (set in the Dockerfiles). |
+| `SBOS_APP_DB_ROLE`, `SBOS_APP_DB_PASSWORD` | migrate (worker service on Railway) | yes | When both are set, `migrate.ts` creates or updates the application login role after the migrations (LOGIN, no superuser, no BYPASSRLS, `SET ROLE` grants, access to `auth`, CREATE on the database for the `pgboss` schema). `DATABASE_URL` of web and worker then uses that role. |
+| `SBOS_SEED_ON_START` | worker | no | `1` runs the idempotent synthetic seed (agency tenant, agent catalogue, approved tech sources, two demo tenants marked synthetic) once before the queue starts. First start of a fresh database only; remove afterwards. |
+| `SBOS_SETUP_TOKEN` | web | yes | Enables `POST /api/setup` (first superadmin) while set; 32+ characters, `openssl rand -hex 24`. The route refuses as soon as an admin user exists. Remove after use. |
 | `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_BASE_URL` | web, worker | secret key yes | Optional observability (Milestone 5). Leave empty until then. |
 | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | postgres, pg-backup (Compose only) | password yes | Container superuser and database name. Railway Postgres manages these itself. |
 | `BACKUP_RETENTION_DAYS` | pg-backup (Compose only) | no | Days of local dumps to keep, default 14. |
@@ -122,7 +125,12 @@ Railway runs each service from a Dockerfile; there is no Railway-specific code i
 
 ### 3.6 First superadmin bootstrap
 
-Public sign-up is disabled (ADR-015); the first `superadmin` is created by a bootstrap script that is being written in another ticket (`pnpm --filter @sbos/db bootstrap-admin` or `pnpm --filter @sbos/web bootstrap-admin`; check `docs/HANDOFF.md` for the final name). Run it once per environment with the production variables, from a developer machine via `railway run --service worker -- <bootstrap command>` or inside the worker container via `railway ssh`. It must be run with the schema-owner URL only if the script says so; by default it should use `DATABASE_URL`. After the first login, enable the second factor immediately: the application refuses to activate `superadmin` memberships without a verified second factor.
+Public sign-up is disabled (ADR-015). Two ways, same logic (`apps/web/lib/bootstrap-admin.ts`):
+
+1. Developer machine with database access: `SBOS_ADMIN_EMAIL=you@example.com SBOS_ADMIN_PASSWORD='...' pnpm --filter @sbos/web bootstrap-admin` (uses `DATABASE_URL`).
+2. Hosted database without a public endpoint (Railway staging): the one-time route `POST /api/setup`, see 3.11.
+
+Either way the agency tenant must exist first (seed) and the new superadmin must enable the second factor at `/account/security` right after the first sign-in: the application refuses to activate `superadmin` memberships without a verified second factor.
 
 ### 3.7 Backups
 
@@ -195,3 +203,19 @@ Created through the Railway GraphQL API (`backboard.railway.com/graphql/v2`, wor
 Variables: as in section 2, plus `SBOS_APP_DB_ROLE` and `SBOS_APP_DB_PASSWORD` on the worker. The migrate CLI creates or updates that login role after the migrations (no superuser, no BYPASSRLS, `SET ROLE` grants to `sbos_app` and `sbos_operator`, access to schema `auth`, CREATE on the database so pg-boss can create its `pgboss` schema; the first staging worker start failed with `permission denied for database sbos` before that grant existed), so the database never needs a public endpoint or a manual SQL session for setup; `DATABASE_URL` of both services uses that role, `DATABASE_URL_MIGRATE` the Railway Postgres superuser. `ANTHROPIC_API_KEY` is set on the worker only. Resend and Pumble credentials are not set yet (delivery is logged). The key pasted into the chat on 2026-11-10 must be rotated and the rotated value set on the worker service.
 
 Operational notes: builds are triggered by pushes to the branch (Railway GitHub integration); the deployment list and logs are readable through the API (`deployments`, `deploymentLogs`) or the dashboard. The first superadmin is created with `pnpm bootstrap-admin` run inside the worker container (dashboard shell) or by `deploymentInstanceExecutionCreate` through the API.
+
+## 3.11 First start on a fresh database (2026-11-10)
+
+The runtime images contain no pnpm, tsx CLI entry or developer tooling (ADR-012), and the staging database has no public endpoint, so the first start uses two one-time switches instead of a shell:
+
+1. Worker: set `SBOS_SEED_ON_START=1` and redeploy. On start the worker runs the idempotent seed from `@sbos/db` (agency tenant `second-brain-agency`, agent catalogue and skills, approved tech sources, two demo tenants marked synthetic) and logs `seed on start executed`. Remove the variable afterwards; a second run would be harmless but the switch should not stay on.
+2. Web: set `SBOS_SETUP_TOKEN` (32+ random characters) and redeploy. Then, once:
+
+   ```sh
+   curl -X POST https://<SBOS_DOMAIN>/api/setup \
+     -H "authorization: Bearer $SBOS_SETUP_TOKEN" -H "content-type: application/json" \
+     -d '{"email":"owner@example.com","password":"<12+ characters>","name":"Owner"}'
+   ```
+
+   The route creates the auth user (admin, e-mail verified), the agency organisation linked to the agency tenant, the owner membership and the `superadmin` membership row, and returns identifiers only. Without the variable the route answers 404; with a wrong token 401; once any admin user exists 409, whatever the token. Remove the variable afterwards.
+3. Sign in at `/sign-in`, enable TOTP at `/account/security`, then invite the rest of the agency from Mission Control.
