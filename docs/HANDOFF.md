@@ -272,3 +272,8 @@ Implemented in `apps/web` only (no changes to `packages/*` or `apps/worker`); un
 - The Upgrade Center's assessment form shows all three artefact fields; the action keeps only the one of the chosen kind. A client-side kind switch would hide the others (no client JavaScript on these pages by design).
 - No pagination on the updates list (200 rows) and on the deletion request lists (200 and 100 rows).
 - Skill versions cannot be deleted through the app role (no DELETE grant); draft versions created by mistake stay in the registry.
+
+
+## First live model call (2026-11-10)
+
+Verified in the sandbox with the owner's key in the worker environment: a Discovery run with Claude Sonnet produced five contract-valid questions, flagged the QuickBooks contradiction and suspended for approval; cost USD 0.038778 (3501 in, 1885 out), recorded with `simulated = false`. The Mastra adapter and the `LanguageModelV4` cast work at runtime. The pasted key must be rotated; on Railway it belongs to the worker service only. Details in `docs/reports/autonomy-acceptance-2026-11-09.md` (seventh run).

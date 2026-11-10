@@ -77,3 +77,18 @@ Fresh database `sbos_m5flow` (migrations 0001 to 0008), worker as its own proces
 | 11 | A connection starts in metadata and reads nothing; after the client admin's consent, the agency security review and the one-step advance to read_only, the worker syncs with lineage; tenant B sees nothing | PASS | first `connector.sync` job finished `skipped` with `networkCalls = 0`; after consent, review and advance the second job wrote two observations (`closed_projects_not_invoiced`, `quote_to_invoice_days`) from sandbox fixtures with formula, source field and `sync_run_id` in the lineage; connection `read_only/active` with `last_sync_at`; tenant B has zero sync runs |
 
 Not covered: live connectors (none implemented; the registry refuses `live` mode explicitly), real credentials (none exist in the sandbox), the Integration Center UI (built after this run).
+
+## Seventh run: first live model call (2026-11-10)
+
+Environment: sandbox worker started with `ANTHROPIC_API_KEY` in its process environment only (never in a file), `/healthz` reported `mode: live`, database `sbos_m6flow` (migrations 0001 to 0010). A Discovery run for the synthetic tenant was queued as a client admin command.
+
+| Check | Result | Evidence |
+|---|---|---|
+| Real model call through the Mastra adapter | PASS | run event `model_call: claude-sonnet-5-5: questions drafted`; cost event `simulated = false`, 3501 input tokens, 1885 output tokens, USD 0.038778 |
+| Budget admission and cap | PASS | platform cap USD 25.00 untouched by the call size; cost recorded per tenant, agent instance, task and run |
+| Contract validation | PASS | five `QuestionRequest`s drafted (one critical, three high, one medium), all department and priority fields valid, none repeating an answered question |
+| Contradiction handling | PASS | the model noticed the intake answer that retired QuickBooks Online and asked where the ledger lives; the deterministic check raised a `help_request` for the reviewer |
+| Approval gate | PASS | run suspended `waiting for publication approval` (medium risk, client_admin); nothing published without a decision |
+| Vault write | PASS | `13_interviews_and_open_questions/round-006.md` v1 through the write-mode policy |
+
+The key was pasted into the chat by the owner and must be rotated after this test; the worker environment on Railway is the only place it should live (ADR-016).
