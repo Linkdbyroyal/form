@@ -132,6 +132,13 @@ export default async function KnowledgeLibraryPage({ searchParams }: { searchPar
                   {activeModule.key === "design" ? "Dashboard, KPI and design-system definitions used by the CEO dashboard renderer. The widget whitelist itself lives in the contracts package." : null}
                   {activeModule.key === "techwatch" ? "Research updates and release reviews (for example the GitHub assessment). Drafts here are research notes, not decisions; decisions are recorded in docs/DECISIONS.md and folder 14." : null}
                 </p>
+                {activeModule.key === "techwatch" ? (
+                  <div className="mt-3 rounded-card border border-cyan/40 bg-surface-2 p-3 text-sm">
+                    <div className="font-medium">Technology Intelligence Center (spec 4D, M6)</div>
+                    <p className="mt-1 text-xs text-muted">Approved sources, scheduled detection by the worker and the Upgrade Center (assess, approve with the artefact of the kind, apply with a test result, roll back) live on their own page. A knowledge update references a published record from this folder.</p>
+                    <Link href="/mission-control/tech-watch" className={`${smallPrimaryClass} mt-2`}>Open Tech Watch</Link>
+                  </div>
+                ) : null}
               </Card>
             ) : null}
           </div>

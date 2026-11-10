@@ -6,7 +6,7 @@ import { Card, Status } from "@/components/ui";
  * approvals, schedules, costs, errors, vaults, agency-vault, tools) have their own routes and take precedence over this catch-all.
  */
 const MODULES: Record<string, { title: string; milestone: string; text: string }> = {
-  skills: { title: "Agent Skills & Versions", milestone: "M1", text: "SKILL.md versions, release channels, eval results. The data model (skills, skill_versions, skill_release_channels) exists and is pinned by agent instances; the management UI is not built yet." }
+  skills: { title: "Agent Skills & Versions", milestone: "M1", text: "SKILL.md versions, release channels, eval results. The data model (skills, skill_versions, skill_release_channels) exists and is pinned by agent instances. The read-only Skills Registry is a view of the Agency Intelligence Vault; skill releases (a new immutable version moving the stable channel, with a test result and rollback) now go through the Upgrade Center under Tech Watch (M6). A skill editing UI is not built yet." }
 };
 
 export default async function ModulePlaceholder({ params }: { params: Promise<{ module: string }> }) {

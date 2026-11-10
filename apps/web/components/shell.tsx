@@ -70,7 +70,9 @@ export const MISSION_CONTROL_NAV: NavItem[] = [
   { href: "/mission-control/costs", label: "Costs", milestone: "M1" },
   { href: "/mission-control/errors", label: "Errors & Incidents", milestone: "M1" },
   { href: "/mission-control/tools", label: "Connected Tools", milestone: "M5" },
-  { href: "/mission-control/agency-vault", label: "Agency Intelligence Vault", milestone: "M4" }
+  { href: "/mission-control/agency-vault", label: "Agency Intelligence Vault", milestone: "M4" },
+  { href: "/mission-control/tech-watch", label: "Tech Watch", milestone: "M6" },
+  { href: "/mission-control/governance", label: "Data governance", milestone: "M6" }
 ];
 
 /** Navigation for agency staff without an operator role (agency_reviewer, agency_consultant): the Agency Intelligence Vault only. */
@@ -79,7 +81,8 @@ export const AGENCY_STAFF_NAV: NavItem[] = [
   { href: "/mission-control/agency-vault", label: "Knowledge Library", milestone: "M4" },
   { href: "/mission-control/agency-vault/reviews", label: "Pending Knowledge Reviews", milestone: "M4" },
   { href: "/mission-control/agency-vault/templates", label: "Templates & adoptions", milestone: "M4" },
-  { href: "/mission-control/agency-vault/history", label: "Version History", milestone: "M4" }
+  { href: "/mission-control/agency-vault/history", label: "Version History", milestone: "M4" },
+  { href: "/mission-control/tech-watch", label: "Tech Watch", milestone: "M6" }
 ];
 
 export function clientNav(slug: string): NavItem[] {
@@ -91,6 +94,7 @@ export function clientNav(slug: string): NavItem[] {
     { href: `/c/${slug}/actions`, label: "Action Center", milestone: "M3" },
     { href: `/c/${slug}/agents`, label: "Client Agent Center", milestone: "M1" },
     { href: `/c/${slug}/integrations`, label: "Integration Center", milestone: "M5" },
-    { href: `/c/${slug}/vault`, label: "Knowledge Vault", milestone: "M2" }
+    { href: `/c/${slug}/vault`, label: "Knowledge Vault", milestone: "M2" },
+    { href: `/c/${slug}/retention`, label: "Data & Retention", milestone: "M6" }
   ];
 }
