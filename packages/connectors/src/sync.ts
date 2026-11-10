@@ -1,11 +1,18 @@
 import { and, eq } from "drizzle-orm";
 import { schema, tenantContext, type DbHandle, type TenantContext } from "@sbos/db";
-import { finishSyncRun, raiseIncident, recordMetricObservations, startSyncRun, type JobBackend, type MetricReadingInput } from "@sbos/core";
+import { expiredCredentialReferences, finishSyncRun, raiseIncident, recordMetricObservations, startSyncRun, type JobBackend, type MetricReadingInput } from "@sbos/core";
 import { getConnector, isProvider } from "./registry";
 import { EnvSecretReader, NoSecretReader, maskSecrets } from "./secrets";
 import { ConnectorNotImplementedError, PhaseViolationError, type ConnectorContext, type ConnectorMode, type SecretReader } from "./types";
 
 const { connections, systems } = schema;
+
+class CredentialExpiredError extends Error {
+  constructor(refs: string[]) {
+    super(`credential reference(s) expired: ${refs.join(", ")}; rotate the secret and update the reference before the next live sync`);
+    this.name = "CredentialExpiredError";
+  }
+}
 
 export interface RunSyncInput {
   tenantId: string;
@@ -72,6 +79,10 @@ export async function runConnectionSync(handle: DbHandle, jobs: JobBackend, inpu
   const connectorCtx: ConnectorContext = { tenantId: input.tenantId, connectionId: input.connectionId, phase: conn.phase, mode, config, secrets: mode === "sandbox" ? new NoSecretReader() : (input.secrets ?? new EnvSecretReader()), fetch: guardedFetch, now };
 
   try {
+    if (mode === "live") {
+      const expired = await handle.withContext(ctx, (tx) => expiredCredentialReferences(tx, ctx, { tenantId: input.tenantId, connectionId: input.connectionId, now: now() }));
+      if (expired.length > 0) throw new CredentialExpiredError(expired.map((e) => e.secretRef));
+    }
     const connector = getConnector(provider, mode);
     const descriptor = connector.describe();
     const period = { start: new Date(now().getTime() - 30 * 86_400_000), end: now() };
@@ -90,10 +101,10 @@ export async function runConnectionSync(handle: DbHandle, jobs: JobBackend, inpu
     return finish("succeeded", { objectsRead, observationsWritten: written, note: mode === "sandbox" ? "simulated: sandbox fixtures, no external system contacted" : "live read-only sync" });
   } catch (err) {
     const e = err as Error;
-    const errorClass = err instanceof ConnectorNotImplementedError ? "connector_not_implemented" : err instanceof PhaseViolationError ? "phase_violation" : "connector_error";
+    const errorClass = err instanceof CredentialExpiredError ? "credential_expired" : err instanceof ConnectorNotImplementedError ? "connector_not_implemented" : err instanceof PhaseViolationError ? "phase_violation" : "connector_error";
     const message = maskSecrets(e.message ?? String(err));
     const result = await finish("failed", { errorClass, errorMessage: message, note: "sync failed" });
-    await handle.withContext(ctx, (tx) => raiseIncident(tx, jobs, { tenantId: input.tenantId, kind: errorClass === "connector_not_implemented" ? "credential_invalid" : "worker_error", severity: errorClass === "phase_violation" ? "critical" : "high", title: `Connector sync failed (${provider}): ${errorClass}`, details: { connectionId: input.connectionId, syncRunId, errorClass }, dedupeKey: `connector:${input.connectionId}:${errorClass}` }));
+    await handle.withContext(ctx, (tx) => raiseIncident(tx, jobs, { tenantId: input.tenantId, kind: errorClass === "connector_not_implemented" || errorClass === "credential_expired" ? "credential_invalid" : "worker_error", severity: errorClass === "phase_violation" ? "critical" : "high", title: `Connector sync failed (${provider}): ${errorClass}`, details: { connectionId: input.connectionId, syncRunId, errorClass }, dedupeKey: `connector:${input.connectionId}:${errorClass}` }));
     return result;
   }
 }

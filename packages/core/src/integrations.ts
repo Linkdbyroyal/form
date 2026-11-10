@@ -265,3 +265,14 @@ export async function listSyncRuns(tx: Tx, ctx: RequestContext, input: { tenantI
   return tx.select().from(syncRuns).where(and(eq(syncRuns.tenantId, input.tenantId), eq(syncRuns.connectionId, input.connectionId))).orderBy(desc(syncRuns.startedAt)).limit(Math.min(100, input.limit ?? 20));
 }
 
+
+/** Credential references past their expiry; the worker refuses live mode for them and reports an incident. */
+export async function expiredCredentialReferences(tx: Tx, ctx: RequestContext, input: { tenantId: string; connectionId?: string; now?: Date }): Promise<Array<{ id: string; connectionId: string; kind: string; secretRef: string; expiresAt: Date }>> {
+  requireTenant(ctx, input.tenantId, "listing expired credential references");
+  const now = input.now ?? new Date();
+  const rows = await tx
+    .select({ id: credentialsMetadata.id, connectionId: credentialsMetadata.connectionId, kind: credentialsMetadata.kind, secretRef: credentialsMetadata.secretRef, expiresAt: credentialsMetadata.expiresAt })
+    .from(credentialsMetadata)
+    .where(and(eq(credentialsMetadata.tenantId, input.tenantId), input.connectionId ? eq(credentialsMetadata.connectionId, input.connectionId) : sql`true`, lt(credentialsMetadata.expiresAt, now)));
+  return rows.filter((r): r is typeof r & { expiresAt: Date } => r.expiresAt !== null);
+}
