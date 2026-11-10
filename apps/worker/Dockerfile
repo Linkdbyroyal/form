@@ -30,8 +30,10 @@ RUN corepack enable && corepack prepare pnpm@10.28.0 --activate
 WORKDIR /app
 
 # ---------------------------------------------------------------------------
-# fetch: packages from the lockfile (cached until pnpm-lock.yaml changes). The full fetch is needed because
-# the legacy deploy resolves every workspace manifest; `deploy --prod` still leaves dev packages out of /out.
+# fetch: package tarballs from the lockfile (cached until pnpm-lock.yaml changes). The full fetch is needed
+# because the legacy deploy resolves every workspace manifest; `deploy --prod` still leaves dev packages out
+# of /out. The fetch stores tarballs only, not registry metadata, so the deploy step runs with
+# `--prefer-offline`: tarballs come from this cache, manifests are resolved against the registry.
 # ---------------------------------------------------------------------------
 FROM base AS fetch
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
@@ -45,7 +47,7 @@ RUN pnpm fetch
 # ---------------------------------------------------------------------------
 FROM fetch AS deploy
 COPY . .
-RUN pnpm --filter @sbos/worker deploy --prod --legacy --offline /out
+RUN pnpm --filter @sbos/worker deploy --prod --legacy --prefer-offline /out
 # Entry point must exist; fail fast with a clear message instead of a broken image.
 RUN test -f /out/src/main.ts \
       || { echo "apps/worker/src/main.ts is missing: the worker has no entry point"; exit 1; }
