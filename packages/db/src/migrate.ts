@@ -55,3 +55,38 @@ export async function resetDatabase(connectionString: string): Promise<void> {
     await client.end();
   }
 }
+
+/**
+ * Ensures the application login role exists with the given password and can SET ROLE to `sbos_app` and
+ * `sbos_operator` (never a superuser, never BYPASSRLS). Idempotent: the password is reset to the given value
+ * on every run so a rotation only needs a new variable. Runs with the migration (schema owner) connection.
+ * The role name is validated against a strict pattern because it is interpolated as an identifier.
+ */
+export async function ensureAppLoginRole(connectionString: string, input: { role: string; password: string }, log: (msg: string) => void = () => {}): Promise<void> {
+  if (!/^[a-z][a-z0-9_]{2,40}$/.test(input.role)) throw new Error("application role name must be lowercase letters, digits and underscores");
+  if (input.password.length < 24) throw new Error("application role password must be at least 24 characters");
+  const client = new pg.Client({ connectionString });
+  await client.connect();
+  try {
+    const exists = (await client.query("SELECT 1 FROM pg_roles WHERE rolname = $1", [input.role])).rowCount;
+    const ident = `"${input.role}"`;
+    const literal = input.password.replace(/'/g, "''");
+    if (!exists) {
+      await client.query(`CREATE ROLE ${ident} LOGIN NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE NOINHERIT PASSWORD '${literal}'`);
+      log(`created application role ${input.role}`);
+    } else {
+      await client.query(`ALTER ROLE ${ident} LOGIN NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE NOINHERIT PASSWORD '${literal}'`);
+      log(`updated application role ${input.role}`);
+    }
+    await client.query(`GRANT sbos_app TO ${ident} WITH SET TRUE, INHERIT FALSE`);
+    await client.query(`GRANT sbos_operator TO ${ident} WITH SET TRUE, INHERIT FALSE`);
+    await client.query(`GRANT USAGE ON SCHEMA public TO ${ident}`);
+    await client.query(`GRANT USAGE ON SCHEMA auth TO ${ident}`);
+    // Better Auth reads and writes its own schema through the application connection (identity data, not tenant content).
+    await client.query(`GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA auth TO ${ident}`);
+    await client.query(`ALTER DEFAULT PRIVILEGES IN SCHEMA auth GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO ${ident}`);
+    await client.query(`GRANT SELECT ON schema_migrations TO ${ident}`);
+  } finally {
+    await client.end();
+  }
+}
