@@ -43,3 +43,12 @@ export function inviteNotice(input: { email: string; roleKey: string; delivery: 
   const base = `Invitation for ${input.email} as ${input.roleKey} created (valid 72 hours).`;
   return input.delivery === "resend" ? `${base} The invitation e-mail was sent.` : `${base} No mail provider is configured, so the e-mail was only logged. Hand over this link yourself: ${input.acceptUrl}`;
 }
+
+/**
+ * While no mail provider is configured, the verification mail of an invited account is only logged. A superadmin
+ * may then attest the address of an account created from a pending invitation (audited). Only for accounts that
+ * exist and are not verified yet.
+ */
+export function canAttestInvitedEmail(input: { state: ReturnType<typeof invitationState>; accountVerified: boolean | null }): boolean {
+  return input.state === "pending" && input.accountVerified === false;
+}

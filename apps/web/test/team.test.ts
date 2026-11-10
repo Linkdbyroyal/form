@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AGENCY_INVITE_ROLES, canManageTeam, invitationState, inviteNotice, parseInvite, roleKeyFor } from "../lib/mission-control/team-helpers";
+import { AGENCY_INVITE_ROLES, canAttestInvitedEmail, canManageTeam, invitationState, inviteNotice, parseInvite, roleKeyFor } from "../lib/mission-control/team-helpers";
 
 /** Agency Team page rules (pure). The database-backed invitation flow reuses the accept-invitation page covered by auth.test.ts. */
 describe("agency team invitations", () => {
@@ -31,5 +31,13 @@ describe("agency team invitations", () => {
     expect(sent).not.toContain("accept-invitation");
     expect(logged).toContain("https://x/accept-invitation/1");
     expect(logged).toContain("only logged");
+  });
+
+  it("offers e-mail attestation only for an unverified account on a pending invitation", () => {
+    expect(canAttestInvitedEmail({ state: "pending", accountVerified: false })).toBe(true);
+    expect(canAttestInvitedEmail({ state: "pending", accountVerified: null })).toBe(false);
+    expect(canAttestInvitedEmail({ state: "pending", accountVerified: true })).toBe(false);
+    expect(canAttestInvitedEmail({ state: "expired", accountVerified: false })).toBe(false);
+    expect(canAttestInvitedEmail({ state: "canceled", accountVerified: false })).toBe(false);
   });
 });

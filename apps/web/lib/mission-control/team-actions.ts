@@ -3,7 +3,7 @@
 import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { agencyContext, writeAudit } from "@sbos/db";
 import { betterAuthSchema } from "@sbos/db/schema";
 import { getAuthDb } from "../auth-db";
@@ -78,6 +78,36 @@ export async function revokeInvitationAction(form: FormData): Promise<void> {
     const ctx = agencyContext({ tenantId: agency.tenantId, actorType: "user", actorId: op.actorId, roles: op.roles });
     await getDb().withContext(ctx, (tx) => writeAudit(tx, ctx, { action: "auth.invitation.revoked", entityType: "invitation", entityId: id, metadata: { organizationId: agency.orgId, scope: "agency_team" } }));
     outcome = { ok: `Invitation for ${updated[0]!.email} revoked.` };
+  } catch (err) {
+    outcome = { error: errorMessage(err) };
+  }
+  revalidatePath(RETURN_TO);
+  redirect(withNotice(RETURN_TO, outcome));
+}
+
+/**
+ * Marks the e-mail address of an account created from a pending agency invitation as verified. Superadmin only,
+ * audited as an attestation: meant for deployments without a mail provider, where the verification link is only
+ * logged. The invitee still signs in with their own password and accepts the invitation themselves.
+ */
+export async function attestInvitedEmailAction(form: FormData): Promise<void> {
+  let outcome: { ok?: string; error?: string };
+  try {
+    const op = await requireOperatorContext();
+    if (!canManageTeam(op.roles)) throw new Error("only a superadmin can attest an invited e-mail address");
+    const id = String(form.get("invitationId") ?? "");
+    if (!/^[0-9a-f-]{36}$/i.test(id)) throw new Error("invitation id is invalid");
+    const agency = await agencyOrganisation(op);
+    if (!agency?.orgId) throw new Error("the agency organisation is not linked");
+    const authDb = getAuthDb();
+    const { invitation, user } = betterAuthSchema;
+    const [inv] = await authDb.select({ email: invitation.email, status: invitation.status, expiresAt: invitation.expiresAt }).from(invitation).where(and(eq(invitation.id, id), eq(invitation.organizationId, agency.orgId)));
+    if (!inv || inv.status !== "pending" || inv.expiresAt.getTime() < Date.now()) throw new Error("no pending, unexpired invitation with that id in the agency organisation");
+    const updated = await authDb.update(user).set({ emailVerified: true, updatedAt: new Date() }).where(and(eq(sql`lower(${user.email})`, inv.email.toLowerCase()), eq(user.emailVerified, false))).returning({ id: user.id });
+    if (updated.length === 0) throw new Error(`no unverified account exists for ${inv.email}; the invitee creates it first through the invitation link`);
+    const ctx = agencyContext({ tenantId: agency.tenantId, actorType: "user", actorId: op.actorId, roles: op.roles });
+    await getDb().withContext(ctx, (tx) => writeAudit(tx, ctx, { action: "auth.email.attested", entityType: "auth_user", entityId: updated[0]!.id, after: { emailVerified: true }, metadata: { invitationId: id, organizationId: agency.orgId, reason: "no mail provider; superadmin attestation" } }));
+    outcome = { ok: `E-mail address of ${inv.email} marked as verified. The invitee can now sign in and accept the invitation.` };
   } catch (err) {
     outcome = { error: errorMessage(err) };
   }

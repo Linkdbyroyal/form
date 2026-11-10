@@ -1,4 +1,4 @@
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { betterAuthSchema } from "@sbos/db/schema";
 import type { OperatorContext } from "@sbos/db";
 import { getAuthDb } from "../auth-db";
@@ -29,6 +29,8 @@ export interface TeamInvitation {
   expiresAt: Date;
   createdAt: Date;
   inviterEmail: string | null;
+  /** null: no account for the invited address yet; false: account exists, e-mail not verified; true: verified. */
+  accountVerified: boolean | null;
 }
 
 /** The agency tenant and its Better Auth organisation (operator read, identifiers only). The caller passes the resolved operator context (pages and server actions resolve it differently). */
@@ -56,11 +58,15 @@ export async function listTeamMembers(orgId: string): Promise<TeamMember[]> {
 export async function listTeamInvitations(orgId: string): Promise<TeamInvitation[]> {
   const authDb = getAuthDb();
   const { invitation, user } = betterAuthSchema;
-  return authDb
+  const rows = await authDb
     .select({ id: invitation.id, email: invitation.email, role: invitation.role, status: invitation.status, expiresAt: invitation.expiresAt, createdAt: invitation.createdAt, inviterEmail: user.email })
     .from(invitation)
     .leftJoin(user, eq(user.id, invitation.inviterId))
     .where(and(eq(invitation.organizationId, orgId)))
     .orderBy(desc(invitation.createdAt))
     .limit(50);
+  if (rows.length === 0) return [];
+  const accounts = await authDb.select({ email: user.email, emailVerified: user.emailVerified }).from(user).where(inArray(sql`lower(${user.email})`, rows.map((r) => r.email.toLowerCase())));
+  const byEmail = new Map(accounts.map((a) => [a.email.toLowerCase(), a.emailVerified]));
+  return rows.map((r) => ({ ...r, accountVerified: byEmail.has(r.email.toLowerCase()) ? Boolean(byEmail.get(r.email.toLowerCase())) : null }));
 }

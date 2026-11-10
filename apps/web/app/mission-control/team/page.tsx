@@ -1,8 +1,8 @@
 import { Notice } from "@/components/agent-ui";
 import { Badge, Card, Empty, Status, buttonClass, buttonSecondaryClass, inputClass } from "@/components/ui";
 import { firstParam } from "@/lib/format";
-import { inviteAgencyMemberAction, revokeInvitationAction } from "@/lib/mission-control/team-actions";
-import { AGENCY_INVITE_ROLES, canManageTeam, invitationState, roleKeyFor } from "@/lib/mission-control/team-helpers";
+import { attestInvitedEmailAction, inviteAgencyMemberAction, revokeInvitationAction } from "@/lib/mission-control/team-actions";
+import { AGENCY_INVITE_ROLES, canAttestInvitedEmail, canManageTeam, invitationState, roleKeyFor } from "@/lib/mission-control/team-helpers";
 import { agencyOrganisation, listTeamInvitations, listTeamMembers } from "@/lib/mission-control/team-queries";
 import { requireOperatorContext } from "@/lib/request-context";
 
@@ -77,7 +77,7 @@ export default async function TeamPage({ searchParams }: { searchParams: Promise
           <Empty>No invitations.</Empty>
         ) : (
           <table className="w-full text-sm">
-            <thead className="text-left text-xs text-faint"><tr><th className="py-1">E-mail</th><th>Role</th><th>State</th><th>Expires</th><th>Invited by</th><th></th></tr></thead>
+            <thead className="text-left text-xs text-faint"><tr><th className="py-1">E-mail</th><th>Role</th><th>State</th><th>Account</th><th>Expires</th><th>Invited by</th><th></th></tr></thead>
             <tbody>
               {invitations.map((inv) => {
                 const state = invitationState(inv);
@@ -86,12 +86,20 @@ export default async function TeamPage({ searchParams }: { searchParams: Promise
                     <td className="py-2 font-medium">{inv.email}</td>
                     <td><Badge tone="indigo">{roleKeyFor(inv.role ?? "") ?? inv.role ?? "?"}</Badge></td>
                     <td><Badge tone={state === "pending" ? "cyan" : state === "accepted" ? "success" : "neutral"}>{state}</Badge></td>
+                    <td>{inv.accountVerified === null ? <span className="text-faint">not created</span> : <Badge tone={inv.accountVerified ? "success" : "warning"}>{inv.accountVerified ? "verified" : "e-mail not verified"}</Badge>}</td>
                     <td className="text-faint">{fmt(inv.expiresAt)}</td>
                     <td className="text-faint">{inv.inviterEmail ?? "?"}</td>
                     <td className="text-right">
                       {state === "pending" && manage ? (
                         <div className="flex flex-col items-end gap-1">
                           {!mailConfigured ? <code className="break-all text-xs text-muted">{baseUrl}/accept-invitation/{inv.id}</code> : null}
+                          {canAttestInvitedEmail({ state, accountVerified: inv.accountVerified }) ? (
+                            <form action={attestInvitedEmailAction} className="flex flex-col items-end gap-1">
+                              <input type="hidden" name="invitationId" value={inv.id} />
+                              <button type="submit" className={buttonSecondaryClass}>Mark e-mail verified</button>
+                              <span className="text-xs text-faint">{mailConfigured ? "Use only if the verification mail did not arrive." : "The verification mail is only logged here; attest the address, then the invitee signs in and accepts."}</span>
+                            </form>
+                          ) : null}
                           <form action={revokeInvitationAction}><input type="hidden" name="invitationId" value={inv.id} /><button type="submit" className={buttonSecondaryClass}>Revoke</button></form>
                         </div>
                       ) : null}
