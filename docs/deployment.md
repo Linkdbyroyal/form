@@ -41,8 +41,9 @@ Service column: `web`, `worker`, `migrate` (the migration command, which runs in
 | `SBOS_DEFAULT_MODEL` | worker | no | Default model id (`claude-sonnet-5-5`). |
 | `SBOS_PLATFORM_BUDGET_USD_MONTH` | worker | no | Platform-wide monthly spend cap, default 25 (ADR-016). |
 | `SBOS_WORKER_CONCURRENCY` | worker | no | pg-boss jobs handled concurrently per process, default 2. |
-| `RESEND_API_KEY` | worker | yes | Formal e-mail (ADR-018). Never set on web. |
+| `RESEND_API_KEY` | worker, web | yes | Formal e-mail (ADR-018) from the worker; the web service uses it for Better Auth's own mail (verification, password reset, invitations), a recorded deviation from ADR-018. Staging: sending-only key restricted to the domain `sbaa.io`, created 2026-11-10. |
 | `RESEND_FROM_EMAIL` | worker | no | Verified sender, for example `Second Brain OS <noreply@yourdomain>`. |
+| `MAIL_FROM` | web | no | Verified sender for Better Auth mail (same value as `RESEND_FROM_EMAIL`). Required when `RESEND_API_KEY` is set on web. |
 | `PUMBLE_WEBHOOK_URL` | worker | yes | Internal operational notifications (ADR-018). Treat as a secret: whoever has it can post to the channel. |
 | `BETTER_AUTH_SECRET` | web | yes | Session signing key, `openssl rand -base64 32`. Different per environment. |
 | `BETTER_AUTH_URL` | web, worker | no | Public base URL, `https://<SBOS_DOMAIN>`. The worker uses it for deep links in notifications. |
