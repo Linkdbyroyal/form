@@ -22,6 +22,7 @@ jobs:
       DATABASE_URL_MIGRATE: postgres://sbos:sbos@localhost:5432/sbos_dev
       DATABASE_URL_TEST: postgres://sbos:sbos@localhost:5432/sbos_test
       BETTER_AUTH_SECRET: ci-only-secret-not-used-in-production-0123456789
+      SBOS_TECH_WATCH_OFFLINE: "1"
       BETTER_AUTH_URL: http://localhost:3000
     steps:
       - uses: actions/checkout@v4

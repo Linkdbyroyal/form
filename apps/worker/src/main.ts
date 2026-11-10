@@ -4,6 +4,8 @@ import { createDb, tenantContext } from "@sbos/db";
 import { raiseIncident } from "@sbos/core";
 import { runConnectionSync } from "@sbos/connectors";
 import { enqueueDueSyncs, markStale } from "./connectors";
+import { runTechWatch } from "./tech-watch";
+import { runRetentionSweep } from "./retention";
 import { BossJobBackend, DEAD_LETTER, ensureQueues } from "./boss-backend";
 import { readEnv } from "./env";
 import { executeRun, failRunFromDeadLetter, recoverExpiredLeases } from "./executor";
@@ -74,6 +76,16 @@ async function main(): Promise<void> {
     if (stale.connections > 0) log("warn", "stale connections marked", stale);
   });
 
+  // Technology Intelligence (M6): approved sources only, detection only; retention: weekly sweep and approved deletions.
+  await boss.work("tech.watch", { batchSize: 1, pollingIntervalSeconds: 30 }, async () => {
+    const r = await runTechWatch(handle, env);
+    log("info", "tech watch finished", r);
+  });
+  await boss.work("retention.sweep", { batchSize: 1, pollingIntervalSeconds: 30 }, async () => {
+    const r = await runRetentionSweep(handle);
+    log("info", "retention sweep finished", r);
+  });
+
   await boss.work("stall.check", { batchSize: 1, pollingIntervalSeconds: 10 }, async () => {
     const missed = await checkStalledSchedules(handle, jobs);
     const recoveredNow = await recoverExpiredLeases(handle, jobs);
@@ -102,6 +114,8 @@ async function main(): Promise<void> {
   // Internal clocks.
   await boss.schedule("stall.check", "*/5 * * * *", {}, { tz: "UTC", key: "stall-check" });
   await boss.schedule("sync.tick", "*/5 * * * *", {}, { tz: "UTC", key: "sync-tick" });
+  await boss.schedule("tech.watch", "0 6 * * *", {}, { tz: "UTC", key: "tech-watch" });
+  await boss.schedule("retention.sweep", "0 3 * * 0", {}, { tz: "UTC", key: "retention-sweep" });
   await reconcileSchedules(handle, boss, jobs);
   state.lastReconcileAt = new Date();
   const reconcileTimer = setInterval(() => {

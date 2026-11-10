@@ -49,9 +49,9 @@ RLS summary: `tenants` readable by members and agency roles; all other tenant ta
 
 **Knowledge record lifecycle**: `draft → in_review → approved → published → deprecated → archived`, reviewer recorded on every transition (trigger), no self-approval except superadmin, no agent approvals. **Promotion lifecycle**: `nominated → in_review → approved → published` (or rejected, withdrawn); approval requires a human review with rights, security and identifiability checks and consent `granted` or `not_required`.
 
-## Migration 0006 (M5/M6): integrations and upgrades
+## Migrations 0008 and 0009 (M5, M6, delivered): integrations, technology intelligence, retention
 
-`connections` phases (`metadata → read_only → sandbox → write`), `webhook_endpoints`, `sync_runs`, `upgrade_candidates`, `release_reviews`, `retention_policies`, `deletion_requests`.
+0008: `connection_phase_changes`, `sync_runs`, `webhook_endpoints`, lineage column on `kpi_observations`, phase trigger on `connections` (one step at a time, consent and security review before read_only, write refused). 0009: `tech_sources`, `tech_updates` (UpgradeProposal fields, lifecycle trigger), `tech_update_transitions`, `tech_watch_runs`, `retention_policies` (platform default and tenant override, floors), `retention_sweeps`, `deletion_requests` (reviewer decision, worker execution), restrictive DELETE policies on audit-class tables, operator UPDATE on notification delivery columns.
 
 ## Identity columns on every relevant action (spec 6B)
 

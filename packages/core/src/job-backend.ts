@@ -2,7 +2,7 @@
  * The only abstraction that knows about the queue library (ADR-013). pg-boss implements it in apps/worker;
  * tests use an in-memory implementation. Web and core enqueue through this interface, never directly.
  */
-export type JobName = "agent.run" | "agent.resume" | "schedule.tick" | "stall.check" | "notify.send" | "recovery.scan" | "connector.sync" | "sync.tick";
+export type JobName = "agent.run" | "agent.resume" | "schedule.tick" | "stall.check" | "notify.send" | "recovery.scan" | "connector.sync" | "sync.tick" | "tech.watch" | "retention.sweep";
 
 export interface EnqueueOptions {
   /** Deduplicate: only one queued/active job with this key at a time. */
@@ -35,7 +35,9 @@ export const QUEUE_OPTIONS: Record<JobName, QueuePolicy> = {
   "notify.send": { retryLimit: 5, retryDelay: 30, retryBackoff: true, expireInSeconds: 60 },
   "recovery.scan": { retryLimit: 0, retryDelay: 0, retryBackoff: false, expireInSeconds: 120 },
   "connector.sync": { retryLimit: 3, retryDelay: 60, retryBackoff: true, expireInSeconds: 600 },
-  "sync.tick": { retryLimit: 0, retryDelay: 0, retryBackoff: false, expireInSeconds: 120 }
+  "sync.tick": { retryLimit: 0, retryDelay: 0, retryBackoff: false, expireInSeconds: 120 },
+  "tech.watch": { retryLimit: 1, retryDelay: 300, retryBackoff: false, expireInSeconds: 900 },
+  "retention.sweep": { retryLimit: 0, retryDelay: 0, retryBackoff: false, expireInSeconds: 1800 }
 };
 
 export interface AgentRunJob {

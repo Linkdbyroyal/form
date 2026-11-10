@@ -6,7 +6,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { agencyKnowledgeRecords, agencyKnowledgeVersions, agentDefinitions, agentInstances, budgets, departments, memberships, methodologyTemplates, schedules, skillReleaseChannels, skillVersions, skills, systems, tenants, users } from "./schema/index";
+import { agencyKnowledgeRecords, agencyKnowledgeVersions, agentDefinitions, techSources, agentInstances, budgets, departments, memberships, methodologyTemplates, schedules, skillReleaseChannels, skillVersions, skills, systems, tenants, users } from "./schema/index";
 
 /**
  * Synthetic seed data. Two demo client tenants and the agency tenant. No real company data.
@@ -89,6 +89,9 @@ export async function seed(handle: DbHandle): Promise<SeedResult> {
 
   // 5. Agency Intelligence Vault starter records (agency scope, own knowledge only).
   await seedAgencyKnowledge(handle);
+
+  // 6. Technology Intelligence: approved sources for the pinned dependencies (detection only, M6).
+  await seedTechSources(handle);
 
   return { agencyTenantId, tenantIds: ids.tenantIds, userIds: ids.userIds };
 }
@@ -357,6 +360,30 @@ async function seedTenantAgents(handle: DbHandle, tenantId: string, slugPart: st
         }
       }
       if (inst) await writeAudit(tx, ctx, { action: "agent_instance.activated", entityType: "agent_instance", entityId: instanceId, after: { definition: key } });
+    }
+  });
+}
+
+const TECH_SOURCES: Array<{ key: string; name: string; kind: "github_releases" | "official_docs" | "security_advisory" | "standard"; fetchKind: "github_releases" | "manual"; url: string; agents: string[] }> = [
+  { key: "mastra-releases", name: "Mastra releases", kind: "github_releases", fetchKind: "github_releases", url: "https://github.com/mastra-ai/mastra/releases", agents: ["all"] },
+  { key: "pg-boss-releases", name: "pg-boss releases", kind: "github_releases", fetchKind: "github_releases", url: "https://github.com/timgit/pg-boss/releases", agents: ["worker"] },
+  { key: "better-auth-releases", name: "Better Auth releases", kind: "github_releases", fetchKind: "github_releases", url: "https://github.com/better-auth/better-auth/releases", agents: ["web"] },
+  { key: "nextjs-releases", name: "Next.js releases", kind: "github_releases", fetchKind: "github_releases", url: "https://github.com/vercel/next.js/releases", agents: ["web"] },
+  { key: "drizzle-releases", name: "Drizzle ORM releases", kind: "github_releases", fetchKind: "github_releases", url: "https://github.com/drizzle-team/drizzle-orm/releases", agents: ["db"] },
+  { key: "anthropic-model-docs", name: "Anthropic model documentation", kind: "official_docs", fetchKind: "manual", url: "https://docs.anthropic.com/", agents: ["all"] },
+  { key: "owasp-llm-top10", name: "OWASP Top 10 for LLM applications", kind: "standard", fetchKind: "manual", url: "https://owasp.org/www-project-top-10-for-large-language-model-applications/", agents: ["all"] }
+];
+
+async function seedTechSources(handle: DbHandle): Promise<void> {
+  const ctx = agencyContext({ tenantId: null, ...SYSTEM_ACTOR });
+  await handle.withContext(ctx, async (tx) => {
+    for (const s of TECH_SOURCES) {
+      const [row] = await tx
+        .insert(techSources)
+        .values({ key: s.key, name: s.name, kind: s.kind, fetchKind: s.fetchKind, url: s.url, approved: true, approvedBy: SYSTEM_ACTOR.actorId, approvedAt: new Date(), relevantAgentKeys: s.agents, checkIntervalHours: 24, createdByActorId: SYSTEM_ACTOR.actorId })
+        .onConflictDoNothing({ target: techSources.key })
+        .returning({ id: techSources.id });
+      if (row) await writeAudit(tx, ctx, { action: "tech_source.seeded", entityType: "tech_source", entityId: row.id, after: { key: s.key, approved: true } });
     }
   });
 }

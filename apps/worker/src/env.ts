@@ -9,6 +9,8 @@ export interface WorkerEnv {
   port: number;
   concurrency: number;
   forceSimulated: boolean;
+  /** Tech Watch records fixture items instead of contacting approved sources (sandbox, CI). */
+  techWatchOffline: boolean;
 }
 
 export function readEnv(): WorkerEnv {
@@ -24,6 +26,7 @@ export function readEnv(): WorkerEnv {
     appBaseUrl: process.env.BETTER_AUTH_URL || process.env.SBOS_APP_URL || "http://localhost:3000",
     port: Number(process.env.PORT || 8080),
     concurrency: Number(process.env.SBOS_WORKER_CONCURRENCY || 2),
-    forceSimulated: process.env.SBOS_FORCE_SIMULATED === "1"
+    forceSimulated: process.env.SBOS_FORCE_SIMULATED === "1",
+    techWatchOffline: process.env.SBOS_TECH_WATCH_OFFLINE === "1"
   };
 }

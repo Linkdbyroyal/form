@@ -14,3 +14,5 @@ export * from "./vault-taxonomy";
 export * from "./xray";
 export * from "./agency-knowledge";
 export * from "./integrations";
+export * from "./tech-intelligence";
+export * from "./retention";

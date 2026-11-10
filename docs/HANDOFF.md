@@ -1,6 +1,6 @@
 # Handoff
 
-Last updated: 2026-11-10 (Milestone 5 sandbox part delivered; Milestone 4 delivered; Milestone 3 delivered; Milestone 2 delivery, branch `claude/second-brain-os-architecture-ovfky3`, pushed to GitHub).
+Last updated: 2026-11-10 (Milestone 6 backend delivered; Milestone 5 sandbox part delivered; Milestone 4 delivered; Milestone 3 delivered; Milestone 2 delivery, branch `claude/second-brain-os-architecture-ovfky3`, pushed to GitHub).
 
 ## Implemented and verified
 
@@ -220,3 +220,13 @@ Implemented in `apps/web` only (no changes to `packages/db` migrations, `package
 - `app/mission-control/[module]/page.tsx` now only serves `skills`; it can be replaced by a real page in M6.
 - The phase change timeline shows agency actors by actor id (auth user id); a display name lookup for agency staff is not in the operator grants.
 - Dev-only: the Fast Refresh reload loop on this machine should be checked once with a clean `.next` directory; it is unrelated to the new code (the Action Center looped the same way).
+
+
+## Milestone 6 backend: Technology Intelligence Center, retention, notification fix (2026-11-10)
+
+- Migration `0009_tech_intelligence.sql` (see ADR-022): agency-scope tables `tech_sources`, `tech_updates`, `tech_update_transitions`, `tech_watch_runs`; nullable-tenant `retention_policies` (defaults seeded) and `retention_sweeps`; tenant `deletion_requests`; restrictive DELETE policies on `run_events`, `retrieval_audit`, `notifications`, `sync_runs`, `knowledge_access_logs`, `cost_events`, `vault_documents`, `vault_revisions`, `kpi_observations` (agency scope with system or superadmin only); operator UPDATE on notification delivery columns (defect since M1: the worker could never mark a notification sent, jobs retried to the dead-letter queue; `autonomy-check` step 10 now requires a sent notification). Drizzle schema `packages/db/src/schema/governance.ts`.
+- `packages/core/src/tech-intelligence.ts`: `registerTechSource`, `setTechSourceApproval`, `dueTechSources`, `recordDetectedUpdates`, `assessUpdate`, `decideUpdate`, `applyUpdate` (skill update moves the stable channel), `rollbackUpdate`, `pinnedInstanceCount` (operator view), `listTechUpdates`. `packages/core/src/retention.ts`: `effectiveRetention`, `setRetentionPolicy`, `sweepRetention`, `requestDeletion`, `decideDeletion`, `executeDeletionRequest`, `completeDeletionManually`, `approvedDeletionRequests`. Tests: `packages/core/test/governance.test.ts` (4).
+- Worker: `tech.watch` daily 06:00 UTC (`apps/worker/src/tech-watch.ts`, parsers in `tech-watch-parsers.ts` with unit tests; `SBOS_TECH_WATCH_OFFLINE=1` records fixture items, set in CI), `retention.sweep` Sundays 03:00 UTC (`apps/worker/src/retention.ts`). Verified on `sbos_m6flow`: a live run through the sandbox proxy gets 403 from api.github.com and is recorded as `failed` with the message on the source; the offline run records five `detected` updates.
+- Seed: seven approved sources (Mastra, pg-boss, Better Auth, Next.js, Drizzle releases; Anthropic docs and OWASP LLM Top 10 as manual sources).
+- Inspecting agency tables with psql: `SET ROLE sbos_app` plus `set_config('app.actor_scope','agency',false)` and `set_config('app.roles','superadmin',false)`.
+- Open: Mission Control UI for Tech Watch and Upgrade Center, retention and deletion UI, security evaluation suite, external review and pilot checklists (`docs/milestones/M6.md`).
