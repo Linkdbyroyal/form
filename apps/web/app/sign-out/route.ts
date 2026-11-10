@@ -17,7 +17,9 @@ export async function POST(request: Request) {
     next = null;
   }
   const res = await auth.api.signOut({ headers: request.headers, asResponse: true });
-  const location = next ? `/sign-in?signed_out=1&next=${encodeURIComponent(next)}` : "/sign-in?signed_out=1";
+  // With `next`, go there directly: pages that need a session redirect to sign-in themselves, and pages that work
+  // without one (an invitation link) must not be hidden behind a sign-in form the next person cannot pass.
+  const location = next ?? "/sign-in?signed_out=1";
   const redirectRes = new Response(null, { status: 303, headers: { Location: location } });
   res.headers.forEach((value, key) => {
     if (key.toLowerCase() === "set-cookie") redirectRes.headers.append("set-cookie", value);

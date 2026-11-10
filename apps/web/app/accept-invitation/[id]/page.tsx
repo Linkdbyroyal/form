@@ -37,7 +37,10 @@ export default async function AcceptInvitationPage({ params }: { params: Promise
       return (
         <AuthLayout account={<AccountMenu align="right" />} title="Signed in with another account" intro={`You are signed in as ${session.user.email}, but this invitation is for ${inv.email}.`}>
           {summary}
-          <form method="post" action="/sign-out"><button type="submit" className="text-sm underline">Sign out and switch account</button></form>
+          <form method="post" action="/sign-out">
+            <input type="hidden" name="next" value={`/accept-invitation/${inv.id}`} />
+            <button type="submit" className="text-sm underline">Sign out and return to this invitation</button>
+          </form>
         </AuthLayout>
       );
     }
