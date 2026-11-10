@@ -52,6 +52,7 @@ Service column: `web`, `worker`, `migrate` (the migration command, which runs in
 | `HOSTNAME` | web | no | `0.0.0.0` so the standalone server binds all interfaces (set in the Dockerfile). |
 | `NODE_ENV` | web, worker | no | `production` (set in the Dockerfiles). |
 | `SBOS_APP_DB_ROLE`, `SBOS_APP_DB_PASSWORD` | migrate (worker service on Railway) | yes | When both are set, `migrate.ts` creates or updates the application login role after the migrations (LOGIN, no superuser, no BYPASSRLS, `SET ROLE` grants, access to `auth`, CREATE on the database for the `pgboss` schema). `DATABASE_URL` of web and worker then uses that role. |
+| `RENTMAN_API_TOKEN_<TENANT>` (name chosen per connection) | worker | yes | Rentman API token of a client that reached read_only with consent (ADR-023). The connection stores only the reference `env:RENTMAN_API_TOKEN_<TENANT>` (Connected Tools, Mode card and credential references). Never set on web. |
 | `SBOS_SEED_ON_START` | worker | no | `1` runs the idempotent synthetic seed (agency tenant, agent catalogue, approved tech sources, two demo tenants marked synthetic) once before the queue starts. First start of a fresh database only; remove afterwards. |
 | `SBOS_SETUP_TOKEN` | web | yes | Enables `POST /api/setup` (first superadmin) while set; 32+ characters, `openssl rand -hex 24`. The route refuses as soon as an admin user exists. Remove after use. |
 | `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_BASE_URL` | web, worker | secret key yes | Optional observability (Milestone 5). Leave empty until then. |

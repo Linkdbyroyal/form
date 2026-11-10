@@ -6,7 +6,7 @@ import { Masked, Mono, Notice, PageHeader, ShortId, Table, Td, Tr, selectClass, 
 import { ConnectionStatusBadge, ConsentBadge, IntegrationStatusCard, ModeBadge, PhaseBadge, PhaseChangeKindBadge, PhaseExplainer, PhaseLadder, ReviewOutcomeBadge, SyncStatusBadge } from "@/components/integration-ui";
 import { agencyActionsFor, CREDENTIAL_KINDS, describeScopes, fmtInterval, fmtSyncDuration, phaseLabel, SECRET_REF_RE } from "@/lib/client/integration-helpers";
 import { firstParam, fmtDate } from "@/lib/format";
-import { advancePhaseAction, enqueueSyncAction, pauseResumeAction, registerCredentialAction, registerWebhookAction, securityReviewAction } from "@/lib/mission-control/tools-actions";
+import { advancePhaseAction, enqueueSyncAction, pauseResumeAction, registerCredentialAction, registerWebhookAction, securityReviewAction, setLiveModeAction } from "@/lib/mission-control/tools-actions";
 import { getConnectionDetail } from "@/lib/mission-control/tools-queries";
 import { requireOperatorContext } from "@/lib/request-context";
 
@@ -120,6 +120,16 @@ export default async function ConnectedToolDetailPage({ params, searchParams }: 
           {!offered.testConnection ? <p className="mt-2 text-xs text-faint">Not available in phase {phaseLabel(c.phase)}{c.consent !== "granted" ? " without consent" : ""}: the metadata phase allows no external call.</p> : !offered.runSync ? <p className="mt-2 text-xs text-faint">Manual sync runs only while the connection is active (status {c.status}); a test connection is still allowed.</p> : null}
         </Card>
       </div>
+
+      <Card title="Mode: sandbox or live" footer="Live mode is available for providers with a live, read-only connector (Rentman since ADR-023). The credential reference names the token variable in the worker environment (for example env:RENTMAN_API_TOKEN_ROYALRENTALS); register it below as well so expiry is tracked. Closed status names are the Rentman statuses that mean a project is finished (comma separated, for example Retour, Afgerond); leave empty for the defaults. The operator role cannot read the stored config, so the current values are not shown here; the client's Integration Center shows the mode.">
+        <form action={setLiveModeAction} className="flex flex-wrap items-end gap-2">
+          {hidden}
+          <label className="text-xs text-faint">Mode<select name="mode" defaultValue="sandbox" className={`${selectClass} block`}><option value="sandbox">sandbox (simulated fixtures)</option><option value="live">live (read-only, real system)</option></select></label>
+          <label className="flex-1 text-xs text-faint">Credential reference (env:NAME)<input name="credentialRef" pattern={SECRET_REF_PATTERN} title="env:VARIABLE_NAME in upper case" maxLength={120} className={inputClass} placeholder={descriptor?.secretRefs[0] ?? "env:PROVIDER_API_TOKEN"} /></label>
+          {c.provider === "rentman" ? <label className="flex-1 text-xs text-faint">Closed status names<input name="closedStatusNames" maxLength={400} className={inputClass} placeholder="Retour, Afgerond" /></label> : null}
+          <ConfirmButton className={smallPrimaryClass} message="Change the connection mode? Live mode makes the next sync read the real system (read-only).">Save mode</ConfirmButton>
+        </form>
+      </Card>
 
       <Card title={`Credential references (${credentials.length})`} footer={`A reference such as env:NAME names a variable in the worker's environment. The value never passes through this app or this database. ${descriptor ? `Live ${descriptor.displayName} would need: ${descriptor.secretRefs.join(", ")}.` : ""}`}>
         <Table head={["Kind", "Secret reference", "Rotated", "Expires", "Registered by", "Created"]} empty={credentials.length === 0 ? <Empty>No credential reference registered. Sandbox syncs need none.</Empty> : null}>

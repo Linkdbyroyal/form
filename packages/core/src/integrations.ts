@@ -276,3 +276,41 @@ export async function expiredCredentialReferences(tx: Tx, ctx: RequestContext, i
     .where(and(eq(credentialsMetadata.tenantId, input.tenantId), input.connectionId ? eq(credentialsMetadata.connectionId, input.connectionId) : sql`true`, lt(credentialsMetadata.expiresAt, now)));
   return rows.filter((r): r is typeof r & { expiresAt: Date } => r.expiresAt !== null);
 }
+
+export interface UpdateConnectionConfigInput {
+  tenantId: string;
+  connectionId: string;
+  /** Keys to set; a null value removes the key. Credential-looking keys and token-looking values are refused. */
+  patch: Record<string, unknown>;
+}
+
+/**
+ * Updates non-secret connection settings (`connections.config`): `mode` (sandbox or live), the connector's
+ * `credentialRef` (an env:NAME reference, never a value) and connector specific keys such as Rentman's
+ * `closedStatusNames`. Agency staff only (operators, reviewers, superadmins); agents and client users never
+ * change how a system is read. Audited with the keys that changed, not the values.
+ */
+export async function updateConnectionConfig(tx: Tx, ctx: RequestContext, input: UpdateConnectionConfigInput): Promise<Record<string, unknown>> {
+  requireTenant(ctx, input.tenantId, "updating a connection's configuration");
+  if (ctx.actorType === "agent") throw new AuthorizationError("agents cannot change connection configuration");
+  if (ctx.kind !== "agency") throw new AuthorizationError("only agency staff change connection configuration");
+  for (const [k, v] of Object.entries(input.patch)) {
+    if (!/^[a-zA-Z][a-zA-Z0-9_]{0,40}$/.test(k)) throw new Error(`config key "${k}" is not a valid key`);
+    if (/secret|token|password|apikey|api_key/i.test(k) && k !== "credentialRef") throw new Error(`config key "${k}" looks like a credential; credentials go to the worker's secret store, never to connections.config`);
+    if (typeof v === "string" && TOKEN_LIKE.test(v)) throw new Error(`config key "${k}" has a value that looks like a credential`);
+    TOKEN_LIKE.lastIndex = 0;
+    if (k === "credentialRef" && v !== null && !(typeof v === "string" && SECRET_REF_RE.test(v))) throw new Error("credentialRef must look like env:VARIABLE_NAME");
+    if (k === "mode" && v !== "sandbox" && v !== "live") throw new Error("mode must be sandbox or live");
+  }
+  const [row] = await tx.select({ config: connections.config }).from(connections).where(and(eq(connections.id, input.connectionId), eq(connections.tenantId, input.tenantId)));
+  if (!row) throw new Error("connection not found");
+  const current = (row.config ?? {}) as Record<string, unknown>;
+  const next: Record<string, unknown> = { ...current };
+  for (const [k, v] of Object.entries(input.patch)) {
+    if (v === null || v === undefined) delete next[k];
+    else next[k] = v;
+  }
+  await tx.update(connections).set({ config: next, updatedAt: new Date() }).where(and(eq(connections.id, input.connectionId), eq(connections.tenantId, input.tenantId)));
+  await writeAudit(tx, ctx, { action: "connection.config_updated", entityType: "connection", entityId: input.connectionId, before: { keys: Object.keys(current).sort() }, after: { keys: Object.keys(next).sort(), mode: typeof next.mode === "string" ? next.mode : "sandbox" } });
+  return next;
+}

@@ -5,7 +5,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { and, eq } from "drizzle-orm";
 import { agencyContext, schema, writeAudit, type AgencyContext, type Tx } from "@sbos/db";
-import { advancePhase, recordSecurityReview, registerCredentialReference, registerWebhookEndpoint, setConnectionPaused } from "@sbos/core";
+import { advancePhase, recordSecurityReview, registerCredentialReference, registerWebhookEndpoint, setConnectionPaused, updateConnectionConfig } from "@sbos/core";
+import { LIVE_PROVIDERS } from "@sbos/connectors";
 import { getDb } from "../db";
 import { getJobs } from "../jobs";
 import { errorMessage, withNotice } from "../format";
@@ -181,6 +182,40 @@ export async function enqueueSyncAction(form: FormData): Promise<void> {
       return { jobId, provider: conn.provider };
     });
     outcome = { ok: `${trigger === "test" ? "Test connection" : "Sync"} job queued${result.jobId ? ` (job ${result.jobId.slice(0, 8)})` : ""}. The worker processes it; the sync run appears here and in the client's Integration Center once it has. Sandbox mode: simulated fixtures, no external system is contacted.` };
+  } catch (err) {
+    if (isRedirect(err)) throw err;
+    outcome = { error: errorMessage(err) };
+  }
+  finish(returnTo, outcome);
+}
+
+/**
+ * Live mode switch (ADR-023): sets `config.mode` to live or sandbox, the connector's credential reference and, for
+ * Rentman, the status names that mean "closed". Only providers with a live implementation can be set to live; the
+ * worker refuses the rest with a "not connected" sync run anyway. The reference must also be registered as a
+ * credential reference so expiry is tracked, and the variable must exist in the worker's environment.
+ */
+export async function setLiveModeAction(form: FormData): Promise<void> {
+  const returnTo = detailPath(form);
+  let outcome: { ok?: string; error?: string };
+  try {
+    const mode = field(form, "mode", { required: true });
+    if (mode !== "sandbox" && mode !== "live") throw new Error("mode must be sandbox or live");
+    const credentialRef = field(form, "credentialRef", { max: 120 });
+    if (mode === "live" && !credentialRef) throw new Error("live mode needs the credential reference (env:NAME) of the token in the worker environment");
+    if (credentialRef && !isValidSecretRef(credentialRef)) throw new Error("credential reference must look like env:VARIABLE_NAME; never paste the token itself");
+    const closedRaw = field(form, "closedStatusNames", { max: 400 });
+    const closedStatusNames = closedRaw.split(",").map((x) => x.trim()).filter(Boolean);
+    const patch: Record<string, unknown> = { mode };
+    if (credentialRef) patch.credentialRef = credentialRef;
+    if (closedStatusNames.length > 0) patch.closedStatusNames = closedStatusNames;
+    let provider = "";
+    await connectionWrite(form, async (tx, ctx, conn) => {
+      provider = conn.provider;
+      if (mode === "live" && !(LIVE_PROVIDERS as readonly string[]).includes(conn.provider)) throw new Error(`${conn.provider} has no live connector in this release (not connected); only ${LIVE_PROVIDERS.join(", ")} can run live`);
+      await updateConnectionConfig(tx, ctx, { tenantId: conn.tenantId, connectionId: conn.id, patch });
+    });
+    outcome = { ok: mode === "live" ? `Connection set to live mode (${provider}). The next sync reads the real system read-only through ${credentialRef}; run "Test connection" first.` : "Connection set back to sandbox mode (simulated fixtures)." };
   } catch (err) {
     if (isRedirect(err)) throw err;
     outcome = { error: errorMessage(err) };

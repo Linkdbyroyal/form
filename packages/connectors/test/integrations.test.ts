@@ -2,8 +2,8 @@ import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { agencyContext, createDb, operatorContext, runMigrations, schema, tenantContext, type DbHandle } from "@sbos/db";
 import { seed } from "@sbos/db/seed";
-import { MemoryJobBackend, advancePhase, dueConnections, grantConsent, proposeConnection, recordSecurityReview, registerCredentialReference, revokeConsent } from "@sbos/core";
-import { DESCRIPTORS, SandboxConnector, markStaleData, maskSecrets, parseSecretRef, runConnectionSync, getConnector } from "../src/index";
+import { MemoryJobBackend, advancePhase, dueConnections, grantConsent, proposeConnection, recordSecurityReview, registerCredentialReference, revokeConsent, updateConnectionConfig } from "@sbos/core";
+import { DESCRIPTORS, EnvSecretReader, SandboxConnector, markStaleData, maskSecrets, parseSecretRef, runConnectionSync, getConnector } from "../src/index";
 
 /** Milestone 5 acceptance: phases with consent, no network in metadata, lineage, isolation, secrets by reference. */
 const url = process.env.DATABASE_URL_TEST ?? "postgres://sbos:sbos@localhost:5432/sbos_test";
@@ -68,7 +68,8 @@ describe("sandbox connectors (unit)", () => {
   });
 
   it("live connectors are an explicit 'not connected' error, never a silent fixture; secrets are references and masked", () => {
-    expect(() => getConnector("rentman", "live")).toThrow(/not implemented.*not connected/);
+    expect(() => getConnector("quickbooks", "live")).toThrow(/not implemented.*not connected/);
+    expect(getConnector("rentman", "live").describe().provider).toBe("rentman"); // live Rentman exists since ADR-023 (test/rentman-live.test.ts)
     expect(parseSecretRef("env:RENTMAN_API_TOKEN")).toEqual({ kind: "env", name: "RENTMAN_API_TOKEN" });
     expect(() => parseSecretRef("sk-live-abcdefghijklmnop")).toThrow(/env:VARIABLE_NAME/);
     const masked = maskSecrets("request failed with Bearer abcdefghijklmnopqrstuvwxyz0123456789 and token sk-abcdefgh1234 and secret hunter2-long-value", ["hunter2-long-value"]);
@@ -224,5 +225,42 @@ describe("stale data rule", () => {
     // Idempotent: a second pass writes no further observations.
     const again = await markStaleData(handle, jobs, tenantContext, later);
     expect(again.observations).toBe(0);
+  });
+});
+
+describe("live mode (ADR-023)", () => {
+  it("agency staff switch a connection to live with a credential reference; agents and credential-looking keys are refused; a live sync without the token fails clearly with zero network calls", async () => {
+    const ctxCeo = tenantContext({ tenantId: tenantB, actorType: "user", actorId: "ceo-b", roles: ["client_admin"] });
+    const ctxReviewer = agencyContext({ tenantId: tenantB, actorType: "user", actorId: "agency-reviewer", roles: ["agency_reviewer"] });
+    const ctxAgent = agencyContext({ tenantId: tenantB, actorType: "agent", actorId: "agent-x", roles: ["agent"] });
+    const ceoB = (await handle.withContext(ctxCeo, (tx) => tx.select({ userId: schema.memberships.userId }).from(schema.memberships).where(sql`tenant_id = ${tenantB} and role_key = 'client_admin'`)))[0]!.userId;
+    const connectionId = await handle.withContext(ctxCeo, (tx) => proposeConnection(tx, ctxCeo, { tenantId: tenantB, provider: "rentman", syncIntervalMinutes: 60 }));
+    await handle.withContext(ctxCeo, (tx) => grantConsent(tx, ctxCeo, { tenantId: tenantB, connectionId, scopes: ["projects:read", "invoices:read"], reason: "pilot on our own company (ADR-023)", userId: ceoB }));
+    await handle.withContext(ctxReviewer, (tx) => recordSecurityReview(tx, ctxReviewer, { tenantId: tenantB, connectionId, outcome: "approved", note: "project and invoice status and dates only" }));
+    await handle.withContext(ctxReviewer, (tx) => advancePhase(tx, ctxReviewer, { tenantId: tenantB, connectionId, to: "read_only", reason: "pilot" }));
+    // Refusals.
+    await expect(handle.withContext(ctxAgent, (tx) => updateConnectionConfig(tx, ctxAgent, { tenantId: tenantB, connectionId, patch: { mode: "live" } }))).rejects.toThrow(/agents cannot/);
+    await expect(handle.withContext(ctxCeo, (tx) => updateConnectionConfig(tx, ctxCeo, { tenantId: tenantB, connectionId, patch: { mode: "live" } }))).rejects.toThrow(/agency staff/);
+    await expect(handle.withContext(ctxReviewer, (tx) => updateConnectionConfig(tx, ctxReviewer, { tenantId: tenantB, connectionId, patch: { apiToken: "env:X" } }))).rejects.toThrow(/looks like a credential/);
+    await expect(handle.withContext(ctxReviewer, (tx) => updateConnectionConfig(tx, ctxReviewer, { tenantId: tenantB, connectionId, patch: { credentialRef: "sk-live-abcdefghijklmnop" } }))).rejects.toThrow(/env:VARIABLE_NAME/);
+    // Switch to live with a reference and Rentman's closed status names.
+    const next = await handle.withContext(ctxReviewer, (tx) => updateConnectionConfig(tx, ctxReviewer, { tenantId: tenantB, connectionId, patch: { mode: "live", credentialRef: "env:RENTMAN_API_TOKEN_PILOT", closedStatusNames: ["Retour", "Afgerond"] } }));
+    expect(next).toEqual({ mode: "live", credentialRef: "env:RENTMAN_API_TOKEN_PILOT", closedStatusNames: ["Retour", "Afgerond"] });
+    await handle.withContext(ctxReviewer, (tx) => registerCredentialReference(tx, ctxReviewer, { tenantId: tenantB, connectionId, kind: "api_key", secretRef: "env:RENTMAN_API_TOKEN_PILOT" }));
+    // Live sync with the variable missing from the worker environment: failed run, clear class, no network, incident.
+    let calls = 0;
+    const result = await runConnectionSync(handle, jobs, { tenantId: tenantB, connectionId, trigger: "manual", secrets: new EnvSecretReader({}), fetch: (async () => { calls++; return new Response("{}"); }) as typeof fetch });
+    expect(result.status).toBe("failed");
+    expect(result.mode).toBe("live");
+    expect(result.networkCalls).toBe(0);
+    expect(calls).toBe(0);
+    const run = await handle.withContext(ctxCeo, async (tx) => (await tx.select({ errorClass: schema.syncRuns.errorClass, errorMessage: schema.syncRuns.errorMessage }).from(schema.syncRuns).where(sql`id = ${result.syncRunId}`))[0]!);
+    expect(run.errorClass).toBe("connector_error");
+    expect(run.errorMessage).toMatch(/env:RENTMAN_API_TOKEN_PILOT is not configured/);
+    // Back to sandbox: a test run is simulated again (the failed live run left the connection in a non-active status, so only a test trigger runs).
+    await handle.withContext(ctxReviewer, (tx) => updateConnectionConfig(tx, ctxReviewer, { tenantId: tenantB, connectionId, patch: { mode: "sandbox" } }));
+    const sandbox = await runConnectionSync(handle, jobs, { tenantId: tenantB, connectionId, trigger: "test" });
+    expect(sandbox.status).toBe("succeeded");
+    expect(sandbox.mode).toBe("sandbox");
   });
 });
