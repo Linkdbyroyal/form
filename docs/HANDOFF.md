@@ -1,6 +1,6 @@
 # Handoff
 
-Last updated: 2026-11-10 (Milestone 6 delivered on synthetic data except the staging go-live; Milestone 5 sandbox part delivered; Milestone 4 delivered; Milestone 3 delivered; Milestone 2 delivery, branch `claude/second-brain-os-architecture-ovfky3`, pushed to GitHub).
+Last updated: 2026-11-10 (Railway staging live: web and worker deployed, worker in live mode; Milestone 6 delivered on synthetic data; Milestone 5 sandbox part delivered; Milestone 4 delivered; Milestone 3 delivered; Milestone 2 delivery, branch `claude/second-brain-os-architecture-ovfky3`, pushed to GitHub).
 
 ## Implemented and verified
 
@@ -33,7 +33,7 @@ Implemented and verified against the live worker: Overview with real counters, A
 
 - M1-10 isolation tests: generic read guard exists; add per-table write attempts for the new tables.
 - M1-11 CI: workflow exists, never executed (push blocked).
-- First Railway staging deploy; formal "Claude Code closed" observation with timestamps; induced worker kill test.
+- Formal "Claude Code closed" observation with timestamps on staging; induced worker kill test. (First Railway staging deploy: done 2026-11-10, see "Railway staging go-live".)
 - Mastra adapter live verification; shadcn/Recharts components (M3).
 - `apps/web/lib/queries.ts` still exports `getTenantDetail` and an `authStatus` string that are no longer used.
 
@@ -277,3 +277,13 @@ Implemented in `apps/web` only (no changes to `packages/*` or `apps/worker`); un
 ## First live model call (2026-11-10)
 
 Verified in the sandbox with the owner's key in the worker environment: a Discovery run with Claude Sonnet produced five contract-valid questions, flagged the QuickBooks contradiction and suspended for approval; cost USD 0.038778 (3501 in, 1885 out), recorded with `simulated = false`. The Mastra adapter and the `LanguageModelV4` cast work at runtime. The pasted key must be rotated; on Railway it belongs to the worker service only. Details in `docs/reports/autonomy-acceptance-2026-11-09.md` (seventh run).
+
+## Railway staging go-live (2026-11-10)
+
+Implemented and verified on `second-brain-os` / `staging` (details and identifiers in `docs/deployment.md` 3.10 and 3.11):
+
+- Both images build on Railway from the branch. Two build fixes were needed and are in the Dockerfiles: the worker's legacy `pnpm deploy` needs registry metadata that `pnpm fetch` does not cache (now `--prefer-offline`), and `next build` needs placeholder values for `BETTER_AUTH_SECRET` and `DATABASE_URL` during page-data collection (runtime values come from the service variables).
+- Worker pre-deploy command ran the migrations on the private Postgres (`applied 10 migration(s)`) and created the application login role `sbos_web`. The first worker start then failed with `permission denied for database sbos`: pg-boss creates its own schema, so the migrate CLI now also grants CREATE on the database to that role (verified locally: pg-boss starts as the role and owns `pgboss`).
+- Worker runs in live mode (`mode: live`, model `claude-sonnet-5-5`, concurrency 2, health on `/healthz`); web answers `/api/health` with `database: reachable, migrations: 10`.
+- First start of the fresh database: `SBOS_SEED_ON_START=1` on the worker (idempotent synthetic seed) and `POST /api/setup` on web behind a one-time `SBOS_SETUP_TOKEN` (closes once an admin exists). Both switches are removed after use. Result of the staging run: see below.
+- Not done yet on staging: Resend and Pumble credentials (delivery is logged), TOTP enrolment of the superadmin (owner action), a client tenant with real consent, the formal "Claude Code closed" observation with timestamps, the induced worker kill test.

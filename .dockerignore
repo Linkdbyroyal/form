@@ -35,5 +35,7 @@ docker-compose.yml
 docker-compose.prod.yml
 apps/**/railway.json
 
-# Documentation (not needed at build or run time)
+# Documentation (not needed at build or run time). Exception: the seed reads SKILL.md files from
+# packages/db/seed-data at runtime (worker, SBOS_SEED_ON_START), so those stay in the context.
 **/*.md
+!packages/db/seed-data/**/*.md
