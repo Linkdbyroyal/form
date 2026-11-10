@@ -38,6 +38,13 @@ RUN pnpm fetch
 FROM fetch AS build
 COPY . .
 RUN pnpm install --frozen-lockfile --offline --filter "@sbos/web..."
+# `next build` evaluates server modules while collecting page data; the auth module refuses to load
+# without a secret and a database URL. These placeholders exist only inside this build stage and are
+# never part of the runtime image or its configuration: the real values come from the service
+# variables at runtime (docs/deployment.md, section 2).
+ENV BETTER_AUTH_SECRET=build-time-placeholder-not-used-at-runtime-0123456789 \
+    DATABASE_URL=postgresql://build:build@localhost:5432/build \
+    BETTER_AUTH_URL=http://localhost:3000
 RUN pnpm --filter @sbos/web build
 # Next.js infers the workspace root from pnpm-lock.yaml, so the standalone tree mirrors the
 # monorepo: .next/standalone/apps/web/server.js with node_modules at the standalone root.
