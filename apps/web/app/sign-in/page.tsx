@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { AccountMenu } from "@/components/account-menu";
 import { AuthLayout } from "@/components/auth-layout";
 import { configuredSocialProviders } from "@/lib/auth";
 import { getSession } from "@/lib/request-context";
@@ -16,7 +17,7 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
   const session = await getSession();
   if (session) redirect(next);
   return (
-    <AuthLayout
+    <AuthLayout account={<AccountMenu align="right" />}
       title="Sign in"
       intro="Accounts are created by invitation only. Your e-mail address must be verified before the first sign-in."
       footer={params.signed_out ? "You have been signed out." : "Operators (superadmin, agency operator) must enable TOTP before Mission Control opens."}

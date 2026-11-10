@@ -1,5 +1,9 @@
 import Link from "next/link";
+import { AccountMenu } from "@/components/account-menu";
 import { Badge, Status } from "@/components/ui";
+
+// The account menu depends on the session, so the landing page renders per request.
+export const dynamic = "force-dynamic";
 
 const surfaces = [
   { href: "/mission-control", title: "Mission Control", text: "Operators: clients, agents, runs, approvals, costs. Cross-client metadata, content only with a grant.", state: "implemented" as const, note: "shell + client workspaces" },
@@ -10,7 +14,10 @@ const surfaces = [
 export default function Home() {
   return (
     <main className="mx-auto max-w-5xl px-6 py-16">
-      <div className="text-xs uppercase tracking-[0.25em] text-faint">Second Brain AI Agency</div>
+      <div className="flex items-center justify-between">
+        <div className="text-xs uppercase tracking-[0.25em] text-faint">Second Brain AI Agency</div>
+        <AccountMenu align="right" />
+      </div>
       <h1 className="mt-3 text-4xl font-semibold tracking-tight">
         <span className="sb-gradient-text">Business Transformation OS</span>
       </h1>

@@ -54,7 +54,9 @@ function createAuth() {
     secret,
     database: drizzleAdapter(getAuthDb(), { provider: "pg", schema: betterAuthSchema }),
     advanced: {
-      database: { generateId: () => crypto.randomUUID() }
+      database: { generateId: () => crypto.randomUUID() },
+      // Behind Railway's proxy the client IP arrives in x-forwarded-for; without this the rate limiter falls back to one shared bucket for everyone.
+      ipAddress: { ipAddressHeaders: ["x-forwarded-for", "x-real-ip"] }
     },
     emailAndPassword: {
       enabled: true,

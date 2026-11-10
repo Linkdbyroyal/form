@@ -1,7 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { getPrincipal } from "@/lib/request-context";
-import { Badge } from "./ui";
+import { AccountMenu } from "./account-menu";
 
 export interface NavItem {
   href: string;
@@ -10,9 +9,23 @@ export interface NavItem {
 }
 
 export async function Shell({ title, subtitle, nav, children }: { title: string; subtitle: string; nav: NavItem[]; children: ReactNode }) {
-  const principal = await getPrincipal();
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen flex-col md:flex-row">
+      {/* Small screens: top bar with title, account menu and a scrollable navigation. */}
+      <div className="border-b border-border bg-surface md:hidden">
+        <div className="flex items-center justify-between px-4 py-3">
+          <div>
+            <Link href="/" className="block text-[10px] uppercase tracking-[0.2em] text-faint">Second Brain</Link>
+            <div className="text-base font-semibold sb-gradient-text">{title}</div>
+          </div>
+          <AccountMenu align="right" />
+        </div>
+        <nav className="flex gap-1 overflow-x-auto px-3 pb-2">
+          {nav.map((item) => (
+            <Link key={item.href} href={item.href} className="shrink-0 rounded-md border border-border px-2 py-1 text-xs text-muted hover:bg-surface-2 hover:text-fg">{item.label}</Link>
+          ))}
+        </nav>
+      </div>
       <aside className="hidden w-64 shrink-0 flex-col border-r border-border bg-surface md:flex">
         <div className="px-5 py-5">
           <Link href="/" className="block text-xs uppercase tracking-[0.2em] text-faint">Second Brain</Link>
@@ -28,24 +41,8 @@ export async function Shell({ title, subtitle, nav, children }: { title: string;
             </Link>
           ))}
         </nav>
-        <div className="mt-auto border-t border-border px-5 py-4 text-xs">
-          {principal ? (
-            <div className="space-y-2">
-              <div className="truncate font-medium text-fg" title={principal.email}>{principal.name || principal.email}</div>
-              <div className="flex flex-wrap gap-1">
-                {principal.agencyRoles.map((r) => <Badge key={r} tone="indigo">{r}</Badge>)}
-                <Badge tone={principal.twoFactorEnabled ? "success" : "warning"}>{principal.twoFactorEnabled ? "MFA on" : "MFA off"}</Badge>
-              </div>
-              <div className="flex gap-3">
-                <Link href="/account/security" className="text-muted underline hover:text-fg">Security</Link>
-                <form method="post" action="/sign-out">
-                  <button type="submit" className="text-muted underline hover:text-fg">Sign out</button>
-                </form>
-              </div>
-            </div>
-          ) : (
-            <Link href="/sign-in" className="text-muted underline hover:text-fg">Sign in</Link>
-          )}
+        <div className="mt-auto border-t border-border px-3 py-3">
+          <AccountMenu align="left" />
         </div>
       </aside>
       <div className="flex min-w-0 flex-1 flex-col">

@@ -1,3 +1,4 @@
+import { noAccessPath } from "./account-helpers";
 import { headers } from "next/headers";
 import { forbidden, redirect } from "next/navigation";
 import { cache } from "react";
@@ -22,6 +23,8 @@ export interface Principal {
   userId: string;
   email: string;
   name: string;
+  /** Profile picture URL from the auth user, when set (OAuth providers supply one). */
+  image: string | null;
   twoFactorEnabled: boolean;
   data: PrincipalData;
   agencyRoles: string[];
@@ -50,6 +53,7 @@ export const getPrincipal = cache(async (): Promise<Principal | null> => {
     userId: user.id,
     email: user.email,
     name: user.name,
+    image: user.image ?? null,
     twoFactorEnabled: Boolean(user.twoFactorEnabled),
     data,
     agencyRoles: agency.map((m) => m.roleKey),
@@ -88,7 +92,11 @@ export async function requireOperatorContext(): Promise<OperatorContext> {
   const p = await getPrincipal();
   const decision = decideOperatorAccess({ authenticated: p !== null, agencyRoles: p?.agencyRoles ?? [], twoFactorEnabled: p?.twoFactorEnabled ?? false });
   if (decision.kind === "redirect") {
-    if (decision.to === "/sign-in") signInRedirect(await currentPath("/mission-control"));
+    if (decision.to === "/sign-in") {
+      const path = await currentPath("/mission-control");
+      if (p) redirect(noAccessPath(path));
+      signInRedirect(path);
+    }
     redirect(`/account/security?reason=${decision.reason}`);
   }
   const ctx = operatorContext({ actorType: "user", actorId: p!.userId, roles: decision.roles });
@@ -108,7 +116,11 @@ export async function requireAgencyContext(): Promise<AgencyContext> {
   const p = await getPrincipal();
   const decision = decideAgencyAccess({ authenticated: p !== null, agencyRoles: p?.agencyRoles ?? [], twoFactorEnabled: p?.twoFactorEnabled ?? false });
   if (decision.kind === "redirect") {
-    if (decision.to === "/sign-in") signInRedirect(await currentPath("/agency"));
+    if (decision.to === "/sign-in") {
+      const path = await currentPath("/agency");
+      if (p) redirect(noAccessPath(path));
+      signInRedirect(path);
+    }
     redirect(`/account/security?reason=${decision.reason}`);
   }
   const ctx = agencyContext({ tenantId: null, actorType: "user", actorId: p!.userId, roles: decision.roles });
@@ -145,7 +157,7 @@ export async function requireTenantContext(slug: string): Promise<ResolvedTenant
     hasActiveGrant: p.data.activeGrantTenantIds.includes(tenant.id)
   });
   if (decision.kind === "redirect") {
-    if (decision.to === "/sign-in") signInRedirect(`/c/${slug}`);
+    if (decision.to === "/sign-in") redirect(noAccessPath(`/c/${slug}`));
     redirect("/account/security?reason=mfa_required");
   }
   if (decision.kind === "forbidden") forbidden();

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AccountMenu } from "@/components/account-menu";
 import { AuthLayout } from "@/components/auth-layout";
 import { Badge } from "@/components/ui";
 import { MFA_REQUIRED_ROLES } from "@/lib/auth-policy";
@@ -14,7 +15,7 @@ export default async function SecurityPage({ searchParams }: { searchParams: Pro
   const mandatory = p.agencyRoles.some((r) => MFA_REQUIRED_ROLES.has(r));
   const blocked = principalNeedsMfa(p);
   return (
-    <AuthLayout
+    <AuthLayout account={<AccountMenu align="right" />}
       title="Account security"
       intro="Time-based one-time passwords (TOTP) with an authenticator app such as 1Password, Aegis or Google Authenticator."
       footer={<Link href={p.agencyRoles.length ? "/mission-control" : "/"} className="underline">Back</Link>}
