@@ -92,3 +92,21 @@ Environment: sandbox worker started with `ANTHROPIC_API_KEY` in its process envi
 | Vault write | PASS | `13_interviews_and_open_questions/round-006.md` v1 through the write-mode policy |
 
 The key was pasted into the chat by the owner and must be rotated after this test; the worker environment on Railway is the only place it should live (ADR-016).
+
+## Eighth run: Railway staging go-live (2026-11-10)
+
+Environment: Railway project `second-brain-os`, environment `staging`, private Postgres (`pgvector/pgvector:pg16`), web and worker built from the branch by the GitHub integration. No developer session was involved in any runtime step: builds, migrations, role provisioning, seeding and the worker start are all performed by the platform from the images and variables. The development sandbox only pushed commits, read logs through the API and sent two HTTP requests.
+
+| Check | Result | Evidence |
+|---|---|---|
+| Images build on a clean builder | PASS after two fixes | worker: `ERR_PNPM_NO_OFFLINE_META` with `--offline` (fetch caches tarballs, not metadata) resolved with `--prefer-offline`; web: `BETTER_AUTH_SECRET is not set` during `next build` resolved with build-stage placeholders |
+| Migrations from the worker image (pre-deploy command) | PASS | `applied 10 migration(s)`, then `database is up to date` on later deploys |
+| Application role provisioned without a database shell | PASS after one fix | `created application role sbos_web`; first start failed with `permission denied for database sbos` (pg-boss schema), fixed with `GRANT CREATE ON DATABASE` in the migrate CLI; next deploy `updated application role sbos_web` |
+| Worker health and mode | PASS | `worker started {mode: live, model: claude-sonnet-5-5, concurrency: 2}`, `health endpoint listening {port: 8080}`, Railway health check on `/healthz` green, schedule `0 7 * * 1-5` registered |
+| Web health | PASS | `GET /api/health` returns `{"status":"ok","database":"reachable","migrations":10}` |
+| Seed on a fresh database | PASS after one fix | first attempt crashed with `ENOENT .../seed-data/skills/discovery-interview/SKILL.md` (`.dockerignore` excluded all `*.md`); with the exception in place: `seed on start executed` for `second-brain-agency`, `northline-events`, `harbour-view-hotel` (both demo tenants marked synthetic) |
+| First superadmin through `POST /api/setup` | PASS | 401 without and with a wrong token; with the token: auth user created (`emailVerified=true`, role admin), agency organisation created and linked to the agency tenant, membership `second-brain-agency=superadmin`; second call 409 "an admin user already exists" |
+| Sign-in and MFA gate on staging (Playwright) | PASS | anonymous `/mission-control` redirects to `/sign-in`; after e-mail and password sign-in the superadmin lands on `/account/security?reason=mfa_required` ("MFA not enabled", roles `second-brain-agency: superadmin`); `/mission-control` stays refused until TOTP is enrolled (ADR-015) |
+| One-time switches removed | PASS | `SBOS_SEED_ON_START` and `SBOS_SETUP_TOKEN` deleted through the API after use; services redeployed without them; `POST /api/setup` then answers 404 and the worker start log shows no seed line |
+
+Not covered in this run: TOTP enrolment and the first Mission Control session of the superadmin (owner action; the sign-in itself was verified), Resend and Pumble delivery (credentials not set, delivery is logged), a live agent run on staging (no client tenant with consent yet; the synthetic tenants can be used for a simulated-data run), the formal "Claude Code closed" observation with timestamps, the induced worker kill test.

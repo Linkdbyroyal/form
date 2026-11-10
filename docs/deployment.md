@@ -202,7 +202,9 @@ Created through the Railway GraphQL API (`backboard.railway.com/graphql/v2`, wor
 
 Variables: as in section 2, plus `SBOS_APP_DB_ROLE` and `SBOS_APP_DB_PASSWORD` on the worker. The migrate CLI creates or updates that login role after the migrations (no superuser, no BYPASSRLS, `SET ROLE` grants to `sbos_app` and `sbos_operator`, access to schema `auth`, CREATE on the database so pg-boss can create its `pgboss` schema; the first staging worker start failed with `permission denied for database sbos` before that grant existed), so the database never needs a public endpoint or a manual SQL session for setup; `DATABASE_URL` of both services uses that role, `DATABASE_URL_MIGRATE` the Railway Postgres superuser. `ANTHROPIC_API_KEY` is set on the worker only. Resend and Pumble credentials are not set yet (delivery is logged). The key pasted into the chat on 2026-11-10 must be rotated and the rotated value set on the worker service.
 
-Operational notes: builds are triggered by pushes to the branch (Railway GitHub integration); the deployment list and logs are readable through the API (`deployments`, `deploymentLogs`) or the dashboard. The first superadmin is created with `pnpm bootstrap-admin` run inside the worker container (dashboard shell) or by `deploymentInstanceExecutionCreate` through the API.
+Status 2026-11-10: both services deployed (worker in live mode, web healthy with 10 migrations), seed executed, first superadmin created through `POST /api/setup`, both one-time switches removed. Verification record in `docs/reports/autonomy-acceptance-2026-11-09.md` (eighth run).
+
+Operational notes: builds are triggered by pushes to the branch (Railway GitHub integration); the deployment list and logs are readable through the API (`deployments`, `deploymentLogs`) or the dashboard. The first superadmin is created with the one-time route described in 3.11 (the worker image has no Better Auth and the web image has no script runner).
 
 ## 3.11 First start on a fresh database (2026-11-10)
 
