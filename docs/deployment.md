@@ -2,7 +2,7 @@
 
 Ticket M1-16. Hosting decision: ADR-014 (Railway for the pilot, portable by construction). Related: ADR-012 (worker runs on our infrastructure, no developer tooling in the image), ADR-016 (`ANTHROPIC_API_KEY` only in the worker), ADR-018 (`RESEND_API_KEY` and `PUMBLE_WEBHOOK_URL` only in the worker).
 
-Status of this document: the Dockerfiles, `railway.json` files and `docker-compose.prod.yml` are implemented and reviewed. No Railway project has been created yet and no image has been pushed; the steps below are the runbook for doing that. Where a step depends on code that is still being written (worker entry point, bootstrap script), it says so.
+Status of this document: the Dockerfiles and `docker-compose.prod.yml` are implemented and reviewed. The Railway staging project `second-brain-os` (environment `staging`, services `postgres`, `web`, `worker`) was created on 2026-11-10 through the Railway GraphQL API from the development session; section 3.10 records what was actually done and how it differs from the original runbook. Railway reports config-as-code (`railway.json`) as deprecated in favour of Infrastructure as Code (`.railway/railway.ts`); the service settings are therefore set directly on the service instances (API or dashboard) and the `railway.json` files remain as the documented reference values.
 
 ## 1. Artefacts
 
@@ -176,3 +176,20 @@ ADR-014 requires that leaving Railway is configuration, not code. `docker-compos
   - `pnpm fetch --prod` then `pnpm --filter @sbos/worker deploy --prod --legacy --offline <dir>` produced a tree with `@sbos/agents`, `@sbos/core`, `@sbos/db`, `@sbos/contracts`, `pg-boss`, `resend`, `tsx` and `zod`, and no vitest, TypeScript compiler or turbo; `node --import tsx node_modules/@sbos/db/src/cli/migrate.ts` resolved and ran up to the database connection.
 - Open item: the real `next build` in `apps/web` currently fails type checking in `apps/web/lib/queries.ts` because two `drizzle-orm` instances exist in `pnpm-lock.yaml` (one resolved with the `kysely` peer that pg-boss introduces, one without). The web image build will fail until that is deduplicated (see `docs/HANDOFF.md`).
 - Open item: `apps/worker/src/main.ts` did not exist at the time of writing; the worker Dockerfile fails fast with a clear message if it is missing.
+
+
+## 3.10 Staging as built (2026-11-10)
+
+Created through the Railway GraphQL API (`backboard.railway.com/graphql/v2`, workspace token stored as a network secret of the development environment, never in the repository):
+
+| Item | Value |
+|---|---|
+| Project | `second-brain-os` (id `e0883b56-51e6-4d9f-89ee-821bda7a9c6b`), workspace "linkdbyroyal's Projects" |
+| Environment | `staging` (id `0f105362-06a9-4e5d-9565-6d2dd5104b65`) |
+| `postgres` | image `pgvector/pgvector:pg16`, volume at `/var/lib/postgresql/data`, `PGDATA=/var/lib/postgresql/data/pgdata`, database `sbos`, reachable only on the private network (`postgres.railway.internal:5432`); no TCP proxy and no public endpoint |
+| `web` | source GitHub `Linkdbyroyal/form`, branch `claude/second-brain-os-architecture-ovfky3`, root `/`, Dockerfile `apps/web/Dockerfile`, health `/api/health`, restart ON_FAILURE 5, public domain `web-staging-8e6d.up.railway.app` |
+| `worker` | same source, Dockerfile `apps/worker/Dockerfile`, health `/healthz`, restart ON_FAILURE 10, draining 60 s, pre-deploy command `node --import tsx node_modules/@sbos/db/src/cli/migrate.ts` |
+
+Variables: as in section 2, plus `SBOS_APP_DB_ROLE` and `SBOS_APP_DB_PASSWORD` on the worker. The migrate CLI creates or updates that login role after the migrations (no superuser, no BYPASSRLS, `SET ROLE` grants to `sbos_app` and `sbos_operator`, access to schema `auth`), so the database never needs a public endpoint or a manual SQL session for setup; `DATABASE_URL` of both services uses that role, `DATABASE_URL_MIGRATE` the Railway Postgres superuser. `ANTHROPIC_API_KEY` is set on the worker only. Resend and Pumble credentials are not set yet (delivery is logged). The key pasted into the chat on 2026-11-10 must be rotated and the rotated value set on the worker service.
+
+Operational notes: builds are triggered by pushes to the branch (Railway GitHub integration); the deployment list and logs are readable through the API (`deployments`, `deploymentLogs`) or the dashboard. The first superadmin is created with `pnpm bootstrap-admin` run inside the worker container (dashboard shell) or by `deploymentInstanceExecutionCreate` through the API.
