@@ -140,9 +140,13 @@ try {
   record(9.5, "stall alarm raises an incident for a missed schedule", missed >= 1 && missedAfter.length > missedBefore.length, `missed=${missed}, incidents ${missedBefore.length} -> ${missedAfter.length}`);
 
   // Step 10: notifications were queued by the worker (delivery logged without credentials) and the worker is still alive.
-  const notes = await handle.withContext(OPERATOR, (tx) => tx.select({ channel: notifications.channel, template: notifications.template, state: notifications.state }).from(notifications).where(sql`${notifications.payload}->>'runId' = ${waiting.id} or ${notifications.payload}->>'roundId' is not null`));
+  // The worker must also mark deliveries as sent (logged without credentials); a queued-forever row means the delivery update failed.
+  const notes = await waitFor("a notification marked sent by the worker", async () => {
+    const rows = await handle.withContext(OPERATOR, (tx) => tx.select({ channel: notifications.channel, template: notifications.template, state: notifications.state }).from(notifications).where(sql`${notifications.payload}->>'runId' = ${waiting.id} or ${notifications.payload}->>'roundId' is not null`));
+    return rows.some((n) => n.state === "sent") ? rows : null;
+  }, 60_000);
   const health = await fetch(`http://localhost:${process.env.WORKER_PORT ?? 8080}/healthz`).then((r) => r.json() as Promise<{ status: string; mode: string }>).catch(() => null);
-  record(10, "system keeps operating without a developer session", health?.status === "ok" && notes.length > 0, `worker health=${JSON.stringify(health)}, notifications=${notes.map((n) => `${n.channel}:${n.template}:${n.state}`).join(",")}`);
+  record(10, "system keeps operating without a developer session", health?.status === "ok" && notes.length > 0 && notes.some((n) => n.state === "sent"), `worker health=${JSON.stringify(health)}, notifications=${notes.map((n) => `${n.channel}:${n.template}:${n.state}`).join(",")}`);
 
   // Vault MVP (spec 4G): a department manager answers a published question negating a registered system; the next
   // discovery round must flag the contradiction as a verification request, never as a verdict.
