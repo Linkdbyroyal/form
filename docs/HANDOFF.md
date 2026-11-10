@@ -1,6 +1,6 @@
 # Handoff
 
-Last updated: 2026-11-09 (Milestone 4 delivered; Milestone 3 delivered; Milestone 2 delivery, branch `claude/second-brain-os-architecture-ovfky3`, pushed to GitHub).
+Last updated: 2026-11-10 (Milestone 5 sandbox part delivered; Milestone 4 delivered; Milestone 3 delivered; Milestone 2 delivery, branch `claude/second-brain-os-architecture-ovfky3`, pushed to GitHub).
 
 ## Implemented and verified
 
@@ -169,3 +169,54 @@ Implemented in `apps/web` only (no changes to `packages/db` migrations or `packa
 - A separate route group for the agency vault (instead of the pathname check in the Mission Control layout) would be cleaner once more non-operator agency surfaces exist.
 - The templates page renders every template's adopt form; with many templates it should become a per-template page.
 - `/mission-control/agency-vault?view=skills` pin counts require an operator role; a metadata grant for reviewers could replace that.
+
+## Milestone 5 integrations backend (2026-11-09)
+
+Committed as `3be21bd` (migration 0008, connectors package, services, worker jobs), `4b9c407` (order-independent tests) and the stale-data commit.
+
+- Migration `0008_integrations.sql`: `connection_phase_changes`, `sync_runs`, `webhook_endpoints`, `kpi_observations.sync_run_id`, new `connections` columns (`sync_interval_minutes`, `security_reviewed_at/by`, `paused_reason`); triggers `enforce_connection_insert` and `enforce_connection_phase` (rules in ADR-021). Drizzle schema `packages/db/src/schema/integrations.ts`.
+- `packages/connectors`: `types.ts` (read-only contract), `sandbox.ts` (descriptors and deterministic fixtures for rentman, quickbooks, trengo, dropbox), `registry.ts` (live mode is an explicit not-connected error), `secrets.ts` (`env:NAME` references, `maskSecrets`), `sync.ts` (`runConnectionSync`: skipped in metadata, sandbox never calls fetch, sync_runs row per outcome, incident on failure), `stale.ts` (`markStaleData`). Tests `packages/connectors/test/integrations.test.ts` (8).
+- `packages/core/src/integrations.ts`: propose, grant and revoke consent, security review, advance phase, pause/resume, credential and webhook references, sync run lifecycle, `recordMetricObservations` (defines a missing KPI from the descriptor), `dueConnections`, `markStaleConnections`.
+- Worker: `connector.sync` (payload `{ tenantId, connectionId, trigger }`), `sync.tick` every 5 minutes (due syncs deduplicated per connection, then stale marking), dead-letter incident for connector jobs, `/healthz` has `syncsRun`. `apps/worker/src/connectors.ts`.
+- Demo flow step 11 (`pnpm demo:check` 11/11) runs the whole chain through the worker.
+- Not done: live connectors, Langfuse exporter, semantic search, pilot run; see `docs/milestones/M5.md` for the owner decisions they need.
+
+## Milestone 5 Integration UI (2026-11-09)
+
+Implemented in `apps/web` only (no changes to `packages/db` migrations, `packages/core` or `packages/connectors`); uncommitted at the time of writing. All UI text is English. The web app imports only descriptors (`DESCRIPTORS`, `isProvider`) from `@sbos/connectors`; it never calls `runConnectionSync` and never constructs a secret reader. "Run sync now" and "Test connection" only enqueue the `connector.sync` job.
+
+### Files
+
+- `lib/client/integration-helpers.ts`: pure helpers (phase order and `nextPhase`, never offering `write`; badge tones; `scopesForPhase`, `describeScopes`, `readSummary` from the descriptor; `isValidSecretRef` and `isValidPathToken` mirroring the core rules; `pathTokenFromUuids` for the 32 character webhook token; `fmtSyncDuration`, `fmtInterval`; `isOverdue` and `syncHealth`; `agencyActionsFor` and `clientActionsFor` mirroring `enforce_connection_phase`; `suggestProvider`, `kpiSourceNames`).
+- `lib/client/integration-queries.ts`: `getIntegrationCenter` in tenant context (systems with their connections, consent user name, scopes, masked last error, last 10 sync runs with note or masked error text, phase change timeline with user names, KPIs whose `source_system` is the system name, the provider display name or the provider key).
+- `lib/client/integration-actions.ts`: `proposeConnectionAction`, `grantConsentAction` (checkbox scopes validated against the descriptor's read_only scopes, reason of at least 10 characters, explicit acknowledgement), `revokeConsentAction`; client_admin only, never under a break-glass grant; `userId = principal.data.publicUserId`.
+- `lib/mission-control/tools-queries.ts`: `listConnections` and `getConnectionDetail`. List, timeline, sync runs and observation counts through the operator role (metadata columns only; `reason`, `error_message`, `config`, `last_error` are shown as Masked). Credential and webhook references are read in agency scope pinned to the tenant, because the operator grant excludes `secret_ref` and `path_token` and the operator who registered them must see the reference to configure the vendor.
+- `lib/mission-control/tools-actions.ts`: `securityReviewAction`, `advancePhaseAction`, `pauseResumeAction`, `registerCredentialAction`, `registerWebhookAction`, `enqueueSyncAction` (trigger manual or test, with an audit row `connection.sync_requested` / `connection.test_requested`). All run as the signed-in operator in `agencyContext({ tenantId })`, like `lib/mission-control/actions.ts`.
+- `components/integration-ui.tsx`: phase, status, consent, sync status, kind, review and mode badges; `PhaseLadder`; `PhaseExplainer` (phases in plain language, what a provider reads and never reads, scopes per phase with gloss, derived metrics with formula); `IntegrationStatusCard`.
+- Pages: `app/c/[slug]/integrations/page.tsx` (Integration Center), `app/mission-control/tools/page.tsx` (Connected Tools list with phase and status filters and eight health counters), `app/mission-control/tools/[id]/page.tsx` (detail with all agency actions). The `tools` placeholder was removed from `app/mission-control/[module]/page.tsx` (`skills` stays).
+- Tests: `test/integrations.test.ts` (15 unit tests: phase order, tones, scope rendering, provider suggestion, KPI source names, secret reference and path token validation, interval bounds, durations, overdue and health counters, actions offered per state).
+
+### Decisions
+
+- The database trigger is the only gate for phase advances: the action does not pre-check the step, so a tampered request shows the Postgres text ("connection phases advance one step at a time (metadata -> sandbox refused)", "the write phase has no implementation in this release and is refused") through `?error=`. The form itself only offers the next phase and never `write`.
+- Manual sync is offered only for an active read_only or sandbox connection; a test connection is also offered while paused (the sync service allows it). The metadata phase offers neither; the action refuses with the reason before enqueueing anything.
+- The webhook path token is generated server-side from two `crypto.randomUUID()` values (32 hex characters) and shown once in the notice and in the references table (agency scope). No inbound webhook handler exists in this release; the page says so.
+- The client sees the consent reason, review notes and masked error text (its own data); Mission Control shows those columns as Masked, as the operator grants in migration 0008 intend.
+- KPIs are linked to a connection by `source_system` in {system name, provider display name, provider key}, the same set `revokeConsent` uses to mark `missing_source`.
+
+### Verification
+
+- `pnpm --filter @sbos/web typecheck` green; `pnpm --filter @sbos/web test` 100 tests (85 existing + 15 new) green against `sbos_test`.
+- Dev server on port 3600 against `sbos_m5flow` (8 migrations, seeded, demo flow output with the Rentman connection in read_only). Demo client users created with `create-demo-users`; superadmin with `bootstrap-admin`; the TOTP gate was satisfied by signing in through `/api/auth/sign-in/email` and then setting `two_factor_enabled = true` on the auth user row (dev database only).
+- Next dev's Fast Refresh reloaded every page in a loop in this environment (type generation on each request rewrites `.next/dev/types`, which `next-env.d.ts` imports); the Playwright context blocked the HMR websocket for the checks. `next-env.d.ts` was restored afterwards.
+- Playwright (chromium) through the real forms: client admin proposed a QuickBooks Online connection for the QuickBooks Online system (phase metadata, consent pending) and granted consent for `com.intuit.quickbooks.accounting (read)` (recorded as "granted by Nora Northline at 2026-11-10 00:07Z"); a department manager sees no consent forms and a client user is redirected from `/mission-control/tools` (307 to sign-in). Superadmin: list and detail 200; advance refused before the review ("requires a recorded, approved security review" shown instead of the form); review approved; tampered advance to sandbox and to write refused by the trigger with the Postgres text in the notice; advance to read_only ok; credential form invalid client-side for an `sk-` value and valid for `env:QUICKBOOKS_REFRESH_TOKEN_NORTHLINE`, reference registered; webhook endpoint registered with a 32 character token; Run sync now and Test connection queued jobs. Worker started with `ANTHROPIC_API_KEY` unset and port 8085: the manual sync succeeded (7 objects, 2 observations, sandbox, 0 network calls), the test run succeeded (9 objects visible, 0 observations), and the sync tick queued one scheduled run; all three appear on the detail page (observation counts 2, 0, 2) and in the client's Integration Center with the simulated note. KPI links (Open invoices, Overdue receivables) resolve to `/c/northline-events/dashboard/kpi/[id]` (200). Client admin revoked consent: notice "2 KPI(s) ... marked missing_source", card shows consent revoked, phase metadata, status paused, KPIs missing source. Audit rows: consent_granted, security_review_approved, phase_advanced, sync_requested, test_requested, credential_reference.registered, webhook_endpoint.registered, consent_revoked. Worker and dev server stopped afterwards.
+- Screenshots in the session scratchpad: `m5_integration_center.png` (after the sync, before the revoke), `m5_integration_center_revoked.png`, `m5_tools.png`, `m5_tool_detail.png`.
+
+### Open items
+
+- Connected Tools filters are single-valued links; combining phase and status needs the query string by hand.
+- Open incidents per connection are counted through the `connector:<id>:<class>` dedupe key; a `connection_id` column on incidents would be cleaner.
+- The Integration Center shows the last 10 sync runs per connection and no pagination.
+- `app/mission-control/[module]/page.tsx` now only serves `skills`; it can be replaced by a real page in M6.
+- The phase change timeline shows agency actors by actor id (auth user id); a display name lookup for agency staff is not in the operator grants.
+- Dev-only: the Fast Refresh reload loop on this machine should be checked once with a clean `.next` directory; it is unrelated to the new code (the Action Center looped the same way).
