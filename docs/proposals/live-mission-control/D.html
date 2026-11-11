@@ -1,0 +1,242 @@
+<title>Live Mission Control</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+  /* Approved composite (ADR-024): Command Queue as landing tab, Flight Map second, Operations Deck third, Run Inspector
+     fourth; shared inspector drawer; cyan = live, amber = attention, indigo = structure and selection. Dark-first. */
+  :root {
+    --bg: #070b14; --surface: #0d1424; --surface-2: #121b30; --border: #1e2a44; --fg: #f5f7fb; --muted: #8b95a7; --faint: #5b6577;
+    --cyan: #22d3ee; --blue: #3b82f6; --indigo: #6366f1; --ok: #34d399; --warn: #fbbf24; --bad: #f87171; --attn: #fbbf24;
+    --font-display: "Space Grotesk", "Inter", system-ui, sans-serif; --font-ui: "Inter", "Segoe UI", system-ui, sans-serif; --font-data: "JetBrains Mono", Menlo, monospace;
+    --radius: 12px; color-scheme: dark;
+  }
+  @media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) { --bg: #f3f5f9; --surface: #ffffff; --surface-2: #e9edf5; --border: #cdd5e3; --fg: #0f1729; --muted: #4b5567; --faint: #7a8496; --cyan: #0e8da3; --blue: #2563eb; --indigo: #4f46e5; --ok: #0f9d6e; --warn: #b7791f; --bad: #d14343; --attn: #b7791f; color-scheme: light; } }
+  :root[data-theme="light"] { --bg: #f3f5f9; --surface: #ffffff; --surface-2: #e9edf5; --border: #cdd5e3; --fg: #0f1729; --muted: #4b5567; --faint: #7a8496; --cyan: #0e8da3; --blue: #2563eb; --indigo: #4f46e5; --ok: #0f9d6e; --warn: #b7791f; --bad: #d14343; --attn: #b7791f; color-scheme: light; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.5 var(--font-ui); }
+  body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--surface); }
+  .top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: color-mix(in srgb, var(--surface) 90%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--border); padding-block: 10px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+  .brand { font: 700 17px var(--font-display); letter-spacing: -.01em; } .brand small { display: block; font: 500 10px var(--font-ui); letter-spacing: .22em; text-transform: uppercase; color: var(--faint); }
+  .tabs { display: flex; gap: 4px; flex-wrap: wrap; } .tabs a { text-decoration: none; color: var(--muted); padding: 7px 12px; border-radius: 999px; font-weight: 500; } .tabs a.on { background: color-mix(in srgb, var(--indigo) 28%, transparent); color: var(--fg); } .tabs a .n { font: 500 11px var(--font-data); color: var(--cyan); margin-left: 5px; } .tabs a .n.attn { color: var(--attn); }
+  .right { margin-left: auto; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  select, input[type="text"] { background: var(--surface-2); color: var(--fg); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; font: inherit; }
+  button { background: var(--surface-2); color: var(--fg); border: 1px solid var(--border); border-radius: 8px; padding: 6px 12px; font: 600 13px var(--font-ui); cursor: pointer; }
+  button.primary { background: var(--indigo); border-color: var(--indigo); color: #fff; } button.ok { background: color-mix(in srgb, var(--ok) 16%, transparent); border-color: var(--ok); color: var(--ok); } button.bad { border-color: var(--bad); color: var(--bad); } button.sm { padding: 4px 9px; font-size: 12px; }
+  :is(button, a, select, input):focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+  .avatar { width: 30px; height: 30px; border-radius: 50%; background: color-mix(in srgb, var(--indigo) 40%, transparent); display: grid; place-items: center; font: 600 11px var(--font-ui); }
+  .live { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); } .live i { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 10px var(--ok); } .live.paused i { background: var(--muted); box-shadow: none; }
+  .pill { font: 500 11px var(--font-data); padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); }
+  main { padding-block: 14px 28px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 14px; }
+  .stage { min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+  .stats { display: flex; flex-wrap: wrap; gap: 8px; } .hs { display: flex; align-items: baseline; gap: 6px; padding: 5px 11px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); } .hs b { font: 600 16px var(--font-display); font-variant-numeric: tabular-nums; } .hs span { font-size: 12px; color: var(--muted); } .hs.attn b { color: var(--attn); } .hs.err b { color: var(--bad); } .hs.run b { color: var(--cyan); }
+  .panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); min-width: 0; overflow: hidden; }
+  .panel > header { padding: 9px 13px; border-bottom: 1px solid var(--border); font: 600 14px var(--font-display); display: flex; gap: 8px; align-items: center; } .panel > header .pill { margin-left: auto; }
+  .view { display: none; flex-direction: column; gap: 12px; } .view.on { display: flex; }
+  /* Queue (C) */
+  .lanes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; align-items: start; }
+  .lane > header h2 { margin: 0; font: 700 15px var(--font-display); } .lane.attn > header h2 { color: var(--attn); }
+  .items { display: flex; flex-direction: column; gap: 8px; padding: 10px; max-height: 62vh; overflow: auto; }
+  .card { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; background: var(--surface-2); display: flex; flex-direction: column; gap: 5px; }
+  .card.attn { border-left: 4px solid var(--attn); } .card.bad { border-left: 4px solid var(--bad); } .card.run { border-left: 4px solid var(--cyan); } .card.done { border-left: 4px solid var(--ok); } .card.paused { border-left: 4px solid var(--muted); }
+  .card h3 { margin: 0; font: 600 14px var(--font-display); text-wrap: balance; } .card .meta { font-size: 12px; color: var(--muted); } .card .actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 3px; }
+  .evidence { font-size: 12px; color: var(--muted); border-top: 1px dashed var(--border); padding-top: 5px; } .evidence b { color: var(--fg); font-weight: 500; }
+  .state { display: inline-flex; align-items: center; gap: 5px; font: 500 11.5px var(--font-data); color: var(--muted); } .state::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--faint); }
+  .state.running::before { background: var(--cyan); box-shadow: 0 0 6px var(--cyan); } .state.queued::before { background: var(--blue); } .state.waiting_for_approval::before, .state.waiting_for_input::before, .state.blocked::before { background: var(--attn); } .state.paused::before { background: var(--muted); } .state.failed::before, .state.error::before { background: var(--bad); } .state.succeeded::before { background: var(--ok); } .state.cancelled::before { background: var(--faint); }
+  .bar { height: 5px; background: var(--surface); border-radius: 3px; overflow: hidden; } .bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--indigo), var(--cyan)); }
+  .tl { display: grid; grid-template-columns: 170px 1fr; gap: 5px 10px; padding: 10px 13px; align-items: center; font-size: 12px; max-height: 260px; overflow: auto; }
+  .tl .name { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .tl .track { position: relative; height: 16px; background: var(--surface-2); border-radius: 4px; }
+  .tl .seg { position: absolute; top: 2px; bottom: 2px; border-radius: 3px; background: var(--cyan); } .tl .seg.waiting { background: var(--attn); } .tl .seg.failed { background: var(--bad); } .tl .seg.succeeded { background: var(--ok); } .tl .seg.paused { background: var(--muted); } .tl .seg.queued { background: var(--indigo); }
+  .tl .axis { grid-column: 2; display: flex; justify-content: space-between; color: var(--faint); font-size: 11px; }
+  /* Map (B) */
+  .map { height: 520px; } .map svg { width: 100%; height: 100%; display: block; }
+  .map text { font: 11px var(--font-ui); fill: var(--muted); } .map .lbl { fill: var(--fg); font-weight: 600; } .map .sector { fill: color-mix(in srgb, var(--indigo) 8%, transparent); stroke: color-mix(in srgb, var(--indigo) 35%, transparent); }
+  .map .edge { stroke: var(--border); stroke-width: 1.5; fill: none; } .map .edge.hot { stroke: var(--cyan); stroke-width: 2.2; filter: drop-shadow(0 0 4px var(--cyan)); } .map .edge.human { stroke: var(--attn); }
+  .map .node circle { fill: var(--surface-2); stroke: var(--border); stroke-width: 2; } .map .node.running circle { stroke: var(--cyan); filter: drop-shadow(0 0 8px color-mix(in srgb, var(--cyan) 70%, transparent)); } .map .node.blocked circle { stroke: var(--attn); } .map .node.error circle { stroke: var(--bad); } .map .node.orch circle { fill: color-mix(in srgb, var(--indigo) 45%, var(--surface-2)); stroke: var(--indigo); } .map .node.human circle { fill: color-mix(in srgb, var(--attn) 25%, var(--surface-2)); stroke: var(--attn); } .map .node.svc circle { fill: var(--surface); } .map .node.sel circle { stroke-width: 4; }
+  @media (prefers-reduced-motion: no-preference) { .map .edge.hot { stroke-dasharray: 6 6; animation: flow 1.2s linear infinite; } @keyframes flow { to { stroke-dashoffset: -12; } } }
+  .legend { display: flex; flex-wrap: wrap; gap: 12px; padding: 8px 13px; color: var(--muted); font-size: 12px; border-top: 1px solid var(--border); }
+  /* Deck (A) */
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; } th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--border); vertical-align: top; } th { font: 500 10px var(--font-ui); letter-spacing: .12em; text-transform: uppercase; color: var(--faint); position: sticky; top: 0; background: var(--surface); }
+  tr.row { cursor: pointer; } tr.row:hover td { background: color-mix(in srgb, var(--cyan) 6%, transparent); } tr.row.sel td { background: color-mix(in srgb, var(--indigo) 18%, transparent); }
+  .mono { font-family: var(--font-data); font-variant-numeric: tabular-nums; }
+  .two { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 12px; }
+  .ticker { max-height: 360px; overflow: auto; } .ev { display: grid; grid-template-columns: 50px 1fr; gap: 8px; padding: 5px 13px; border-bottom: 1px solid var(--border); font-size: 12px; } .ev .t { color: var(--faint); font: 11px var(--font-data); } .ev b { font: 500 11px var(--font-data); } .ev.error b, .ev.tool_denied b { color: var(--bad); } .ev.model_call b { color: var(--indigo); } .ev.tool_call b { color: var(--cyan); } .ev.approval_requested b, .ev.question_created b { color: var(--attn); }
+  /* Drawer */
+  .drawer { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 66px); align-self: start; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+  .steps { display: flex; flex-wrap: wrap; gap: 4px; } .step { font: 500 10px var(--font-data); padding: 2px 7px; border-radius: 999px; border: 1px solid var(--border); color: var(--faint); } .step.done { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 50%, transparent); } .step.now { color: var(--cyan); border-color: var(--cyan); }
+  .kv { display: grid; grid-template-columns: 86px 1fr; gap: 3px 8px; font-size: 12px; margin: 4px 0; } .kv dt { color: var(--faint); } .kv dd { margin: 0; }
+  .feed { max-height: 380px; overflow: auto; }
+  .empty { padding: 18px; color: var(--faint); text-align: center; }
+  .footer { grid-column: 1 / -1; color: var(--faint); font-size: 12px; }
+  @media (max-width: 1100px) { main { grid-template-columns: 1fr; } .drawer { position: static; } .lanes { grid-template-columns: 1fr; } .items { max-height: none; } .two { grid-template-columns: 1fr; } .map { height: 420px; } .tl { grid-template-columns: 110px 1fr; } }
+  @media (max-width: 600px) { .map { height: 340px; } th:nth-child(5), td:nth-child(5), th:nth-child(7), td:nth-child(7) { display: none; } }
+</style>
+
+<header class="top">
+  <div class="brand"><small>Second Brain · Mission Control</small>Live</div>
+  <nav class="tabs"><a href="#queue" data-view="queue">Queue<span class="n attn" id="n-queue"></span></a><a href="#map" data-view="map">Map<span class="n" id="n-map"></span></a><a href="#deck" data-view="deck">Deck<span class="n" id="n-deck"></span></a><a href="#runs" data-view="runs">Runs<span class="n" id="n-runs"></span></a></nav>
+  <div class="right">
+    <span class="live" id="live"><i></i><span id="conn">stream connected</span></span>
+    <select id="f-client" aria-label="Client"><option value="">All clients</option></select>
+    <select id="f-dept" aria-label="Department"><option value="">All departments</option><option>finance</option><option>operations</option><option>sales</option><option>management</option></select>
+    <select id="f-agent" aria-label="Workflow"><option value="">All workflows</option></select>
+    <select id="f-status" aria-label="State"><option value="">All states</option><option>running</option><option>queued</option><option>waiting_for_approval</option><option>waiting_for_input</option><option>paused</option><option>failed</option><option>succeeded</option></select>
+    <button id="play" class="sm">Pause</button>
+    <span class="pill" style="color:var(--attn)">synthetic · composite D</span>
+    <span class="avatar" title="superadmin, MFA on">DH</span>
+  </div>
+</header>
+
+<main>
+  <div class="stage">
+    <div class="stats" id="stats"></div>
+
+    <section class="view" id="view-queue">
+      <div class="lanes">
+        <div class="panel lane attn"><header><h2>Needs you</h2><span class="pill" id="n-needs"></span></header><div class="items" id="needs"></div></div>
+        <div class="panel lane"><header><h2>Running</h2><span class="pill" id="n-running"></span></header><div class="items" id="running"></div></div>
+        <div class="panel lane"><header><h2>Done today</h2><span class="pill" id="n-done"></span></header><div class="items" id="done"></div></div>
+      </div>
+      <div class="panel"><header>Last 45 minutes, per agent <span class="pill">cyan running · amber waiting · green done · red failed</span></header><div class="tl" id="tl"></div></div>
+    </section>
+
+    <section class="view" id="view-map">
+      <div class="panel"><div class="map"><svg id="svg" viewBox="0 0 1100 520" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Live agent map"></svg></div>
+        <div class="legend"><span>Centre: orchestrator (pg-boss)</span><span>Sectors: one per client</span><span>Top: shared services and connectors</span><span>Bottom left: humans</span><span>Glowing edges: activity in the last 2 minutes</span><span>Click an agent to open its run</span></div></div>
+    </section>
+
+    <section class="view" id="view-deck">
+      <div class="two">
+        <div class="panel"><header>Agents <span class="pill" id="fleet-count"></span></header><div style="overflow:auto;max-height:480px"><table id="fleet"><thead><tr><th>Agent</th><th>Client</th><th>State</th><th>Run</th><th>Step</th><th>Progress</th><th>Last activity</th><th>Cost</th></tr></thead><tbody></tbody></table></div></div>
+        <div class="panel"><header>Live events <span class="pill" id="ev-count"></span></header><div class="ticker" id="ticker"></div></div>
+      </div>
+      <div class="two">
+        <div class="panel"><header>Background workers (pg-boss)</header><div style="overflow:auto"><table id="workers"><thead><tr><th>Queue</th><th>Active</th><th>Queued</th><th>Done</th><th>Failed</th><th>Last</th></tr></thead><tbody></tbody></table></div></div>
+        <div class="panel"><header>Schedules</header><div style="overflow:auto"><table id="schedules"><thead><tr><th>Client</th><th>Flow</th><th>Cron</th><th>Next</th><th>Last</th><th></th></tr></thead><tbody></tbody></table></div></div>
+      </div>
+    </section>
+
+    <section class="view" id="view-runs">
+      <div class="panel"><header>Runs <span class="pill" id="runs-count"></span></header><div style="overflow:auto;max-height:70vh"><table id="runs"><thead><tr><th>Run</th><th>Agent</th><th>Client</th><th>Trigger</th><th>State</th><th>Tools</th><th>Model</th><th>Cost</th><th>Duration</th></tr></thead><tbody></tbody></table></div></div>
+    </section>
+  </div>
+  <aside class="drawer" id="drawer"></aside>
+  <p class="footer">Composite D (ADR-024): Queue (C) as landing, Map (B), Deck (A), Runs with a shared inspector drawer. Synthetic data only; vocabulary from the real schema. Every control maps to an audited server action; agents never get a control path.</p>
+</main>
+
+<script src="sim.js"></script>
+<script>
+(function () {
+  const sim = window.SBOSSim.createSim({ seed: 41 });
+  const $ = (s) => document.querySelector(s);
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  let view = "queue", sel = { kind: null, id: null };
+  const filters = { client: "", dept: "", agent: "", status: "" };
+  for (const c of sim.CLIENTS) $("#f-client").insertAdjacentHTML("beforeend", `<option value="${c.id}">${esc(c.name)}</option>`);
+  for (const d of sim.DEFINITIONS) $("#f-agent").insertAdjacentHTML("beforeend", `<option value="${d.key}">${esc(d.name)}</option>`);
+  for (const id of ["client", "dept", "agent", "status"]) $("#f-" + id).addEventListener("change", (e) => { filters[id] = e.target.value; render(sim.state); });
+  $("#play").addEventListener("click", () => { if (sim.running()) { sim.stop(); $("#play").textContent = "Resume"; $("#conn").textContent = "stream paused by you"; $("#live").classList.add("paused"); } else { sim.start(1500); $("#play").textContent = "Pause"; $("#conn").textContent = "stream connected"; $("#live").classList.remove("paused"); } });
+  function setView(v) { view = ["queue", "map", "deck", "runs"].includes(v) ? v : "queue"; document.querySelectorAll(".view").forEach((el) => el.classList.toggle("on", el.id === "view-" + view)); document.querySelectorAll("[data-view]").forEach((a) => a.classList.toggle("on", a.dataset.view === view)); render(sim.state); }
+  window.addEventListener("hashchange", () => setView(location.hash.slice(1)));
+  const taskOf = (r) => sim.state.tasks.find((t) => t.id === r.taskId);
+  const runOk = (r) => (!filters.client || r.clientId === filters.client) && (!filters.agent || r.definitionKey === filters.agent) && (!filters.status || r.state === filters.status) && (!filters.dept || (taskOf(r) && taskOf(r).department === filters.dept));
+  const agentOk = (a) => (!filters.client || a.clientId === filters.client) && (!filters.agent || a.definitionKey === filters.agent);
+  function evText(e) { const p = e.payload; return ({ state_change: `${p.from || "new"} → ${p.to}${p.reason ? " · " + p.reason : ""}`, tool_call: `${p.tool} → ${p.target}: ${p.result} (${p.durationMs} ms)`, tool_denied: `${p.tool} denied: ${p.reason}`, model_call: `${p.model}: ${p.summary} (${p.tokensIn} in / ${p.tokensOut} out, USD ${p.costUsd})`, step_started: `step ${p.step}`, step_finished: `step ${p.step} done in ${(p.durationMs / 1000).toFixed(1)} s`, checkpoint: `checkpoint → ${p.step}`, approval_requested: `approval ${p.approvalId}, ${p.risk} risk, ${p.approverRole}`, approval_decided: `${p.approvalId} ${p.decision} by ${p.by}`, question_created: `question ${p.questionId} for ${p.department}`, error: `${p.class}: ${p.message}` })[e.kind] || p.text || ""; }
+  const openRun = (id) => { sel = { kind: "run", id }; render(sim.state); };
+
+  function render(state) {
+    const s = sim.derived.summary();
+    $("#stats").innerHTML = [["running", s.running, "run"], ["waiting for a human", s.waiting, "attn"], ["failed", s.failed, "err"], ["done, 30 min", s.completed, ""], ["idle", s.idle, ""], ["open approvals", s.approvals, "attn"], ["incidents", s.incidents, "err"], ["USD spend of " + s.cap, s.monthUsd.toFixed(2), ""]].map(([l, v, c]) => `<div class="hs ${c}"><b>${v}</b><span>${l}</span></div>`).join("");
+    $("#n-queue").textContent = s.approvals + s.questions + s.incidents + s.failed; $("#n-map").textContent = s.running; $("#n-deck").textContent = state.agents.length; $("#n-runs").textContent = s.runsTotal;
+    if (view === "queue") renderQueue(state); if (view === "map") renderMap(state); if (view === "deck") renderDeck(state); if (view === "runs") renderRuns(state);
+    renderDrawer(state);
+  }
+
+  function renderQueue(state) {
+    const h = sim.derived.needsHuman(); const needs = [];
+    for (const ap of h.approvals.filter((x) => runOk(sim.runById(x.runId)) || (!filters.status && (!filters.client || x.clientId === filters.client)))) needs.push(`<div class="card attn"><h3>Approve ${esc(ap.kind.replace(/_/g, " "))}</h3><div>${esc(ap.summary)}</div><div class="meta">${esc(sim.agentById(ap.agentId).name)} for ${esc(sim.clientById(ap.clientId).name)} · ${ap.risk} risk · needs ${ap.approverRole} · waiting ${sim.fmtAgo(ap.requestedAt)}</div><div class="evidence">${ap.evidence.map((e) => `<b>${esc(e.ref)}</b> ${esc(e.value)} (${esc(e.source)})`).join(" · ")}</div><div class="actions"><button class="ok sm" data-ap="${ap.id}" data-d="approve">Approve</button><button class="bad sm" data-ap="${ap.id}" data-d="reject">Reject</button><button class="sm" data-open="${ap.runId}">Inspect</button></div></div>`);
+    for (const q of h.questions.filter((x) => (!filters.client || x.clientId === filters.client) && (!filters.dept || x.department === filters.dept))) needs.push(`<div class="card attn"><h3>Answer (${esc(q.department)})</h3><div>${esc(q.text)}</div><div class="meta">${esc(sim.agentById(q.agentId).name)} for ${esc(sim.clientById(q.clientId).name)} · ${q.priority}</div><div class="actions"><input type="text" placeholder="Your answer" data-ans="${q.id}" style="flex:1;min-width:140px"><button class="ok sm" data-q="${q.id}">Send</button></div></div>`);
+    for (const r of h.failedRuns.filter((x) => (!filters.client || x.clientId === filters.client))) needs.push(`<div class="card bad"><h3>Run failed: ${esc(r.failure.replace(/_/g, " "))}</h3><div class="meta">${esc(sim.agentById(r.agentId).name)} for ${esc(sim.clientById(r.clientId).name)} · attempt ${r.attempt} · at ${esc(r.steps[Math.min(r.stepIndex, r.steps.length - 1)])} · ${r.id}</div><div class="actions"><button class="primary sm" data-retry="${r.id}">Retry</button><button class="sm" data-open="${r.id}">Inspect</button></div></div>`);
+    for (const i of h.incidents.filter((x) => !filters.client || x.clientId === filters.client)) needs.push(`<div class="card bad"><h3>Incident: ${esc(i.kind.replace(/_/g, " "))}</h3><div>${esc(i.title)}</div><div class="meta">${esc(sim.clientById(i.clientId).name)} · ${i.severity} · ${sim.fmtAgo(i.createdAt)}</div><div class="actions"><button class="sm" data-inc="${i.id}" data-d="ackIncident">Acknowledge</button><button class="ok sm" data-inc="${i.id}" data-d="resolveIncident">Resolve</button></div></div>`);
+    $("#needs").innerHTML = needs.join("") || `<div class="empty">Nothing needs you. Agents keep working.</div>`; $("#n-needs").textContent = needs.length;
+    $("#needs").querySelectorAll("[data-ap]").forEach((b) => b.addEventListener("click", () => sim.actions[b.dataset.d](b.dataset.ap, "DH")));
+    $("#needs").querySelectorAll("[data-q]").forEach((b) => b.addEventListener("click", () => sim.actions.answer(b.dataset.q, $("#needs").querySelector(`[data-ans="${b.dataset.q}"]`).value || "Yes")));
+    $("#needs").querySelectorAll("[data-retry]").forEach((b) => b.addEventListener("click", () => sim.actions.retry(b.dataset.retry)));
+    $("#needs").querySelectorAll("[data-inc]").forEach((b) => b.addEventListener("click", () => sim.actions[b.dataset.d](b.dataset.inc)));
+    $("#needs").querySelectorAll("[data-open]").forEach((b) => b.addEventListener("click", () => openRun(b.dataset.open)));
+    const running = state.runs.filter((r) => ["running", "queued", "paused"].includes(r.state) && runOk(r)).slice().reverse();
+    $("#n-running").textContent = running.length;
+    $("#running").innerHTML = running.map((r) => { const a = sim.agentById(r.agentId), c = sim.clientById(r.clientId); const pct = Math.round((r.stepIndex / r.steps.length) * 100); return `<div class="card ${r.state === "paused" ? "paused" : "run"}"><h3>${esc(a.name)} · ${esc(c.name)}</h3><div class="meta"><span class="state ${r.state}">${r.state}</span> · ${r.id} · ${r.trigger} · step ${Math.min(r.stepIndex + 1, r.steps.length)}/${r.steps.length} ${esc(r.steps[Math.min(r.stepIndex, r.steps.length - 1)])}</div><div class="bar"><i style="width:${pct}%"></i></div><div class="meta">${r.toolCalls} tools · ${r.modelCalls} model · ${sim.fmtUsd(r.costUsd)}${r.instructions.length ? " · " + r.instructions.length + " instruction(s)" : ""}</div><div class="actions">${r.state === "paused" ? `<button class="ok sm" data-run="${r.id}" data-act="resume">Resume</button>` : `<button class="sm" data-run="${r.id}" data-act="pause">Pause</button>`}<button class="bad sm" data-run="${r.id}" data-act="cancel">Cancel</button><button class="sm" data-open="${r.id}">Inspect</button></div></div>`; }).join("") || `<div class="empty">No runs in progress for this filter.</div>`;
+    $("#running").querySelectorAll("button[data-run]").forEach((b) => b.addEventListener("click", () => sim.actions[b.dataset.act](b.dataset.run)));
+    $("#running").querySelectorAll("[data-open]").forEach((b) => b.addEventListener("click", () => openRun(b.dataset.open)));
+    const done = state.runs.filter((r) => ["succeeded", "cancelled"].includes(r.state) && runOk(r)).slice().reverse().slice(0, 30);
+    $("#n-done").textContent = done.length;
+    $("#done").innerHTML = done.map((r) => `<div class="card ${r.state === "succeeded" ? "done" : "paused"}"><h3>${esc(r.output ? r.output.title : sim.agentById(r.agentId).name + " run cancelled")}</h3><div class="meta"><span class="state ${r.state}">${r.state}</span> · ${esc(sim.clientById(r.clientId).name)} · ${sim.fmtAgo(r.finishedAt || r.lastEventAt)} · ${sim.fmtUsd(r.costUsd)}</div><div class="actions"><button class="sm" data-open="${r.id}">Review result and evidence</button></div></div>`).join("") || `<div class="empty">Nothing finished yet.</div>`;
+    $("#done").querySelectorAll("[data-open]").forEach((b) => b.addEventListener("click", () => openRun(b.dataset.open)));
+    // timeline
+    const span = 45 * 60000, t1 = sim.now(), t0 = t1 - span; let html = "";
+    for (const a of state.agents.filter(agentOk).filter((a) => state.runs.some((r) => r.agentId === a.id && (r.finishedAt || t1) >= t0))) {
+      let segs = "";
+      for (const r of state.runs.filter((r) => r.agentId === a.id)) { const evs = state.events.filter((e) => e.runId === r.id && e.kind === "state_change"); for (let i = 0; i < evs.length; i++) { const s0 = evs[i].at, e0 = i + 1 < evs.length ? evs[i + 1].at : (r.finishedAt || t1); if (e0 < t0) continue; const st = evs[i].payload.to; const l = Math.max(0, (s0 - t0) / span) * 100, w = Math.max(0.6, ((Math.min(e0, t1) - Math.max(s0, t0)) / span) * 100); const cls = st === "running" ? "" : ["waiting_for_approval", "waiting_for_input"].includes(st) ? "waiting" : st === "failed" ? "failed" : st === "succeeded" ? "succeeded" : st === "paused" ? "paused" : "queued"; segs += ["succeeded", "failed", "cancelled"].includes(st) ? `<span class="seg ${cls}" style="left:${l}%;width:1.2%" title="${st} ${sim.fmtTime(s0)}"></span>` : `<span class="seg ${cls}" style="left:${l}%;width:${w}%" title="${r.id} ${st} from ${sim.fmtTime(s0)}"></span>`; } }
+      html += `<div class="name">${esc(a.name)} · ${esc(sim.clientById(a.clientId).name.split(" ")[0])}</div><div class="track">${segs}</div>`;
+    }
+    $("#tl").innerHTML = html + `<div></div><div class="axis"><span>${sim.fmtTime(t0)}</span><span>${sim.fmtTime(t0 + span / 2)}</span><span>now ${sim.fmtTime(t1)}</span></div>`;
+  }
+
+  function renderMap(state) {
+    const g = sim.derived.graph(); const W = 1100; const pos = { orchestrator: [550, 215], human: [90, 470] };
+    const clients = sim.CLIENTS.filter((c) => !filters.client || c.id === filters.client);
+    const centres = clients.length === 1 ? [[550, 310]] : clients.length === 2 ? [[230, 300], [870, 300]] : [[200, 280], [900, 280], [550, 405]];
+    clients.forEach((c, i) => { const [sx, sy] = centres[i]; pos["sector:" + c.id] = [sx, sy]; const agents = g.nodes.filter((n) => n.type === "agent" && n.clientId === c.id); agents.forEach((n, j) => { const a2 = -Math.PI / 2 + (j / agents.length) * Math.PI * 2; pos[n.id] = [sx + Math.cos(a2) * 96, sy + Math.sin(a2) * 60]; }); });
+    const services = g.nodes.filter((n) => n.type === "service" || n.type === "connector"); services.forEach((n, i) => { pos[n.id] = [70 + (i * (W - 140)) / Math.max(1, services.length - 1), 38]; });
+    const recent = g.edges.slice(-70); const hot = (e) => sim.now() - e.at < 2 * 60000; let svg = "";
+    clients.forEach((c) => { const p = pos["sector:" + c.id]; svg += `<ellipse class="sector" cx="${p[0]}" cy="${p[1]}" rx="138" ry="94"/><text x="${p[0]}" y="${p[1] - 102}" text-anchor="middle" class="lbl">${esc(c.name)} ${c.live ? "· live" : "· sandbox"}</text>`; });
+    for (const e of recent) { const a = pos[e.from], b = pos[e.to]; if (!a || !b) continue; const mx = (a[0] + b[0]) / 2 + (a[1] - b[1]) * 0.15, my = (a[1] + b[1]) / 2 + (b[0] - a[0]) * 0.15; svg += `<path class="edge ${hot(e) ? "hot" : ""} ${["approval_requested", "question", "instruction", "approval_decided", "answer"].includes(e.kind) ? "human" : ""}" d="M${a[0]},${a[1]} Q${mx},${my} ${b[0]},${b[1]}"><title>${esc(e.from)} → ${esc(e.to)}: ${esc(e.label)} (${sim.fmtAgo(e.at)})</title></path>`; }
+    for (const n of g.nodes) { const p = pos[n.id]; if (!p) continue; const cls = n.type === "orchestrator" ? "orch" : n.type === "human" ? "human" : n.type === "agent" ? (n.state === "running" ? "running" : n.state === "blocked" ? "blocked" : n.state === "error" ? "error" : "") : "svc"; const r = n.type === "orchestrator" ? 28 : n.type === "agent" ? 18 : 13; const isSel = sel.kind === "agent" && sel.id === n.id; svg += `<g class="node ${cls} ${isSel ? "sel" : ""}" data-node="${n.id}" style="cursor:pointer"><circle cx="${p[0]}" cy="${p[1]}" r="${r}"/>${n.type === "agent" ? `<text x="${p[0]}" y="${p[1] + 4}" text-anchor="middle" class="lbl" style="font-size:9px">${esc(n.label.slice(0, 3).toUpperCase())}</text>` : ""}<text x="${p[0]}" y="${p[1] + r + 13}" text-anchor="middle" class="${n.type === "agent" ? "" : "lbl"}">${esc(n.type === "connector" ? n.label.split(" ")[0] : n.label)}</text></g>`; }
+    $("#svg").innerHTML = svg;
+    $("#svg").querySelectorAll("[data-node]").forEach((n) => n.addEventListener("click", () => { const a = sim.agentById(n.dataset.node); sel = a ? { kind: "agent", id: a.id } : { kind: "node", id: n.dataset.node }; render(sim.state); }));
+  }
+
+  function renderDeck(state) {
+    const stateOf = (a, run) => run ? run.state : a.state;
+    const rows = state.agents.filter(agentOk).map((a) => ({ a, run: a.currentRunId ? sim.runById(a.currentRunId) : null, client: sim.clientById(a.clientId) })).filter((x) => !filters.status || stateOf(x.a, x.run) === filters.status);
+    const order = { running: 0, queued: 1, waiting_for_approval: 2, waiting_for_input: 2, paused: 3, error: 4, failed: 4, idle: 5 };
+    rows.sort((x, y) => (order[stateOf(x.a, x.run)] ?? 9) - (order[stateOf(y.a, y.run)] ?? 9) || y.a.lastActivityAt - x.a.lastActivityAt);
+    $("#fleet-count").textContent = rows.length + " of " + state.agents.length;
+    $("#fleet tbody").innerHTML = rows.map(({ a, run, client }) => { const st = stateOf(a, run); const pct = run ? Math.round((run.stepIndex / run.steps.length) * 100) : 0; return `<tr class="row ${sel.kind === "agent" && sel.id === a.id ? "sel" : ""}" data-agent="${a.id}"><td><b>${esc(a.name)}</b><div class="mono" style="color:var(--faint);font-size:11px">${esc(a.definitionKey)} ${a.skillVersion}</div></td><td>${esc(client.name)}</td><td><span class="state ${st}">${st}</span></td><td class="mono">${run ? run.id : "<span style='color:var(--faint)'>none</span>"}</td><td class="mono">${run ? esc(run.steps[Math.min(run.stepIndex, run.steps.length - 1)]) : ""}</td><td>${run ? `<div class="bar" style="min-width:60px"><i style="width:${pct}%"></i></div>` : ""}</td><td class="mono" style="color:var(--muted)">${sim.fmtAgo(a.lastActivityAt)}</td><td class="mono">${sim.fmtUsd(state.costs.byAgent[a.id] || 0)}</td></tr>`; }).join("") || `<tr><td colspan="8" class="empty">No agents match the filters.</td></tr>`;
+    $("#fleet tbody").querySelectorAll("tr.row").forEach((tr) => tr.addEventListener("click", () => { sel = { kind: "agent", id: tr.dataset.agent }; render(sim.state); }));
+    const evs = state.events.filter((e) => (!filters.client || e.clientId === filters.client) && (!filters.agent || !e.agentId || sim.agentById(e.agentId)?.definitionKey === filters.agent)).slice(-80).reverse();
+    $("#ev-count").textContent = evs.length + " shown";
+    $("#ticker").innerHTML = evs.map((e) => `<div class="ev ${e.kind}"><span class="t">${sim.fmtTime(e.at)}</span><span><b>${e.runId || "platform"} · ${e.kind}</b> ${esc(evText(e))}</span></div>`).join("");
+    $("#workers tbody").innerHTML = state.workers.map((w) => `<tr><td><b class="mono">${w.queue}</b><div style="color:var(--faint);font-size:11px">${esc(w.label)}</div></td><td class="mono">${w.active}</td><td class="mono">${w.queued}</td><td class="mono">${w.completed}</td><td class="mono" style="color:${w.failed ? "var(--bad)" : "inherit"}">${w.failed}</td><td class="mono" style="color:var(--muted)">${w.lastAt ? sim.fmtAgo(w.lastAt) : "never"}</td></tr>`).join("");
+    $("#schedules tbody").innerHTML = state.schedules.filter((sc) => !filters.client || sc.clientId === filters.client || !sc.clientId).map((sc) => `<tr><td>${sc.clientId ? esc(sim.clientById(sc.clientId).name) : "<i>platform</i>"}</td><td class="mono">${sc.definitionKey}</td><td class="mono">${sc.cron} ${sc.tz}</td><td class="mono">${new Date(sc.nextAt).toISOString().slice(5, 16).replace("T", " ")}Z</td><td><span class="state ${sc.lastOutcome === "succeeded" ? "succeeded" : "failed"}">${sc.lastOutcome}</span></td><td><button class="sm" data-toggle="${sc.id}">${sc.enabled ? "Disable" : "Enable"}</button></td></tr>`).join("");
+    $("#schedules").querySelectorAll("[data-toggle]").forEach((b) => b.addEventListener("click", () => sim.actions.toggleSchedule(b.dataset.toggle)));
+  }
+
+  function renderRuns(state) {
+    const runs = state.runs.filter(runOk).slice().reverse();
+    $("#runs-count").textContent = runs.length;
+    $("#runs tbody").innerHTML = runs.map((r) => `<tr class="row ${sel.kind === "run" && sel.id === r.id ? "sel" : ""}" data-run="${r.id}"><td class="mono">${r.id}</td><td>${esc(sim.agentById(r.agentId).name)}</td><td>${esc(sim.clientById(r.clientId).name)}</td><td class="mono">${r.trigger}</td><td><span class="state ${r.state}">${r.state}</span></td><td class="mono">${r.toolCalls}</td><td class="mono">${r.modelCalls}</td><td class="mono">${sim.fmtUsd(r.costUsd)}</td><td class="mono">${Math.round(((r.finishedAt || sim.now()) - r.startedAt) / 60000)} min</td></tr>`).join("");
+    $("#runs tbody").querySelectorAll("tr.row").forEach((tr) => tr.addEventListener("click", () => openRun(tr.dataset.run)));
+  }
+
+  function renderDrawer(state) {
+    const d = $("#drawer"); let run = null, agent = null;
+    if (sel.kind === "run") { run = sim.runById(sel.id); agent = run && sim.agentById(run.agentId); }
+    else if (sel.kind === "agent") { agent = sim.agentById(sel.id); run = agent && agent.currentRunId ? sim.runById(agent.currentRunId) : state.runs.filter((r) => r.agentId === sel.id).slice(-1)[0] || null; }
+    if (!agent) { const h = sim.derived.needsHuman(); d.innerHTML = `<div class="card"><h3>Inspector</h3><div class="meta">Click a card, a row or an agent on the map to open its run here.</div></div><div class="card"><h3>Latest events</h3>${state.events.slice(-10).reverse().map((e) => `<div class="meta"><b class="mono">${e.runId || "platform"}</b> ${esc(evText(e)).slice(0, 90)}</div>`).join("")}</div>`; return; }
+    const c = sim.clientById(agent.clientId); const evs = run ? state.events.filter((e) => e.runId === run.id).slice().reverse() : []; const ap = run ? state.approvals.find((x) => x.runId === run.id) : null; const task = run ? taskOf(run) : null;
+    d.innerHTML = `<div class="card"><h3>${esc(agent.name)} <span class="state ${run ? run.state : agent.state}">${run ? run.state : agent.state}</span></h3><div class="meta">${esc(c.name)} · ${esc(agent.role)} · tier ${agent.tier} · skill ${agent.skillVersion}</div><div class="meta">tools: ${esc(agent.tools.join(", "))}</div><div class="actions">${!agent.currentRunId ? `<button class="primary sm" data-runnow="${agent.id}">Run now</button>` : ""}<button class="sm" data-clear="1">Close</button></div></div>
+      ${run ? `<div class="card"><h3 class="mono">${run.id} · ${run.trigger}</h3><dl class="kv"><dt>Task</dt><dd>${task ? esc(task.title) + " · " + task.department : ""}</dd><dt>Started</dt><dd>${sim.fmtTime(run.startedAt)} (${sim.fmtAgo(run.startedAt)})</dd><dt>Model</dt><dd>${run.modelCalls} calls · ${run.tokensIn}/${run.tokensOut} tokens · ${sim.fmtUsd(run.costUsd)}</dd><dt>Tools</dt><dd>${run.toolCalls} calls</dd><dt>Checkpoint</dt><dd>${run.checkpoint ? run.checkpoint.step : "none"}</dd>${run.output ? `<dt>Result</dt><dd>${esc(run.output.title)}<br><span style="color:var(--faint)">${esc(run.output.path)}</span></dd>` : ""}${run.failure ? `<dt>Failure</dt><dd style="color:var(--bad)">${esc(run.failure)}</dd>` : ""}${ap ? `<dt>Approval</dt><dd>${ap.id} · ${ap.state}${ap.decidedBy ? " by " + esc(ap.decidedBy) : ""}</dd>` : ""}${run.instructions.length ? `<dt>Instructions</dt><dd>${run.instructions.map((i) => esc(i.text)).join("<br>")}</dd>` : ""}</dl><div class="steps">${run.steps.map((s, i) => `<span class="step ${i < run.stepIndex ? "done" : i === run.stepIndex && run.state === "running" ? "now" : ""}">${s}</span>`).join("")}</div>${ap && ap.evidence ? `<div class="evidence" style="margin-top:6px"><b>Evidence</b> · ${ap.evidence.map((e) => `${esc(e.ref)} = ${esc(e.value)} (${esc(e.source)})`).join(" · ")}</div>` : ""}<div class="actions">${["running", "queued"].includes(run.state) ? `<button class="sm" data-act="pause">Pause</button>` : ""}${run.state === "paused" ? `<button class="ok sm" data-act="resume">Resume</button>` : ""}${!["succeeded", "failed", "cancelled"].includes(run.state) ? `<button class="bad sm" data-act="cancel">Cancel</button>` : ""}${run.state === "failed" ? `<button class="primary sm" data-act="retry">Retry</button>` : ""}${ap && ap.state === "pending" ? `<button class="ok sm" data-apx="approve">Approve</button><button class="bad sm" data-apx="reject">Reject</button>` : ""}</div>${!["succeeded", "failed", "cancelled"].includes(run.state) ? `<div class="actions"><input type="text" id="instr" placeholder="Instruction at next checkpoint" style="flex:1;min-width:140px"><button class="sm" data-act="instruct">Send</button></div>` : ""}</div>
+      <div class="panel"><header>Events <span class="pill">${evs.length}</span></header><div class="feed">${evs.map((e) => `<div class="ev ${e.kind}"><span class="t">${sim.fmtTime(e.at)}</span><span><b>${e.kind}</b> ${esc(evText(e))}</span></div>`).join("") || `<div class="empty">No events yet.</div>`}</div></div>` : `<div class="card"><div class="meta">No run yet for this agent.</div></div>`}`;
+    d.querySelectorAll("[data-act]").forEach((b) => b.addEventListener("click", () => { if (b.dataset.act === "instruct") sim.actions.instruct(run.id, $("#instr").value); else sim.actions[b.dataset.act](run.id); }));
+    d.querySelectorAll("[data-apx]").forEach((b) => b.addEventListener("click", () => sim.actions[b.dataset.apx](ap.id, "DH")));
+    d.querySelectorAll("[data-runnow]").forEach((b) => b.addEventListener("click", () => sim.actions.runNow(b.dataset.runnow)));
+    d.querySelectorAll("[data-clear]").forEach((b) => b.addEventListener("click", () => { sel = { kind: null, id: null }; render(sim.state); }));
+  }
+
+  sim.subscribe(render);
+  setView(location.hash.slice(1));
+  sim.start(1500);
+})();
+</script>
