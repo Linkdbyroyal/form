@@ -57,6 +57,7 @@ export async function Shell({ title, subtitle, nav, children }: { title: string;
 
 export const MISSION_CONTROL_NAV: NavItem[] = [
   { href: "/mission-control", label: "Overview", milestone: "M0" },
+  { href: "/mission-control/live", label: "Live", milestone: "M6" },
   { href: "/mission-control/clients", label: "Client Workspaces", milestone: "M0" },
   { href: "/mission-control/agents", label: "Agents", milestone: "M1" },
   { href: "/mission-control/tasks", label: "Tasks", milestone: "M1" },

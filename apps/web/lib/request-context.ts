@@ -105,6 +105,22 @@ export async function requireOperatorContext(): Promise<OperatorContext> {
 }
 
 /**
+ * Same gate as `requireOperatorContext()` for API route handlers, which answer with a status code instead of a
+ * redirect (an EventSource cannot follow a redirect to the sign-in page). Returns null when the request is not
+ * an operator with MFA; the resolved context is cached for `getOperatorContext()` like the redirecting variant.
+ */
+export async function resolveOperatorContext(): Promise<OperatorContext | null> {
+  const store = resolved();
+  if (store.operator) return store.operator;
+  const p = await getPrincipal();
+  const decision = decideOperatorAccess({ authenticated: p !== null, agencyRoles: p?.agencyRoles ?? [], twoFactorEnabled: p?.twoFactorEnabled ?? false });
+  if (decision.kind !== "allow" || !p) return null;
+  const ctx = operatorContext({ actorType: "user", actorId: p.userId, roles: decision.roles });
+  store.operator = ctx;
+  return ctx;
+}
+
+/**
  * Agency Intelligence Vault (spec 4H): any agency role (superadmin, agency_operator, agency_reviewer,
  * agency_consultant) on the agency tenant. Client roles are rejected. The MFA rule for superadmin and
  * agency_operator is the same as for Mission Control. The returned context runs as `sbos_app` in agency scope

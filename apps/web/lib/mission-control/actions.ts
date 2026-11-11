@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { and, eq, inArray } from "drizzle-orm";
 import { agencyContext, operatorContext, schema, writeAudit, type AgencyContext, type Tx } from "@sbos/db";
-import { createRun, createTask, decideApproval, giveFeedback, setTaskState, transitionRun, type JobBackend } from "@sbos/core";
+import { createRun, createTask, decideApproval, giveFeedback, queueRunInstruction, setTaskState, transitionRun, type JobBackend } from "@sbos/core";
 import { getDb } from "../db";
 import { getJobs } from "../jobs";
 import { errorMessage, withNotice } from "../format";
@@ -170,6 +170,28 @@ export async function stopRunAction(form: FormData): Promise<void> {
       await writeAudit(tx, ctx, { action: "agent_run.cancelled", entityType: "agent_run", entityId: runId, before: { state: run.state }, after: { state: "cancelled" } });
     });
     outcome = { ok: `Run ${runId.slice(0, 8)} cancelled. A worker already executing it stops at its next checkpoint.` };
+  } catch (err) {
+    outcome = { error: errorMessage(err) };
+  }
+  finish(returnTo, outcome);
+}
+
+/**
+ * Queues an operator instruction for a run that is still alive (ADR-024). The worker reads pending instructions at
+ * its next checkpoint and adds them to the model prompt as operator guidance; it never grants new tools or scopes.
+ * `queueRunInstruction` writes the note event and the audit row; the database trigger refuses agents and terminal runs.
+ */
+export async function instructRunAction(form: FormData): Promise<void> {
+  const returnTo = returnPath(form, "/mission-control/live");
+  let outcome: { ok?: string; error?: string };
+  try {
+    const tenantId = uuidField(form, "tenantId");
+    const runId = uuidField(form, "runId");
+    const text = field(form, "text", { required: true, max: 2000 });
+    await tenantWrite(tenantId, async (tx, ctx) => {
+      await queueRunInstruction(tx, ctx, { tenantId, runId, text });
+    });
+    outcome = { ok: `Instruction queued for run ${runId.slice(0, 8)}. The worker applies it at the run's next checkpoint.` };
   } catch (err) {
     outcome = { error: errorMessage(err) };
   }
