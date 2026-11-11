@@ -1,0 +1,177 @@
+<title>Flight Map</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap">
+<style>
+  /* Layout concept: the live map is the hero. A top bar with four tabs replaces the sidebar; the fleet and the
+     control queue live in a right-hand drawer that opens on any node or card. Indigo-forward, glow only on activity. */
+  :root {
+    --bg: #070b14; --surface: #0d1424; --surface-2: #121b30; --border: #1e2a44; --fg: #f5f7fb; --muted: #8b95a7; --faint: #5b6577;
+    --cyan: #22d3ee; --blue: #3b82f6; --indigo: #6366f1; --ok: #34d399; --warn: #fbbf24; --bad: #f87171;
+    --font-display: "Space Grotesk", "Inter", system-ui, sans-serif; --font-ui: "Inter", "Segoe UI", system-ui, sans-serif;
+    --radius: 14px; color-scheme: dark;
+  }
+  @media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) { --bg: #eef1f7; --surface: #ffffff; --surface-2: #e6eaf3; --border: #c9d2e2; --fg: #0f1729; --muted: #4b5567; --faint: #7a8496; --cyan: #0e8da3; --blue: #2563eb; --indigo: #4f46e5; --ok: #0f9d6e; --warn: #b7791f; --bad: #d14343; color-scheme: light; } }
+  :root[data-theme="light"] { --bg: #eef1f7; --surface: #ffffff; --surface-2: #e6eaf3; --border: #c9d2e2; --fg: #0f1729; --muted: #4b5567; --faint: #7a8496; --cyan: #0e8da3; --blue: #2563eb; --indigo: #4f46e5; --ok: #0f9d6e; --warn: #b7791f; --bad: #d14343; color-scheme: light; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.5 var(--font-ui); }
+  .top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: color-mix(in srgb, var(--surface) 88%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--border); padding-block: 10px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; }
+  body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--surface); }
+  .brand { font: 700 18px var(--font-display); letter-spacing: -.01em; } .brand small { display: block; font: 500 10px var(--font-ui); letter-spacing: .22em; text-transform: uppercase; color: var(--faint); }
+  .tabs { display: flex; gap: 4px; flex-wrap: wrap; } .tabs a { text-decoration: none; color: var(--muted); padding: 7px 12px; border-radius: 999px; font-weight: 500; } .tabs a.on { background: color-mix(in srgb, var(--indigo) 28%, transparent); color: var(--fg); } .tabs a .n { font-size: 11px; color: var(--cyan); margin-left: 4px; }
+  .right { margin-left: auto; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  select, input[type="text"] { background: var(--surface-2); color: var(--fg); border: 1px solid var(--border); border-radius: 999px; padding: 6px 12px; font: inherit; }
+  button { background: var(--surface-2); color: var(--fg); border: 1px solid var(--border); border-radius: 999px; padding: 6px 12px; font: 500 13px var(--font-ui); cursor: pointer; }
+  button.primary { background: var(--indigo); border-color: var(--indigo); color: #fff; } button.ok { border-color: var(--ok); color: var(--ok); } button.bad { border-color: var(--bad); color: var(--bad); }
+  :is(button, a, select, input):focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+  .avatar { width: 30px; height: 30px; border-radius: 50%; background: color-mix(in srgb, var(--indigo) 40%, transparent); display: grid; place-items: center; font: 600 11px var(--font-ui); }
+  .live { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); } .live i { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 10px var(--ok); }
+  main { padding-block: 16px 28px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 16px; }
+  main.no-drawer { grid-template-columns: 1fr; }
+  .stage { min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+  h1 { font: 700 26px/1.1 var(--font-display); margin: 0; letter-spacing: -.02em; text-wrap: balance; } h1 small { display: block; font: 400 13px var(--font-ui); color: var(--muted); margin-top: 4px; }
+  .hero-stats { display: flex; flex-wrap: wrap; gap: 10px; } .hs { display: flex; align-items: baseline; gap: 6px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); } .hs b { font: 600 18px var(--font-display); font-variant-numeric: tabular-nums; } .hs span { font-size: 12px; color: var(--muted); } .hs.attn b { color: var(--warn); } .hs.err b { color: var(--bad); } .hs.run b { color: var(--cyan); }
+  .panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); min-width: 0; overflow: hidden; }
+  .panel > header { padding: 10px 14px; border-bottom: 1px solid var(--border); font: 600 14px var(--font-display); display: flex; gap: 8px; align-items: center; } .panel > header .pill { margin-left: auto; }
+  .pill { font-size: 11px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); }
+  .map { height: 560px; position: relative; } .map svg { width: 100%; height: 100%; display: block; }
+  .map text { font: 11px var(--font-ui); fill: var(--muted); } .map .lbl { fill: var(--fg); font-weight: 600; } .map .sector { fill: color-mix(in srgb, var(--indigo) 8%, transparent); stroke: color-mix(in srgb, var(--indigo) 35%, transparent); }
+  .map .edge { stroke: var(--border); stroke-width: 1.5; fill: none; opacity: .8; } .map .edge.hot { stroke: var(--cyan); stroke-width: 2.2; filter: drop-shadow(0 0 4px var(--cyan)); } .map .edge.human { stroke: var(--warn); }
+  .map .node circle { fill: var(--surface-2); stroke: var(--border); stroke-width: 2; } .map .node.running circle { stroke: var(--cyan); filter: drop-shadow(0 0 8px color-mix(in srgb, var(--cyan) 70%, transparent)); } .map .node.blocked circle { stroke: var(--warn); } .map .node.error circle { stroke: var(--bad); } .map .node.orch circle { fill: color-mix(in srgb, var(--indigo) 45%, var(--surface-2)); stroke: var(--indigo); filter: drop-shadow(0 0 12px color-mix(in srgb, var(--indigo) 60%, transparent)); } .map .node.human circle { fill: color-mix(in srgb, var(--warn) 25%, var(--surface-2)); stroke: var(--warn); } .map .node.svc circle { fill: var(--surface); }
+  .map .node.sel circle { stroke-width: 4; }
+  @media (prefers-reduced-motion: no-preference) { .map .edge.hot { stroke-dasharray: 6 6; animation: flow 1.2s linear infinite; } @keyframes flow { to { stroke-dashoffset: -12; } } }
+  .legend { display: flex; flex-wrap: wrap; gap: 12px; padding: 8px 14px; color: var(--muted); font-size: 12px; border-top: 1px solid var(--border); }
+  .drawer { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 70px); align-self: start; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+  .card { border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; background: var(--surface-2); } .card h3 { margin: 0 0 4px; font: 600 14px var(--font-display); } .card .meta { font-size: 12px; color: var(--muted); } .card .actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .state { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 500; } .state::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--faint); }
+  .state.running::before { background: var(--cyan); box-shadow: 0 0 8px var(--cyan); } .state.queued::before { background: var(--blue); } .state.waiting_for_approval::before, .state.waiting_for_input::before { background: var(--warn); } .state.paused::before { background: var(--muted); } .state.failed::before { background: var(--bad); } .state.succeeded::before { background: var(--ok); } .state.cancelled::before { background: var(--faint); } .state.error::before { background: var(--bad); } .state.blocked::before { background: var(--warn); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; padding: 12px; }
+  .agent { border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; background: var(--surface-2); cursor: pointer; display: flex; flex-direction: column; gap: 4px; } .agent:hover { border-color: var(--indigo); } .agent.sel { border-color: var(--cyan); }
+  .agent .top-line { display: flex; justify-content: space-between; gap: 6px; align-items: baseline; } .agent b { font: 600 14px var(--font-display); } .agent .client { font-size: 11px; color: var(--faint); } .agent .step { font-size: 12px; color: var(--muted); }
+  .bar { height: 5px; background: var(--surface); border-radius: 3px; overflow: hidden; } .bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--indigo), var(--cyan)); }
+  .ev { display: grid; grid-template-columns: 50px 1fr; gap: 8px; padding: 6px 14px; border-bottom: 1px solid var(--border); font-size: 12px; } .ev .t { color: var(--faint); font-variant-numeric: tabular-nums; } .ev b { font-weight: 500; }
+  .ev.error b, .ev.tool_denied b { color: var(--bad); } .ev.model_call b { color: var(--indigo); } .ev.tool_call b { color: var(--cyan); } .ev.approval_requested b, .ev.question_created b { color: var(--warn); }
+  .feed { max-height: 420px; overflow: auto; }
+  .steps { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0; } .step { font-size: 10px; padding: 2px 7px; border-radius: 999px; border: 1px solid var(--border); color: var(--faint); } .step.done { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 50%, transparent); } .step.now { color: var(--cyan); border-color: var(--cyan); }
+  .kv { display: grid; grid-template-columns: 90px 1fr; gap: 3px 8px; font-size: 12px; margin: 6px 0; } .kv dt { color: var(--faint); } .kv dd { margin: 0; }
+  .view { display: none; } .view.on { display: block; }
+  .empty { padding: 20px; color: var(--faint); text-align: center; }
+  .footer { grid-column: 1 / -1; color: var(--faint); font-size: 12px; }
+  @media (max-width: 960px) { main { grid-template-columns: 1fr; } .drawer { position: static; } .map { height: 420px; } }
+  @media (max-width: 600px) { .map { height: 360px; } .tabs a { padding: 6px 9px; font-size: 13px; } h1 { font-size: 22px; } }
+</style>
+
+<header class="top">
+  <div class="brand"><small>Second Brain</small>Live Mission Control</div>
+  <nav class="tabs"><a href="#map" data-view="map">Map<span class="n" id="n-map"></span></a><a href="#fleet" data-view="fleet">Fleet<span class="n" id="n-fleet"></span></a><a href="#runs" data-view="runs">Runs<span class="n" id="n-runs"></span></a><a href="#control" data-view="control">Control<span class="n" id="n-control"></span></a></nav>
+  <div class="right">
+    <span class="live"><i></i><span id="conn">stream connected</span></span>
+    <select id="f-client" aria-label="Client"><option value="">All clients</option></select>
+    <select id="f-agent" aria-label="Agent"><option value="">All agents</option></select>
+    <button id="play">Pause</button>
+    <span class="pill" style="color:var(--warn)">synthetic (proposal B)</span>
+    <span class="avatar" title="superadmin, MFA on">DH</span>
+  </div>
+</header>
+
+<main>
+  <div class="stage">
+    <div><h1 id="title">Live Agent Map<small id="subtitle"></small></h1></div>
+    <div class="hero-stats" id="stats"></div>
+
+    <section class="view" id="view-map">
+      <div class="panel"><div class="map"><svg id="svg" viewBox="0 0 1100 560" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Live agent map"></svg></div>
+        <div class="legend"><span>Centre: orchestrator (pg-boss schedules and jobs)</span><span>Sectors: one per client, agents around it</span><span>Outer ring: shared services and connectors</span><span>Bottom: humans (approvals, questions, instructions)</span><span>Glowing edges: activity in the last 2 minutes</span></div>
+      </div>
+    </section>
+    <section class="view" id="view-fleet"><div class="panel"><header>All agents <span class="pill" id="fleet-count"></span></header><div class="grid" id="fleet"></div></div></section>
+    <section class="view" id="view-runs"><div class="panel"><header>Runs <span class="pill" id="runs-count"></span></header><div class="grid" id="runs"></div></div></section>
+    <section class="view" id="view-control">
+      <div class="panel"><header>Needs a human <span class="pill" id="needs-count"></span></header><div class="grid" id="needs"></div></div>
+      <div class="panel" style="margin-top:12px"><header>Schedules and background workers</header><div class="grid" id="sched"></div></div>
+    </section>
+  </div>
+  <aside class="drawer" id="drawer"></aside>
+  <p class="footer">Proposal B, Flight Map. Synthetic data only; the vocabulary is the real schema (run_state, run_event_kind, approval_state, incident_kind, pg-boss queues). Controls map to audited server actions; agents never get a control path.</p>
+</main>
+
+<script src="sim.js"></script>
+<script>
+(function () {
+  const sim = window.SBOSSim.createSim({ seed: 23 });
+  const $ = (s) => document.querySelector(s);
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  let view = "map", sel = { kind: null, id: null };
+  const filters = { client: "", agent: "" };
+  for (const c of sim.CLIENTS) $("#f-client").insertAdjacentHTML("beforeend", `<option value="${c.id}">${esc(c.name)}</option>`);
+  for (const d of sim.DEFINITIONS) $("#f-agent").insertAdjacentHTML("beforeend", `<option value="${d.key}">${esc(d.name)}</option>`);
+  for (const id of ["client", "agent"]) $("#f-" + id).addEventListener("change", (e) => { filters[id] = e.target.value; render(sim.state); });
+  $("#play").addEventListener("click", () => { if (sim.running()) { sim.stop(); $("#play").textContent = "Resume"; $("#conn").textContent = "stream paused by you"; } else { sim.start(1500); $("#play").textContent = "Pause"; $("#conn").textContent = "stream connected"; } });
+  const titles = { map: ["Live Agent Map", "Who talks to whom right now: orchestrator, agents per client, services and humans."], fleet: ["Fleet", "Every agent instance across all clients, grouped by what it is doing."], runs: ["Runs", "Execution history with tools, model calls, cost and duration."], control: ["Control", "Approvals, questions, failed runs, incidents, schedules."] };
+  function setView(v) { view = titles[v] ? v : "map"; document.querySelectorAll(".view").forEach((el) => el.classList.toggle("on", el.id === "view-" + view)); document.querySelectorAll("[data-view]").forEach((a) => a.classList.toggle("on", a.dataset.view === view)); $("#title").firstChild.textContent = titles[view][0]; $("#subtitle").textContent = titles[view][1]; render(sim.state); }
+  window.addEventListener("hashchange", () => setView(location.hash.slice(1)));
+  const agentOk = (a) => (!filters.client || a.clientId === filters.client) && (!filters.agent || a.definitionKey === filters.agent);
+
+  function evText(e) { const p = e.payload; return ({ state_change: `${p.from || "new"} → ${p.to}${p.reason ? " · " + p.reason : ""}`, tool_call: `${p.tool} → ${p.target}: ${p.result}`, tool_denied: `${p.tool} denied: ${p.reason}`, model_call: `${p.model}: ${p.summary} (USD ${p.costUsd})`, step_started: `step ${p.step}`, step_finished: `step ${p.step} done`, checkpoint: `checkpoint → ${p.step}`, approval_requested: `approval ${p.approvalId}, ${p.risk} risk, ${p.approverRole}`, approval_decided: `${p.approvalId} ${p.decision} by ${p.by}`, question_created: `question ${p.questionId} for ${p.department}`, error: `${p.class}: ${p.message}` })[e.kind] || p.text || ""; }
+
+  function render(state) {
+    const s = sim.derived.summary();
+    $("#stats").innerHTML = [["running", s.running, "run"], ["waiting for a human", s.waiting, "attn"], ["failed", s.failed, "err"], ["completed, 30 min", s.completed, ""], ["idle", s.idle, ""], ["open approvals", s.approvals, "attn"], ["incidents", s.incidents, "err"], ["spend", sim.fmtUsd(s.monthUsd) + " of " + s.cap, ""]].map(([l, v, c]) => `<div class="hs ${c}"><b>${v}</b><span>${l}</span></div>`).join("");
+    $("#n-map").textContent = s.running; $("#n-fleet").textContent = state.agents.length; $("#n-runs").textContent = s.runsTotal; $("#n-control").textContent = s.approvals + s.questions + s.incidents;
+    if (view === "map") renderMap(state); if (view === "fleet") renderFleet(state); if (view === "runs") renderRuns(state); if (view === "control") renderControl(state);
+    renderDrawer(state);
+  }
+
+  function renderMap(state) {
+    const g = sim.derived.graph(); const W = 1100, H = 560; const pos = { orchestrator: [550, 235], human: [90, 505] };
+    const clients = sim.CLIENTS.filter((c) => !filters.client || c.id === filters.client);
+    const centres = clients.length === 1 ? [[550, 330]] : clients.length === 2 ? [[230, 320], [870, 320]] : [[200, 300], [900, 300], [550, 440]];
+    clients.forEach((c, i) => { const [sx, sy] = centres[i]; pos["sector:" + c.id] = [sx, sy]; const agents = g.nodes.filter((n) => n.type === "agent" && n.clientId === c.id); agents.forEach((n, j) => { const a2 = -Math.PI / 2 + (j / agents.length) * Math.PI * 2; pos[n.id] = [sx + Math.cos(a2) * 96, sy + Math.sin(a2) * 62]; }); });
+    const services = g.nodes.filter((n) => n.type === "service" || n.type === "connector"); services.forEach((n, i) => { pos[n.id] = [70 + (i * (W - 140)) / Math.max(1, services.length - 1), 40]; });
+    const recent = g.edges.slice(-70); const hot = (e) => sim.now() - e.at < 2 * 60000;
+    let svg = "";
+    clients.forEach((c) => { const p = pos["sector:" + c.id]; svg += `<ellipse class="sector" cx="${p[0]}" cy="${p[1]}" rx="138" ry="96"/><text x="${p[0]}" y="${p[1] - 104}" text-anchor="middle" class="lbl">${esc(c.name)} ${c.live ? "· live" : "· sandbox"}</text>`; });
+    for (const e of recent) { const a = pos[e.from], b = pos[e.to]; if (!a || !b) continue; const mx = (a[0] + b[0]) / 2 + (a[1] - b[1]) * 0.15, my = (a[1] + b[1]) / 2 + (b[0] - a[0]) * 0.15; svg += `<path class="edge ${hot(e) ? "hot" : ""} ${["approval_requested", "question", "instruction", "approval_decided", "answer"].includes(e.kind) ? "human" : ""}" d="M${a[0]},${a[1]} Q${mx},${my} ${b[0]},${b[1]}"><title>${esc(e.from)} → ${esc(e.to)}: ${esc(e.label)} (${sim.fmtAgo(e.at)})</title></path>`; }
+    for (const n of g.nodes) { const p = pos[n.id]; if (!p) continue; const cls = n.type === "orchestrator" ? "orch" : n.type === "human" ? "human" : n.type === "agent" ? (n.state === "running" ? "running" : n.state === "blocked" ? "blocked" : n.state === "error" ? "error" : "") : "svc"; const r = n.type === "orchestrator" ? 30 : n.type === "agent" ? 18 : 14; const isSel = sel.kind === "agent" && sel.id === n.id; svg += `<g class="node ${cls} ${isSel ? "sel" : ""}" data-node="${n.id}" style="cursor:pointer"><circle cx="${p[0]}" cy="${p[1]}" r="${r}"/>${n.type === "agent" ? `<text x="${p[0]}" y="${p[1] + 4}" text-anchor="middle" class="lbl" style="font-size:9px">${esc(n.label.slice(0, 3).toUpperCase())}</text>` : ""}<text x="${p[0]}" y="${p[1] + r + 13}" text-anchor="middle" class="${n.type === "agent" ? "" : "lbl"}">${esc(n.type === "connector" ? n.label.split(" ")[0] : n.label)}</text></g>`; }
+    $("#svg").innerHTML = svg;
+    $("#svg").querySelectorAll("[data-node]").forEach((n) => n.addEventListener("click", () => { const a = sim.agentById(n.dataset.node); sel = a ? { kind: "agent", id: a.id } : { kind: "node", id: n.dataset.node }; render(sim.state); }));
+  }
+
+  function agentCard(a, state) { const run = a.currentRunId ? sim.runById(a.currentRunId) : null; const c = sim.clientById(a.clientId); const st = run ? run.state : a.state; const pct = run ? Math.round((run.stepIndex / run.steps.length) * 100) : 0; return `<div class="agent ${sel.kind === "agent" && sel.id === a.id ? "sel" : ""}" data-agent="${a.id}"><div class="top-line"><b>${esc(a.name)}</b><span class="state ${st}">${st}</span></div><div class="client">${esc(c.name)} · ${esc(a.definitionKey)} ${a.skillVersion}</div><div class="step">${run ? run.id + " · " + esc(run.steps[Math.min(run.stepIndex, run.steps.length - 1)]) : "last activity " + sim.fmtAgo(a.lastActivityAt)}</div>${run ? `<div class="bar"><i style="width:${pct}%"></i></div>` : ""}<div class="client">${sim.fmtUsd(state.costs.byAgent[a.id] || 0)} this month · ${a.runsToday} runs today${a.failuresToday ? " · " + a.failuresToday + " failed" : ""}</div></div>`; }
+  function renderFleet(state) { const list = state.agents.filter(agentOk); const order = { running: 0, queued: 1, waiting_for_approval: 2, waiting_for_input: 2, paused: 3, error: 4, idle: 5 }; list.sort((x, y) => (order[(x.currentRunId ? sim.runById(x.currentRunId).state : x.state)] ?? 9) - (order[(y.currentRunId ? sim.runById(y.currentRunId).state : y.state)] ?? 9)); $("#fleet-count").textContent = list.length; $("#fleet").innerHTML = list.map((a) => agentCard(a, state)).join(""); $("#fleet").querySelectorAll("[data-agent]").forEach((el) => el.addEventListener("click", () => { sel = { kind: "agent", id: el.dataset.agent }; render(sim.state); })); }
+  function renderRuns(state) { const runs = state.runs.filter((r) => agentOk(sim.agentById(r.agentId))).slice().reverse(); $("#runs-count").textContent = runs.length; $("#runs").innerHTML = runs.map((r) => `<div class="agent ${sel.kind === "run" && sel.id === r.id ? "sel" : ""}" data-run="${r.id}"><div class="top-line"><b>${r.id}</b><span class="state ${r.state}">${r.state}</span></div><div class="client">${esc(sim.agentById(r.agentId).name)} · ${esc(sim.clientById(r.clientId).name)} · ${r.trigger}</div><div class="step">${r.toolCalls} tool calls · ${r.modelCalls} model calls · ${sim.fmtUsd(r.costUsd)} · ${Math.round(((r.finishedAt || sim.now()) - r.startedAt) / 60000)} min</div>${r.output ? `<div class="client">${esc(r.output.title)}</div>` : r.failure ? `<div class="client" style="color:var(--bad)">${esc(r.failure)}</div>` : ""}</div>`).join(""); $("#runs").querySelectorAll("[data-run]").forEach((el) => el.addEventListener("click", () => { sel = { kind: "run", id: el.dataset.run }; render(sim.state); })); }
+  function renderControl(state) {
+    const h = sim.derived.needsHuman(); const items = [];
+    for (const ap of h.approvals.filter((x) => !filters.client || x.clientId === filters.client)) items.push(`<div class="card"><h3>Approve: ${esc(ap.kind.replace("_", " "))}</h3><div>${esc(ap.summary)}</div><div class="meta">${esc(sim.agentById(ap.agentId).name)} · ${esc(sim.clientById(ap.clientId).name)} · ${ap.risk} risk · ${ap.approverRole} · ${sim.fmtAgo(ap.requestedAt)}</div><div class="meta">Evidence: ${ap.evidence.map((e) => `${esc(e.ref)} = ${esc(e.value)}`).join("; ")}</div><div class="actions"><button class="ok" data-ap="${ap.id}" data-d="approve">Approve</button><button class="bad" data-ap="${ap.id}" data-d="reject">Reject</button><button data-open-run="${ap.runId}">Open run</button></div></div>`);
+    for (const q of h.questions.filter((x) => !filters.client || x.clientId === filters.client)) items.push(`<div class="card"><h3>Answer: ${esc(q.department)}</h3><div>${esc(q.text)}</div><div class="meta">${esc(sim.agentById(q.agentId).name)} · ${esc(sim.clientById(q.clientId).name)} · ${q.priority}</div><div class="actions"><button class="ok" data-q="${q.id}">Answer "yes" (demo)</button></div></div>`);
+    for (const r of h.failedRuns.filter((x) => !filters.client || x.clientId === filters.client)) items.push(`<div class="card"><h3>Failed: ${r.id}</h3><div style="color:var(--bad)">${esc(r.failure)}</div><div class="meta">${esc(sim.agentById(r.agentId).name)} · ${esc(sim.clientById(r.clientId).name)} · attempt ${r.attempt}</div><div class="actions"><button class="primary" data-retry="${r.id}">Retry</button><button data-open-run="${r.id}">Open run</button></div></div>`);
+    for (const i of state.incidents.filter((x) => x.state !== "resolved" && (!filters.client || x.clientId === filters.client))) items.push(`<div class="card"><h3>Incident ${i.id}</h3><div>${esc(i.title)}</div><div class="meta">${i.kind} · ${i.severity} · ${i.state} · ${sim.fmtAgo(i.createdAt)}</div><div class="actions">${i.state === "open" ? `<button data-inc="${i.id}" data-d="ackIncident">Acknowledge</button>` : ""}<button class="ok" data-inc="${i.id}" data-d="resolveIncident">Resolve</button></div></div>`);
+    $("#needs-count").textContent = items.length; $("#needs").innerHTML = items.join("") || `<div class="empty">Nothing needs you right now.</div>`;
+    $("#needs").querySelectorAll("[data-ap]").forEach((b) => b.addEventListener("click", () => sim.actions[b.dataset.d](b.dataset.ap, "DH")));
+    $("#needs").querySelectorAll("[data-q]").forEach((b) => b.addEventListener("click", () => sim.actions.answer(b.dataset.q, "Yes")));
+    $("#needs").querySelectorAll("[data-retry]").forEach((b) => b.addEventListener("click", () => sim.actions.retry(b.dataset.retry)));
+    $("#needs").querySelectorAll("[data-inc]").forEach((b) => b.addEventListener("click", () => sim.actions[b.dataset.d](b.dataset.inc)));
+    $("#needs").querySelectorAll("[data-open-run]").forEach((b) => b.addEventListener("click", () => { sel = { kind: "run", id: b.dataset.openRun }; render(sim.state); }));
+    $("#sched").innerHTML = state.schedules.map((sc) => `<div class="card"><h3>${sc.clientId ? esc(sim.clientById(sc.clientId).name) : "Platform"} · ${esc(sc.definitionKey)}</h3><div class="meta">${sc.cron} ${sc.tz} · next ${new Date(sc.nextAt).toISOString().slice(5, 16).replace("T", " ")}Z · last <span class="state ${sc.lastOutcome === "succeeded" ? "succeeded" : "failed"}">${sc.lastOutcome}</span></div><div class="actions"><button data-toggle="${sc.id}">${sc.enabled ? "Disable" : "Enable"}</button></div></div>`).join("") + state.workers.map((w) => `<div class="card"><h3>${esc(w.queue)}</h3><div class="meta">${esc(w.label)} · active ${w.active} · queued ${w.queued} · done ${w.completed} · failed ${w.failed}</div></div>`).join("");
+    $("#sched").querySelectorAll("[data-toggle]").forEach((b) => b.addEventListener("click", () => sim.actions.toggleSchedule(b.dataset.toggle)));
+  }
+
+  function renderDrawer(state) {
+    const d = $("#drawer");
+    let run = null, agent = null;
+    if (sel.kind === "run") { run = sim.runById(sel.id); agent = run && sim.agentById(run.agentId); }
+    else if (sel.kind === "agent") { agent = sim.agentById(sel.id); run = agent && agent.currentRunId ? sim.runById(agent.currentRunId) : state.runs.filter((r) => r.agentId === sel.id).slice(-1)[0] || null; }
+    if (!agent) { const h = sim.derived.needsHuman(); d.innerHTML = `<div class="card"><h3>Inspector</h3><div class="meta">Click an agent on the map or a card to open its run here.</div></div><div class="card"><h3>Needs you now</h3>${[...h.approvals.map((a) => `<div class="meta">Approval ${a.id}: ${esc(a.summary.slice(0, 60))}…</div>`), ...h.questions.map((q) => `<div class="meta">Question ${q.id}: ${esc(q.text.slice(0, 60))}…</div>`)].join("") || `<div class="meta">Nothing pending.</div>`}<div class="actions"><a href="#control"><button>Open control</button></a></div></div><div class="card"><h3>Latest events</h3>${state.events.slice(-8).reverse().map((e) => `<div class="meta"><b>${e.runId || "platform"}</b> ${esc(evText(e)).slice(0, 80)}</div>`).join("")}</div>`; return; }
+    const c = sim.clientById(agent.clientId); const evs = run ? state.events.filter((e) => e.runId === run.id).slice().reverse() : [];
+    d.innerHTML = `<div class="card"><h3>${esc(agent.name)} <span class="state ${run ? run.state : agent.state}">${run ? run.state : agent.state}</span></h3><div class="meta">${esc(c.name)} · ${esc(agent.role)} · tier ${agent.tier} · skill ${agent.skillVersion}</div><div class="meta">tools: ${esc(agent.tools.join(", "))}</div><div class="actions">${!agent.currentRunId ? `<button class="primary" data-runnow="${agent.id}">Run now</button>` : ""}</div></div>
+      ${run ? `<div class="card"><h3>${run.id} · ${run.trigger}</h3><dl class="kv"><dt>Started</dt><dd>${sim.fmtTime(run.startedAt)} (${sim.fmtAgo(run.startedAt)})</dd><dt>Model</dt><dd>${run.modelCalls} calls · ${run.tokensIn}/${run.tokensOut} tokens · ${sim.fmtUsd(run.costUsd)}</dd><dt>Tools</dt><dd>${run.toolCalls} calls</dd><dt>Checkpoint</dt><dd>${run.checkpoint ? run.checkpoint.step : "none"}</dd>${run.output ? `<dt>Result</dt><dd>${esc(run.output.title)}</dd>` : ""}${run.failure ? `<dt>Failure</dt><dd style="color:var(--bad)">${esc(run.failure)}</dd>` : ""}</dl><div class="steps">${run.steps.map((s, i) => `<span class="step ${i < run.stepIndex ? "done" : i === run.stepIndex && run.state === "running" ? "now" : ""}">${s}</span>`).join("")}</div><div class="actions">${["running", "queued"].includes(run.state) ? `<button data-act="pause">Pause</button>` : ""}${run.state === "paused" ? `<button class="ok" data-act="resume">Resume</button>` : ""}${!["succeeded", "failed", "cancelled"].includes(run.state) ? `<button class="bad" data-act="cancel">Cancel</button>` : ""}${run.state === "failed" ? `<button class="primary" data-act="retry">Retry</button>` : ""}</div>${!["succeeded", "failed", "cancelled"].includes(run.state) ? `<div class="actions"><input type="text" id="instr" placeholder="Instruction at next checkpoint" style="flex:1;min-width:150px"><button data-act="instruct">Send</button></div>` : ""}</div>
+      <div class="panel"><header>Events <span class="pill">${evs.length}</span></header><div class="feed">${evs.map((e) => `<div class="ev ${e.kind}"><span class="t">${sim.fmtTime(e.at)}</span><span><b>${e.kind}</b> ${esc(evText(e))}</span></div>`).join("") || `<div class="empty">No events yet.</div>`}</div></div>` : `<div class="card"><div class="meta">No run yet for this agent.</div></div>`}`;
+    d.querySelectorAll("[data-act]").forEach((b) => b.addEventListener("click", () => { const act = b.dataset.act; if (act === "instruct") sim.actions.instruct(run.id, $("#instr").value); else sim.actions[act](run.id); }));
+    d.querySelectorAll("[data-runnow]").forEach((b) => b.addEventListener("click", () => sim.actions.runNow(b.dataset.runnow)));
+  }
+
+  sim.subscribe(render);
+  setView(location.hash.slice(1));
+  sim.start(1500);
+})();
+</script>

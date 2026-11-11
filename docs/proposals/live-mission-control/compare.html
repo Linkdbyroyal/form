@@ -1,0 +1,73 @@
+<title>Live Mission Control Proposals</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap">
+<style>
+  /* Layout concept: a comparison sheet. Three columns (A, B, C) with desktop above phone, then one decision table. */
+  :root { --bg: #070b14; --surface: #0d1424; --surface-2: #121b30; --border: #1e2a44; --fg: #f5f7fb; --muted: #8b95a7; --faint: #5b6577; --cyan: #22d3ee; --indigo: #6366f1; --warn: #fbbf24; --ok: #34d399; --bad: #f87171; --font-display: "Space Grotesk", system-ui, sans-serif; --font-ui: "Inter", system-ui, sans-serif; color-scheme: dark; }
+  @media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) { --bg: #f3f5f9; --surface: #ffffff; --surface-2: #e9edf5; --border: #cdd5e3; --fg: #0f1729; --muted: #4b5567; --faint: #7a8496; --cyan: #0e8da3; --indigo: #4f46e5; --warn: #b7791f; --ok: #0f9d6e; --bad: #d14343; color-scheme: light; } }
+  :root[data-theme="light"] { --bg: #f3f5f9; --surface: #ffffff; --surface-2: #e9edf5; --border: #cdd5e3; --fg: #0f1729; --muted: #4b5567; --faint: #7a8496; --cyan: #0e8da3; --indigo: #4f46e5; --warn: #b7791f; --ok: #0f9d6e; --bad: #d14343; color-scheme: light; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.55 var(--font-ui); }
+  .wrap { max-width: 1400px; margin: 0 auto; padding-block: 24px 40px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: flex; flex-direction: column; gap: 22px; }
+  h1 { font: 700 30px/1.1 var(--font-display); margin: 0; letter-spacing: -.02em; text-wrap: balance; } h1 small { display: block; font: 500 11px var(--font-ui); letter-spacing: .22em; text-transform: uppercase; color: var(--faint); margin-bottom: 6px; }
+  p.lead { max-width: 70ch; color: var(--muted); margin: 0; }
+  .cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+  .col { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; display: flex; flex-direction: column; min-width: 0; }
+  .col header { padding: 12px 14px; border-bottom: 1px solid var(--border); } .col h2 { margin: 0; font: 700 18px var(--font-display); } .col h2 span { color: var(--cyan); margin-right: 8px; } .col .who { color: var(--muted); font-size: 13px; }
+  .col img { width: 100%; height: auto; display: block; border-bottom: 1px solid var(--border); background: var(--surface-2); }
+  .col .phone { display: flex; justify-content: center; padding: 14px; background: var(--surface-2); } .col .phone img { width: 230px; border: 1px solid var(--border); border-radius: 18px; }
+  .col .body { padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; font-size: 14px; } .col .body b { font-weight: 600; } .col ul { margin: 0; padding-left: 18px; color: var(--muted); }
+  .tokens { display: flex; flex-wrap: wrap; gap: 6px; } .sw { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); } .sw i { width: 14px; height: 14px; border-radius: 4px; border: 1px solid var(--border); display: inline-block; }
+  .open { display: inline-block; margin-top: 4px; padding: 8px 14px; border-radius: 999px; background: var(--indigo); color: #fff; text-decoration: none; font-weight: 600; } .open:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: top; } th { font: 600 12px var(--font-ui); letter-spacing: .1em; text-transform: uppercase; color: var(--faint); } td:first-child { color: var(--muted); white-space: nowrap; }
+  .tablewrap { overflow-x: auto; }
+  .note { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; font-size: 14px; color: var(--muted); } .note b { color: var(--fg); }
+  @media (max-width: 960px) { .cols { grid-template-columns: 1fr; } }
+</style>
+<div class="wrap">
+  <div><h1><small>Second Brain OS · Live Agent Mission Control</small>Three proposals, one simulation</h1></div>
+  <p class="lead">Each proposal is an interactive prototype on the same synthetic fleet: 3 synthetic clients, 21 agent instances, at least six runs active at once, with scripted failures, approvals, questions and completions. The vocabulary is the real schema (run_state, run_event_kind, approval_state, incident_kind, pg-boss queues). Open a proposal, let it run, approve or pause something. Nothing here touches the running system.</p>
+
+  <div class="cols">
+    <section class="col"><header><h2><span>A</span>Operations Deck</h2><div class="who">For the operator who watches many agents at once</div></header>
+      <img src="shots/A_desktop.png" alt="Proposal A, desktop: dense fleet table with live event ticker"><div class="phone"><img src="shots/A_phone.png" alt="Proposal A on a phone"></div>
+      <div class="body"><b>Philosophy</b><div>The table is the truth. Dense rows, monospace numbers, a live ticker beside them; the map and the inspector are secondary panels. It extends today's Mission Control sidebar without a new navigation model.</div>
+        <div class="tokens"><span class="sw"><i style="background:#070b14"></i>navy</span><span class="sw"><i style="background:#22d3ee"></i>cyan (live)</span><span class="sw"><i style="background:#6366f1"></i>indigo (selection)</span><span class="sw">IBM Plex Sans + JetBrains Mono</span></div>
+        <b>Strengths</b><ul><li>Most information per screen; sortable, filterable, fast to scan.</li><li>Smallest build: tables and panels we already have.</li><li>Fits the current shell and navigation exactly.</li></ul>
+        <b>Limits</b><ul><li>The map is a side panel, less impressive in a client demo.</li><li>Dense text on a phone; tables scroll sideways.</li></ul>
+        <a class="open" href="https://claude.ai/artifact/EYQV89TdyY9Qttw6hUcdS1">Open proposal A</a></div></section>
+    <section class="col"><header><h2><span>B</span>Flight Map</h2><div class="who">For the superadmin cockpit and client demos</div></header>
+      <img src="shots/B_desktop_inspector.png" alt="Proposal B, desktop: live agent map with inspector drawer"><div class="phone"><img src="shots/B_phone.png" alt="Proposal B on a phone"></div>
+      <div class="body"><b>Philosophy</b><div>The map is the hero: who talks to whom, right now. Four tabs in a top bar; everything you click opens in a drawer. Indigo and cyan glow only where there is activity.</div>
+        <div class="tokens"><span class="sw"><i style="background:#070b14"></i>navy</span><span class="sw"><i style="background:#6366f1"></i>indigo (structure)</span><span class="sw"><i style="background:#22d3ee"></i>cyan (activity)</span><span class="sw">Space Grotesk + Inter</span></div>
+        <b>Strengths</b><ul><li>Shows delegation and communication at a glance; the strongest story for a prospect.</li><li>Drawer keeps context: map, agent, run and events on one screen.</li><li>Maps onto React Flow plus dagre (conductor pattern) in the real build.</li></ul>
+        <b>Limits</b><ul><li>Largest build (graph layout, drawer, animation).</li><li>Needs a second surface for dense operations (tables), which A has for free.</li></ul>
+        <a class="open" href="https://claude.ai/artifact/LmvTvcTjtgYPmpw7hG2mFb">Open proposal B</a></div></section>
+    <section class="col"><header><h2><span>C</span>Command Queue</h2><div class="who">For managers who mostly approve, answer and instruct</div></header>
+      <img src="shots/C_desktop.png" alt="Proposal C, desktop: three lanes needs you, running, done"><div class="phone"><img src="shots/C_phone.png" alt="Proposal C on a phone"></div>
+      <div class="body"><b>Philosophy</b><div>Human intervention first. Three lanes: needs you, running, done today. A timeline per agent along the bottom; the map is an overlay. One attention colour, larger type, fewer numbers.</div>
+        <div class="tokens"><span class="sw"><i style="background:#070b14"></i>navy</span><span class="sw"><i style="background:#fbbf24"></i>amber (attention)</span><span class="sw"><i style="background:#22d3ee"></i>cyan (running)</span><span class="sw">Manrope + Inter</span></div>
+        <b>Strengths</b><ul><li>Fastest path from "something needs me" to the decision, with evidence inline.</li><li>Works as well on a phone as on a desk; lanes stack.</li><li>Medium build: cards, lanes, one timeline, one overlay.</li></ul>
+        <b>Limits</b><ul><li>Less fleet-wide overview; power users will miss the dense table.</li><li>The map is secondary, same as A.</li></ul>
+        <a class="open" href="https://claude.ai/artifact/UtoCtk3c9nEiVD1SVPnTc7">Open proposal C</a></div></section>
+  </div>
+
+  <div class="tablewrap"><table>
+    <thead><tr><th></th><th>A · Operations Deck</th><th>B · Flight Map</th><th>C · Command Queue</th></tr></thead>
+    <tbody>
+      <tr><td>Primary user</td><td>Agency operator on duty</td><td>Superadmin; demos to prospects</td><td>Operators and reviewers who decide</td></tr>
+      <tr><td>Information hierarchy</td><td>Counters, then the fleet table, then events</td><td>Map first, drawer for detail</td><td>What needs you first, then running, then done</td></tr>
+      <tr><td>Navigation</td><td>Existing sidebar plus four live entries</td><td>Top bar with four tabs</td><td>No navigation: lanes plus two overlays</td></tr>
+      <tr><td>Density</td><td>High</td><td>Medium</td><td>Low to medium</td></tr>
+      <tr><td>Typographic voice</td><td>Technical: Plex Sans, mono data</td><td>Display: Space Grotesk headings</td><td>Calm: Manrope, larger sizes</td></tr>
+      <tr><td>Colour strategy</td><td>Cyan for live, indigo for selection, semantic states</td><td>Indigo structure, cyan glow for activity</td><td>Near-monochrome with amber for attention</td></tr>
+      <tr><td>Strength</td><td>Most data per screen, smallest build</td><td>Best story: delegation and communication visible</td><td>Fastest decisions, best on a phone</td></tr>
+      <tr><td>Risk</td><td>Looks like today; weak demo effect</td><td>Largest build; graph layout needs care at 50+ agents</td><td>Power users miss the table; map hidden</td></tr>
+      <tr><td>Build size (estimate)</td><td>Small: 2 to 3 slices</td><td>Large: 4 to 5 slices</td><td>Medium: 3 to 4 slices</td></tr>
+      <tr><td>Reuse from research</td><td>mission-control widget layout, SSE hook</td><td>conductor React Flow graph, gate and guidance UI, SSE hook</td><td>paperclip approval card and instruction model, SSE hook</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="note"><b>Combinations are welcome.</b> A natural mix: C's "needs you" lane as the landing view, B's map as the second tab, A's table as the third. The transport (SSE over PostgreSQL LISTEN/NOTIFY), the data model additions and the controls are the same for all three; only the surface differs. The research report with the repository comparison is in <code>docs/research/live-mission-control.md</code>.</div>
+</div>

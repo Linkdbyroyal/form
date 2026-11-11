@@ -1,0 +1,283 @@
+<title>Operations Deck</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+  /* Layout concept: a dense operator deck. Fixed sidebar (Mission Control navigation as today), a summary strip,
+     then a sortable fleet table that is the primary surface; map and inspector are secondary panels. Dark-first. */
+  :root {
+    --bg: #070b14; --surface: #0d1424; --surface-2: #121b30; --border: #1e2a44; --fg: #f5f7fb; --muted: #8b95a7; --faint: #5b6577;
+    --cyan: #22d3ee; --blue: #3b82f6; --indigo: #6366f1; --ok: #34d399; --warn: #fbbf24; --bad: #f87171;
+    --font-ui: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif; --font-data: "JetBrains Mono", "SFMono-Regular", Menlo, monospace;
+    --radius: 8px; color-scheme: dark;
+  }
+  @media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) { --bg: #f3f5f9; --surface: #ffffff; --surface-2: #e9edf5; --border: #cdd5e3; --fg: #0f1729; --muted: #4b5567; --faint: #7a8496; --cyan: #0e8da3; --blue: #2563eb; --indigo: #4f46e5; --ok: #0f9d6e; --warn: #b7791f; --bad: #d14343; color-scheme: light; } }
+  :root[data-theme="light"] { --bg: #f3f5f9; --surface: #ffffff; --surface-2: #e9edf5; --border: #cdd5e3; --fg: #0f1729; --muted: #4b5567; --faint: #7a8496; --cyan: #0e8da3; --blue: #2563eb; --indigo: #4f46e5; --ok: #0f9d6e; --warn: #b7791f; --bad: #d14343; color-scheme: light; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 13px/1.45 var(--font-ui); }
+  a { color: inherit; }
+  .app { display: grid; grid-template-columns: 220px minmax(0, 1fr); min-height: 100%; }
+  aside { background: var(--surface); border-right: 1px solid var(--border); padding-block: 16px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: 12px; display: flex; flex-direction: column; gap: 14px; }
+  .brand small { display: block; font-size: 10px; letter-spacing: .2em; text-transform: uppercase; color: var(--faint); }
+  .brand b { font-size: 16px; background: linear-gradient(90deg, var(--cyan), var(--indigo)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  nav a { display: flex; justify-content: space-between; padding: 6px 8px; border-radius: 6px; text-decoration: none; color: var(--muted); }
+  nav a.on, nav a:hover { background: var(--surface-2); color: var(--fg); }
+  nav a span:last-child { font-size: 10px; color: var(--faint); }
+  .live-nav { margin-top: 4px; border-top: 1px solid var(--border); padding-top: 10px; }
+  .live-nav h4 { margin: 0 0 6px; font-size: 10px; letter-spacing: .15em; text-transform: uppercase; color: var(--faint); }
+  .live-nav a .n { font: 500 11px var(--font-data); color: var(--cyan); }
+  .account { margin-top: auto; font-size: 12px; color: var(--muted); display: flex; gap: 8px; align-items: center; }
+  .avatar { width: 26px; height: 26px; border-radius: 50%; background: color-mix(in srgb, var(--indigo) 35%, transparent); display: grid; place-items: center; font: 500 11px var(--font-data); color: var(--fg); }
+  main { min-width: 0; padding-block: 14px 24px; padding-left: 16px; padding-right: max(16px, env(safe-area-inset-right, 0px)); display: flex; flex-direction: column; gap: 12px; }
+  .topbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+  .topbar h1 { font-size: 18px; margin: 0; font-weight: 600; }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 25%, transparent); display: inline-block; }
+  .pill { font: 500 11px var(--font-data); padding: 2px 7px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); }
+  .filters { display: flex; flex-wrap: wrap; gap: 6px; margin-left: auto; }
+  select, input[type="text"], textarea { background: var(--surface-2); color: var(--fg); border: 1px solid var(--border); border-radius: 6px; padding: 5px 8px; font: inherit; }
+  button { background: var(--surface-2); color: var(--fg); border: 1px solid var(--border); border-radius: 6px; padding: 5px 9px; font: 500 12px var(--font-ui); cursor: pointer; }
+  button.primary { background: var(--blue); border-color: var(--blue); color: #fff; }
+  button.ok { border-color: var(--ok); color: var(--ok); }
+  button.bad { border-color: var(--bad); color: var(--bad); }
+  button:focus-visible, a:focus-visible, select:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+  .strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; }
+  .stat { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 10px; }
+  .stat small { display: block; color: var(--faint); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; }
+  .stat b { font: 500 20px var(--font-data); font-variant-numeric: tabular-nums; }
+  .stat.attn b { color: var(--warn); } .stat.err b { color: var(--bad); } .stat.run b { color: var(--cyan); }
+  .panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); min-width: 0; }
+  .panel header { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--border); font-weight: 600; }
+  .panel header .pill { margin-left: auto; }
+  .two { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 12px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--faint); font-weight: 500; position: sticky; top: 0; background: var(--surface); }
+  tr.row { cursor: pointer; } tr.row:hover td { background: color-mix(in srgb, var(--cyan) 6%, transparent); } tr.row.sel td { background: color-mix(in srgb, var(--indigo) 18%, transparent); }
+  .mono { font-family: var(--font-data); font-variant-numeric: tabular-nums; }
+  .state { display: inline-flex; align-items: center; gap: 5px; font: 500 11px var(--font-data); }
+  .state::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--faint); }
+  .state.running::before { background: var(--cyan); animation: pulse 1.2s infinite; } .state.queued::before { background: var(--blue); }
+  .state.waiting_for_approval::before, .state.waiting_for_input::before { background: var(--warn); } .state.paused::before { background: var(--muted); }
+  .state.failed::before, .state.timed_out::before { background: var(--bad); } .state.succeeded::before { background: var(--ok); } .state.cancelled::before { background: var(--faint); }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+  @media (prefers-reduced-motion: reduce) { .state.running::before { animation: none; } }
+  .bar { height: 4px; background: var(--surface-2); border-radius: 2px; overflow: hidden; min-width: 70px; } .bar i { display: block; height: 100%; background: var(--cyan); }
+  .ticker { max-height: 320px; overflow: auto; font-size: 12px; }
+  .ev { display: grid; grid-template-columns: 52px 150px 1fr; gap: 8px; padding: 5px 12px; border-bottom: 1px solid var(--border); }
+  .ev .k { font: 500 11px var(--font-data); color: var(--muted); } .ev.error .k, .ev.tool_denied .k { color: var(--bad); } .ev.model_call .k { color: var(--indigo); } .ev.tool_call .k { color: var(--cyan); } .ev.approval_requested .k, .ev.question_created .k { color: var(--warn); } .ev.state_change .k { color: var(--fg); }
+  .ev .t { color: var(--faint); font: 11px var(--font-data); }
+  .queue { display: grid; gap: 8px; padding: 10px 12px; }
+  .card { border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 10px; background: var(--surface-2); }
+  .card .meta { color: var(--muted); font-size: 11px; } .card .actions { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+  .inspector { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+  .kv { display: grid; grid-template-columns: 120px 1fr; gap: 4px 10px; padding: 10px 12px; font-size: 12px; } .kv dt { color: var(--faint); } .kv dd { margin: 0; }
+  .steps { display: flex; flex-wrap: wrap; gap: 4px; padding: 0 12px 10px; } .step { font: 500 10px var(--font-data); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border); color: var(--faint); } .step.done { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 50%, transparent); } .step.now { color: var(--cyan); border-color: var(--cyan); }
+  .map { height: 420px; position: relative; } .map svg { width: 100%; height: 100%; display: block; }
+  .map text { font: 10px var(--font-data); fill: var(--muted); } .map .lbl { fill: var(--fg); font-size: 11px; }
+  .map .edge { stroke: var(--border); stroke-width: 1.5; fill: none; } .map .edge.hot { stroke: var(--cyan); stroke-width: 2; } .map .edge.human { stroke: var(--warn); }
+  .map .node circle { fill: var(--surface-2); stroke: var(--border); stroke-width: 1.5; } .map .node.running circle { stroke: var(--cyan); stroke-width: 2.5; } .map .node.blocked circle { stroke: var(--warn); } .map .node.error circle { stroke: var(--bad); } .map .node.orch circle { fill: color-mix(in srgb, var(--indigo) 40%, var(--surface-2)); stroke: var(--indigo); } .map .node.human circle { fill: color-mix(in srgb, var(--warn) 25%, var(--surface-2)); }
+  .legend { display: flex; flex-wrap: wrap; gap: 10px; padding: 8px 12px; color: var(--muted); font-size: 11px; }
+  .empty { padding: 20px; color: var(--faint); text-align: center; }
+  .footer { color: var(--faint); font-size: 11px; }
+  .view { display: none; flex-direction: column; gap: 12px; } .view.on { display: flex; }
+  .mobile-nav { display: none; }
+  @media (max-width: 860px) {
+    .app { grid-template-columns: 1fr; } aside { display: none; }
+    .mobile-nav { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; } .mobile-nav a { white-space: nowrap; text-decoration: none; color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 4px 10px; font-size: 12px; } .mobile-nav a.on { color: var(--fg); border-color: var(--cyan); }
+    main { padding-left: max(16px, env(safe-area-inset-left, 0px)); }
+    .two, .inspector { grid-template-columns: 1fr; }
+    .ev { grid-template-columns: 48px 1fr; } .ev .k { grid-column: 2; }
+    table { font-size: 11px; } th:nth-child(5), td:nth-child(5), th:nth-child(7), td:nth-child(7) { display: none; }
+  }
+</style>
+
+<div class="app">
+  <aside>
+    <div class="brand"><small>Second Brain</small><b>Mission Control</b><div style="font-size:11px;color:var(--muted)">Operator console</div></div>
+    <nav>
+      <a href="#fleet">Overview <span>M0</span></a><a href="#fleet">Client Workspaces <span>M0</span></a><a href="#fleet">Agents <span>M1</span></a><a href="#fleet">Tasks <span>M1</span></a><a href="#runs">Runs &amp; Traces <span>M1</span></a><a href="#control">Approvals <span>M1</span></a>
+      <div class="live-nav"><h4>Live Agent Mission Control</h4>
+        <a href="#fleet" data-view="fleet">Fleet Overview <span class="n" id="n-fleet"></span></a>
+        <a href="#map" data-view="map">Live Agent Map <span class="n" id="n-map"></span></a>
+        <a href="#runs" data-view="runs">Run Inspector <span class="n" id="n-runs"></span></a>
+        <a href="#control" data-view="control">Management Control <span class="n" id="n-control"></span></a>
+      </div>
+    </nav>
+    <div class="account"><span class="avatar">DH</span><span>superadmin<br><span style="color:var(--faint)">MFA on</span></span></div>
+  </aside>
+  <main>
+    <div class="mobile-nav"><a href="#fleet" data-view="fleet">Fleet</a><a href="#map" data-view="map">Map</a><a href="#runs" data-view="runs">Runs</a><a href="#control" data-view="control">Control</a></div>
+    <div class="topbar">
+      <h1 id="title">Fleet Overview</h1>
+      <span class="status-dot" id="dot"></span><span class="pill" id="conn">stream: connected</span><span class="pill mono" id="clock"></span>
+      <span class="pill" style="color:var(--warn)">synthetic data (proposal A)</span>
+      <div class="filters">
+        <select id="f-client" aria-label="Client"><option value="">All clients</option></select>
+        <select id="f-agent" aria-label="Agent"><option value="">All agents</option></select>
+        <select id="f-status" aria-label="Status"><option value="">All states</option><option>running</option><option>queued</option><option>waiting_for_approval</option><option>waiting_for_input</option><option>paused</option><option>failed</option><option>succeeded</option><option>idle</option></select>
+        <button id="play">Pause stream</button>
+      </div>
+    </div>
+    <div class="strip" id="strip"></div>
+
+    <section class="view" id="view-fleet">
+      <div class="two">
+        <div class="panel"><header>Agents <span class="pill" id="fleet-count"></span></header>
+          <div style="overflow:auto;max-height:520px"><table id="fleet"><thead><tr><th>Agent</th><th>Client</th><th>State</th><th>Run</th><th>Step</th><th>Progress</th><th>Last activity</th><th>Cost</th></tr></thead><tbody></tbody></table></div>
+        </div>
+        <div class="panel"><header>Live events <span class="pill" id="ev-count"></span></header><div class="ticker" id="ticker"></div></div>
+      </div>
+      <div class="two">
+        <div class="panel"><header>Background workers (pg-boss)</header><div style="overflow:auto"><table id="workers"><thead><tr><th>Queue</th><th>Active</th><th>Queued</th><th>Done</th><th>Failed</th><th>Last</th></tr></thead><tbody></tbody></table></div></div>
+        <div class="panel"><header>Schedules</header><div style="overflow:auto"><table id="schedules"><thead><tr><th>Client</th><th>Flow</th><th>Cron</th><th>Next</th><th>Last</th><th></th></tr></thead><tbody></tbody></table></div></div>
+      </div>
+    </section>
+
+    <section class="view" id="view-map">
+      <div class="panel"><header>Live Agent Map <span class="pill">orchestrator, agents per client, services, humans; edges fade after 20 min</span></header>
+        <div class="map"><svg id="svg" viewBox="0 0 1000 420" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Agent communication graph"></svg></div>
+        <div class="legend"><span>● cyan ring: running</span><span>● amber ring: waiting for a human</span><span>● red ring: error</span><span>— cyan edge: tool or model call in the last 2 min</span><span>— amber edge: approval, question or instruction</span></div>
+      </div>
+      <div class="panel"><header>Recent communications</header><div class="ticker" id="edges"></div></div>
+    </section>
+
+    <section class="view" id="view-runs">
+      <div class="inspector">
+        <div class="panel"><header>Runs <span class="pill" id="runs-count"></span></header><div style="overflow:auto;max-height:560px"><table id="runs"><thead><tr><th>Run</th><th>Agent</th><th>Client</th><th>Trigger</th><th>State</th><th>Tools</th><th>Model</th><th>Cost</th><th>Duration</th></tr></thead><tbody></tbody></table></div></div>
+        <div class="panel" id="run-detail"><header>Run detail</header><div class="empty">Select a run.</div></div>
+      </div>
+    </section>
+
+    <section class="view" id="view-control">
+      <div class="two">
+        <div class="panel"><header>Needs a human <span class="pill" id="needs-count"></span></header><div class="queue" id="needs"></div></div>
+        <div class="panel"><header>Active runs: pause, resume, cancel, instruct</header><div class="queue" id="active"></div></div>
+      </div>
+      <div class="two">
+        <div class="panel"><header>Incidents</header><div class="queue" id="incidents"></div></div>
+        <div class="panel"><header>Reassign a task</header><div class="queue" id="reassign"></div></div>
+      </div>
+    </section>
+    <p class="footer">Proposal A, Operations Deck. Synthetic data only; vocabulary from the real schema (run_state, run_event_kind, approval_state, incident_kind, pg-boss queues). Every control here maps to an existing or planned audited server action; agents never get a control path.</p>
+  </main>
+</div>
+
+<script src="sim.js"></script>
+<script>
+(function () {
+  const sim = window.SBOSSim.createSim({ seed: 11 });
+  const $ = (s) => document.querySelector(s);
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  let view = "fleet", selRun = null, selAgent = null;
+  const filters = { client: "", agent: "", status: "" };
+  for (const c of sim.CLIENTS) $("#f-client").insertAdjacentHTML("beforeend", `<option value="${c.id}">${esc(c.name)}</option>`);
+  for (const d of sim.DEFINITIONS) $("#f-agent").insertAdjacentHTML("beforeend", `<option value="${d.key}">${esc(d.name)}</option>`);
+  for (const id of ["client", "agent", "status"]) $("#f-" + id).addEventListener("change", (e) => { filters[id] = e.target.value; render(sim.state); });
+  $("#play").addEventListener("click", () => { if (sim.running()) { sim.stop(); $("#play").textContent = "Resume stream"; $("#conn").textContent = "stream: paused by you"; } else { sim.start(1500); $("#play").textContent = "Pause stream"; $("#conn").textContent = "stream: connected"; } });
+
+  function setView(v) { view = ["fleet", "map", "runs", "control"].includes(v) ? v : "fleet"; document.querySelectorAll(".view").forEach((el) => el.classList.toggle("on", el.id === "view-" + view)); document.querySelectorAll("[data-view]").forEach((a) => a.classList.toggle("on", a.dataset.view === view)); $("#title").textContent = { fleet: "Fleet Overview", map: "Live Agent Map", runs: "Run Inspector", control: "Management Control" }[view]; render(sim.state); }
+  window.addEventListener("hashchange", () => setView(location.hash.slice(1)));
+
+  const agentOk = (a) => (!filters.client || a.clientId === filters.client) && (!filters.agent || a.definitionKey === filters.agent);
+  const runOk = (r) => (!filters.client || r.clientId === filters.client) && (!filters.agent || r.definitionKey === filters.agent) && (!filters.status || r.state === filters.status);
+
+  function render(state) {
+    const s = sim.derived.summary();
+    $("#clock").textContent = sim.fmtTime(sim.now()) + " · worker live · " + state.platform.replicas + " replicas × " + state.platform.concurrency;
+    $("#strip").innerHTML = [["Running", s.running, "run"], ["Waiting for human", s.waiting, "attn"], ["Idle", s.idle, ""], ["Failed", s.failed, "err"], ["Completed (30 min)", s.completed, ""], ["Open approvals", s.approvals, "attn"], ["Open questions", s.questions, "attn"], ["Open incidents", s.incidents, "err"], ["Spend / cap (USD)", s.monthUsd.toFixed(2) + " / " + s.cap, ""]]
+      .map(([l, v, cls]) => `<div class="stat ${cls}"><small>${l}</small><b>${v}</b></div>`).join("");
+    $("#n-fleet").textContent = s.running + "/" + state.agents.length; $("#n-map").textContent = state.edges.length; $("#n-runs").textContent = s.runsTotal; $("#n-control").textContent = s.approvals + s.questions + s.incidents;
+    if (view === "fleet") renderFleet(state); if (view === "map") renderMap(state); if (view === "runs") renderRuns(state); if (view === "control") renderControl(state);
+  }
+
+  function stateOf(a, run) { return run ? run.state : a.state; }
+  function renderFleet(state) {
+    const rows = state.agents.filter(agentOk).map((a) => ({ a, run: a.currentRunId ? sim.runById(a.currentRunId) : null, client: sim.clientById(a.clientId) })).filter((x) => !filters.status || stateOf(x.a, x.run) === filters.status);
+    const order = { running: 0, queued: 1, waiting_for_approval: 2, waiting_for_input: 2, paused: 3, error: 4, failed: 4, idle: 5 };
+    rows.sort((x, y) => (order[stateOf(x.a, x.run)] ?? 9) - (order[stateOf(y.a, y.run)] ?? 9) || y.a.lastActivityAt - x.a.lastActivityAt);
+    $("#fleet-count").textContent = rows.length + " of " + state.agents.length;
+    $("#fleet tbody").innerHTML = rows.map(({ a, run, client }) => {
+      const st = stateOf(a, run); const pct = run ? Math.round((run.stepIndex / run.steps.length) * 100) : 0;
+      return `<tr class="row ${selAgent === a.id ? "sel" : ""}" data-agent="${a.id}" data-run="${run ? run.id : ""}"><td><b>${esc(a.name)}</b><div class="mono" style="color:var(--faint)">${esc(a.definitionKey)} ${esc(a.skillVersion)}</div></td><td>${esc(client.name)}</td><td><span class="state ${st}">${st}</span></td><td class="mono">${run ? run.id : "<span style='color:var(--faint)'>none</span>"}</td><td class="mono">${run ? esc(run.steps[Math.min(run.stepIndex, run.steps.length - 1)]) : ""}</td><td>${run ? `<div class="bar" title="${pct}%"><i style="width:${pct}%"></i></div>` : ""}</td><td class="mono" style="color:var(--muted)">${sim.fmtAgo(a.lastActivityAt)}</td><td class="mono">${sim.fmtUsd(state.costs.byAgent[a.id] || 0)}</td></tr>`;
+    }).join("") || `<tr><td colspan="8" class="empty">No agents match the filters.</td></tr>`;
+    $("#fleet tbody").querySelectorAll("tr.row").forEach((tr) => tr.addEventListener("click", () => { selAgent = tr.dataset.agent; selRun = tr.dataset.run || selRun; location.hash = "#runs"; }));
+    const evs = state.events.filter((e) => (!filters.client || e.clientId === filters.client) && (!filters.agent || !e.agentId || sim.agentById(e.agentId)?.definitionKey === filters.agent)).slice(-80).reverse();
+    $("#ev-count").textContent = evs.length + " shown";
+    $("#ticker").innerHTML = evs.map((e) => `<div class="ev ${e.kind}"><span class="t">${sim.fmtTime(e.at)}</span><span class="k">${e.runId || "platform"} · ${e.kind}</span><span>${esc(evSummary(e))}</span></div>`).join("");
+    $("#workers tbody").innerHTML = state.workers.map((w) => `<tr><td><b class="mono">${w.queue}</b><div style="color:var(--faint)">${esc(w.label)}</div></td><td class="mono">${w.active}</td><td class="mono">${w.queued}</td><td class="mono">${w.completed}</td><td class="mono" style="color:${w.failed ? "var(--bad)" : "inherit"}">${w.failed}</td><td class="mono" style="color:var(--muted)">${w.lastAt ? sim.fmtAgo(w.lastAt) : "never"}</td></tr>`).join("");
+    $("#schedules tbody").innerHTML = state.schedules.filter((sc) => !filters.client || sc.clientId === filters.client || !sc.clientId).map((sc) => `<tr><td>${sc.clientId ? esc(sim.clientById(sc.clientId).name) : "<i>platform</i>"}</td><td class="mono">${sc.definitionKey}</td><td class="mono">${sc.cron} ${sc.tz}</td><td class="mono">${new Date(sc.nextAt).toISOString().slice(0, 16).replace("T", " ")}Z</td><td><span class="state ${sc.lastOutcome === "succeeded" ? "succeeded" : "failed"}">${sc.lastOutcome}</span></td><td><button data-toggle="${sc.id}">${sc.enabled ? "Disable" : "Enable"}</button></td></tr>`).join("");
+    $("#schedules").querySelectorAll("[data-toggle]").forEach((b) => b.addEventListener("click", () => sim.actions.toggleSchedule(b.dataset.toggle)));
+  }
+  function evSummary(e) {
+    const p = e.payload;
+    switch (e.kind) {
+      case "state_change": return `${p.from || "new"} → ${p.to}${p.reason ? " (" + p.reason + ")" : ""}`;
+      case "tool_call": return `${p.tool} → ${p.target}: ${p.result} (${p.durationMs} ms)`;
+      case "tool_denied": return `${p.tool} denied: ${p.reason}`;
+      case "model_call": return `${p.model}: ${p.summary} (${p.tokensIn} in / ${p.tokensOut} out, USD ${p.costUsd}, ${(p.durationMs / 1000).toFixed(1)} s)`;
+      case "step_started": return `step ${p.step}`; case "step_finished": return `step ${p.step} done in ${(p.durationMs / 1000).toFixed(1)} s`;
+      case "checkpoint": return `checkpoint saved: next ${p.step}`; case "approval_requested": return `approval ${p.approvalId} (${p.risk} risk) for ${p.approverRole}`;
+      case "approval_decided": return `${p.approvalId} ${p.decision} by ${p.by}`; case "question_created": return `question ${p.questionId} for ${p.department} (${p.priority})`;
+      case "error": return `${p.class}: ${p.message}`; default: return p.text || JSON.stringify(p);
+    }
+  }
+
+  function renderMap(state) {
+    const g = sim.derived.graph();
+    const W = 1000, H = 420; const pos = {};
+    pos.orchestrator = [500, 60]; pos.human = [500, 380]; const services = g.nodes.filter((n) => n.type === "service" || n.type === "connector");
+    services.forEach((n, i) => { pos[n.id] = [60 + (i * (W - 120)) / Math.max(1, services.length - 1), 330]; });
+    const clients = sim.CLIENTS; clients.forEach((c, ci) => { const agents = g.nodes.filter((n) => n.type === "agent" && n.clientId === c.id); agents.forEach((n, i) => { pos[n.id] = [120 + ci * 320 + (i % 4) * 85, 150 + Math.floor(i / 4) * 70]; }); });
+    const recent = g.edges.slice(-60); const hot = (e) => sim.now() - e.at < 2 * 60000;
+    let svg = "";
+    clients.forEach((c, ci) => { svg += `<rect x="${95 + ci * 320}" y="120" width="310" height="150" rx="10" fill="none" stroke="var(--border)" stroke-dasharray="4 4"/><text x="${105 + ci * 320}" y="138" class="lbl">${esc(c.name)}${c.live ? " · live" : " · sandbox"}</text>`; });
+    for (const e of recent) { const a = pos[e.from], b = pos[e.to]; if (!a || !b) continue; svg += `<path class="edge ${hot(e) ? "hot" : ""} ${["approval_requested", "question", "instruction", "approval_decided", "answer"].includes(e.kind) ? "human" : ""}" d="M${a[0]},${a[1]} Q${(a[0] + b[0]) / 2},${(a[1] + b[1]) / 2 - 20} ${b[0]},${b[1]}"><title>${esc(e.from)} → ${esc(e.to)}: ${esc(e.label)} (${sim.fmtAgo(e.at)})</title></path>`; }
+    for (const n of g.nodes) { const p = pos[n.id]; if (!p) continue; const cls = n.type === "orchestrator" ? "orch" : n.type === "human" ? "human" : n.type === "agent" ? (n.state === "running" ? "running" : n.state === "blocked" ? "blocked" : n.state === "error" ? "error" : "") : ""; const r = n.type === "agent" ? 16 : 20; svg += `<g class="node ${cls}" data-node="${n.id}" style="cursor:${n.type === "agent" ? "pointer" : "default"}"><circle cx="${p[0]}" cy="${p[1]}" r="${r}"/><text x="${p[0]}" y="${p[1] + r + 12}" text-anchor="middle" class="${n.type === "agent" ? "" : "lbl"}">${esc(n.label)}</text>${n.type === "agent" && n.runId ? `<text x="${p[0]}" y="${p[1] + 4}" text-anchor="middle" class="lbl" style="font-size:9px">${esc(n.runId.slice(2))}</text>` : ""}</g>`; }
+    $("#svg").innerHTML = svg;
+    $("#svg").querySelectorAll("[data-node]").forEach((n) => n.addEventListener("click", () => { const a = sim.agentById(n.dataset.node); if (a) { selAgent = a.id; selRun = a.currentRunId || selRun; location.hash = "#runs"; } }));
+    $("#edges").innerHTML = recent.slice().reverse().map((e) => `<div class="ev ${e.kind}"><span class="t">${sim.fmtTime(e.at)}</span><span class="k">${esc(e.kind)}</span><span>${esc(e.from)} → ${esc(e.to)}: ${esc(e.label)}</span></div>`).join("");
+  }
+
+  function renderRuns(state) {
+    const runs = state.runs.filter(runOk).filter((r) => !selAgent || r.agentId === selAgent || true).slice().reverse();
+    $("#runs-count").textContent = runs.length;
+    $("#runs tbody").innerHTML = runs.map((r) => `<tr class="row ${selRun === r.id ? "sel" : ""}" data-run="${r.id}"><td class="mono">${r.id}</td><td>${esc(sim.agentById(r.agentId).name)}</td><td>${esc(sim.clientById(r.clientId).name)}</td><td class="mono">${r.trigger}</td><td><span class="state ${r.state}">${r.state}</span></td><td class="mono">${r.toolCalls}</td><td class="mono">${r.modelCalls}</td><td class="mono">${sim.fmtUsd(r.costUsd)}</td><td class="mono">${Math.round(((r.finishedAt || sim.now()) - r.startedAt) / 60000)} min</td></tr>`).join("");
+    $("#runs tbody").querySelectorAll("tr.row").forEach((tr) => tr.addEventListener("click", () => { selRun = tr.dataset.run; renderRuns(state); }));
+    const r = selRun ? sim.runById(selRun) : runs[0]; if (r && !selRun) selRun = r.id;
+    if (!r) { $("#run-detail").innerHTML = `<header>Run detail</header><div class="empty">Select a run.</div>`; return; }
+    const a = sim.agentById(r.agentId), c = sim.clientById(r.clientId);
+    const evs = state.events.filter((e) => e.runId === r.id).slice().reverse();
+    $("#run-detail").innerHTML = `<header>${r.id} · ${esc(a.name)} · ${esc(c.name)} <span class="pill"><span class="state ${r.state}">${r.state}</span></span></header>
+      <dl class="kv"><dt>Trigger</dt><dd class="mono">${r.trigger} · attempt ${r.attempt}</dd><dt>Task</dt><dd class="mono">${r.taskId}: ${esc(state.tasks.find((t) => t.id === r.taskId)?.title || "")}</dd><dt>Started</dt><dd class="mono">${sim.fmtTime(r.startedAt)} (${sim.fmtAgo(r.startedAt)})</dd><dt>Model</dt><dd class="mono">${r.modelCalls} calls · ${r.tokensIn} in / ${r.tokensOut} out · ${sim.fmtUsd(r.costUsd)}</dd><dt>Tools</dt><dd class="mono">${r.toolCalls} calls · allow-list: ${esc(a.tools.join(", "))}</dd><dt>Checkpoint</dt><dd class="mono">${r.checkpoint ? r.checkpoint.step + " (" + sim.fmtAgo(r.checkpoint.savedAt) + ")" : "none yet"}</dd>${r.output ? `<dt>Result</dt><dd>${esc(r.output.title)}<div class="mono" style="color:var(--faint)">${esc(r.output.path)}</div></dd>` : ""}${r.failure ? `<dt>Failure</dt><dd style="color:var(--bad)">${esc(r.failure)}</dd>` : ""}${r.instructions.length ? `<dt>Instructions</dt><dd>${r.instructions.map((i) => esc(i.text)).join("<br>")}</dd>` : ""}</dl>
+      <div class="steps">${r.steps.map((s, i) => `<span class="step ${i < r.stepIndex ? "done" : i === r.stepIndex && r.state === "running" ? "now" : ""}">${s}</span>`).join("")}</div>
+      <div class="card" style="margin:0 12px 10px"><div class="actions">${["running", "queued"].includes(r.state) ? `<button data-act="pause">Pause</button>` : ""}${r.state === "paused" ? `<button data-act="resume" class="ok">Resume</button>` : ""}${!["succeeded", "failed", "cancelled"].includes(r.state) ? `<button data-act="cancel" class="bad">Cancel</button>` : ""}${r.state === "failed" ? `<button data-act="retry" class="primary">Retry</button>` : ""}${!["succeeded", "failed", "cancelled"].includes(r.state) ? `<input type="text" id="instr" placeholder="Instruction for the next checkpoint" style="flex:1;min-width:160px"><button data-act="instruct">Send</button>` : ""}</div></div>
+      <div class="ticker" style="max-height:300px">${evs.map((e) => `<div class="ev ${e.kind}"><span class="t">${sim.fmtTime(e.at)}</span><span class="k">${e.kind}</span><span>${esc(evSummary(e))}</span></div>`).join("")}</div>`;
+    $("#run-detail").querySelectorAll("[data-act]").forEach((b) => b.addEventListener("click", () => { const act = b.dataset.act; if (act === "instruct") sim.actions.instruct(r.id, $("#instr").value); else sim.actions[act](r.id); }));
+  }
+
+  function renderControl(state) {
+    const h = sim.derived.needsHuman();
+    const items = [];
+    for (const ap of h.approvals.filter((x) => !filters.client || x.clientId === filters.client)) items.push(`<div class="card"><b>Approval ${ap.id}</b> <span class="pill" style="color:var(--warn)">${ap.risk} risk · ${ap.approverRole}</span><div>${esc(ap.summary)}</div><div class="meta">${esc(sim.agentById(ap.agentId).name)} · ${esc(sim.clientById(ap.clientId).name)} · run ${ap.runId} · requested ${sim.fmtAgo(ap.requestedAt)}</div><div class="meta">Evidence: ${ap.evidence.map((e) => `${e.kind} ${esc(e.ref)} = ${esc(e.value)} (${esc(e.source)})`).join("; ")}</div><div class="actions"><button class="ok" data-ap="${ap.id}" data-d="approve">Approve</button><button class="bad" data-ap="${ap.id}" data-d="reject">Reject</button></div></div>`);
+    for (const q of h.questions.filter((x) => !filters.client || x.clientId === filters.client)) items.push(`<div class="card"><b>Question ${q.id}</b> <span class="pill" style="color:var(--warn)">${q.department} · ${q.priority}</span><div>${esc(q.text)}</div><div class="meta">${esc(sim.agentById(q.agentId).name)} · ${esc(sim.clientById(q.clientId).name)} · run ${q.runId}</div><div class="actions"><button class="ok" data-q="${q.id}">Answer "yes" (demo)</button></div></div>`);
+    for (const r of h.failedRuns.filter((x) => !filters.client || x.clientId === filters.client)) items.push(`<div class="card"><b>Failed run ${r.id}</b> <span class="pill" style="color:var(--bad)">${esc(r.failure)}</span><div class="meta">${esc(sim.agentById(r.agentId).name)} · ${esc(sim.clientById(r.clientId).name)} · attempt ${r.attempt}</div><div class="actions"><button class="primary" data-retry="${r.id}">Retry</button></div></div>`);
+    $("#needs-count").textContent = items.length;
+    $("#needs").innerHTML = items.join("") || `<div class="empty">Nothing needs you right now.</div>`;
+    $("#needs").querySelectorAll("[data-ap]").forEach((b) => b.addEventListener("click", () => sim.actions[b.dataset.d](b.dataset.ap, "DH")));
+    $("#needs").querySelectorAll("[data-q]").forEach((b) => b.addEventListener("click", () => sim.actions.answer(b.dataset.q, "Yes, on hold until the deposit clears")));
+    $("#needs").querySelectorAll("[data-retry]").forEach((b) => b.addEventListener("click", () => sim.actions.retry(b.dataset.retry)));
+    const active = state.runs.filter((r) => ["running", "queued", "paused", "waiting_for_approval", "waiting_for_input"].includes(r.state)).filter(runOk);
+    $("#active").innerHTML = active.map((r) => `<div class="card"><b class="mono">${r.id}</b> ${esc(sim.agentById(r.agentId).name)} · ${esc(sim.clientById(r.clientId).name)} <span class="state ${r.state}">${r.state}</span><div class="meta">step ${esc(r.steps[Math.min(r.stepIndex, r.steps.length - 1)])} · ${r.toolCalls} tools · ${sim.fmtUsd(r.costUsd)}</div><div class="actions">${["running", "queued"].includes(r.state) ? `<button data-run="${r.id}" data-act="pause">Pause</button>` : ""}${r.state === "paused" ? `<button class="ok" data-run="${r.id}" data-act="resume">Resume</button>` : ""}<button class="bad" data-run="${r.id}" data-act="cancel">Cancel</button><input type="text" placeholder="Instruction at next checkpoint" data-instr="${r.id}" style="flex:1;min-width:140px"><button data-run="${r.id}" data-act="instruct">Send</button></div></div>`).join("") || `<div class="empty">No active runs.</div>`;
+    $("#active").querySelectorAll("button[data-run]").forEach((b) => b.addEventListener("click", () => { const act = b.dataset.act; if (act === "instruct") { const i = $("#active").querySelector(`[data-instr="${b.dataset.run}"]`); sim.actions.instruct(b.dataset.run, i.value); } else sim.actions[act](b.dataset.run); }));
+    $("#incidents").innerHTML = state.incidents.slice().reverse().filter((i) => !filters.client || i.clientId === filters.client).map((i) => `<div class="card"><b>${i.id}</b> <span class="pill" style="color:${i.severity === "critical" ? "var(--bad)" : "var(--warn)"}">${i.kind} · ${i.severity}</span> <span class="state ${i.state === "open" ? "failed" : i.state === "resolved" ? "succeeded" : "paused"}">${i.state}</span><div>${esc(i.title)}</div><div class="meta">${esc(sim.clientById(i.clientId).name)} · ${sim.fmtAgo(i.createdAt)}</div><div class="actions">${i.state === "open" ? `<button data-inc="${i.id}" data-d="ackIncident">Acknowledge</button>` : ""}${i.state !== "resolved" ? `<button class="ok" data-inc="${i.id}" data-d="resolveIncident">Resolve</button>` : ""}</div></div>`).join("") || `<div class="empty">No incidents.</div>`;
+    $("#incidents").querySelectorAll("[data-inc]").forEach((b) => b.addEventListener("click", () => sim.actions[b.dataset.d](b.dataset.inc)));
+    const openTasks = state.tasks.filter((t) => ["assigned", "in_progress", "failed", "waiting_input", "waiting_approval"].includes(t.state)).filter((t) => !filters.client || t.clientId === filters.client).slice(-6).reverse();
+    $("#reassign").innerHTML = openTasks.map((t) => `<div class="card"><b class="mono">${t.id}</b> ${esc(t.title)} <span class="state ${t.state === "failed" ? "failed" : "running"}">${t.state}</span><div class="actions"><select data-task="${t.id}">${state.agents.filter((a) => a.clientId === t.clientId).map((a) => `<option value="${a.id}" ${a.id === t.agentId ? "selected" : ""}>${esc(a.name)}</option>`).join("")}</select><button data-reassign="${t.id}">Reassign</button></div></div>`).join("") || `<div class="empty">No open tasks.</div>`;
+    $("#reassign").querySelectorAll("[data-reassign]").forEach((b) => b.addEventListener("click", () => { const sel = $("#reassign").querySelector(`select[data-task="${b.dataset.reassign}"]`); sim.actions.reassign(b.dataset.reassign, sel.value); }));
+  }
+
+  sim.subscribe(render);
+  setView(location.hash.slice(1));
+  sim.start(1500);
+})();
+</script>
