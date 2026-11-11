@@ -1,6 +1,6 @@
 import { and, eq, sql } from "drizzle-orm";
 import { schema, tenantContext, type DbHandle, type TenantContext, type Tx } from "@sbos/db";
-import { RunFailure, appendRunEvent, assertWithinRunCap, checkBudget, estimateCostUsd, raiseIncident, recordCost, saveCheckpoint, setTaskState, transitionRun, type JobBackend } from "@sbos/core";
+import { RunFailure, appendRunEvent, consumePendingInstructions, formatInstructionsForPrompt, assertWithinRunCap, checkBudget, estimateCostUsd, raiseIncident, recordCost, saveCheckpoint, setTaskState, transitionRun, type JobBackend } from "@sbos/core";
 import { MastraAgentRuntime, SimulatedRuntime, ToolGateway, type AgentRuntime, type TenantSnapshot } from "@sbos/agents";
 import type { WorkerEnv } from "./env";
 import { log } from "./log";
@@ -85,6 +85,8 @@ export async function executeRun(handle: DbHandle, env: WorkerEnv, jobs: JobBack
   const model = instance.model ?? definition.defaultModel;
   const simulated = env.forceSimulated || !env.anthropicApiKey;
   let checkpoint: BaseCheckpoint = (run.checkpoint as BaseCheckpoint | null) ?? flow.initial();
+  // Operator instructions (ADR-024): consumed at every checkpoint, prepended to every later model prompt of this run.
+  const operatorInstructions: Array<{ text: string }> = [];
 
   const rt: FlowRuntime = {
     handle,
@@ -106,7 +108,7 @@ export async function executeRun(handle: DbHandle, env: WorkerEnv, jobs: JobBack
       const projected = estimateCostUsd(model, Math.ceil((skill.skillMd.length + g.prompt.length) / 4), g.maxOutputTokens ?? 3000);
       assertWithinRunCap(projected, budget.runCapUsd);
       const runtime = rt.runtime(g.fixture);
-      const r = await runtime.generateStructured({ instructions: skill.skillMd, prompt: g.prompt, schema: g.schema, maxOutputTokens: g.maxOutputTokens ?? 3000 });
+      const r = await runtime.generateStructured({ instructions: skill.skillMd, prompt: g.prompt + formatInstructionsForPrompt(operatorInstructions), schema: g.schema, maxOutputTokens: g.maxOutputTokens ?? 3000 });
       const cost = estimateCostUsd(r.model, r.usage.inputTokens, r.usage.outputTokens);
       await handle.withContext(ctx, async (tx) => {
         await recordCost(tx, { tenantId, runId, agentInstanceId: instance.id, taskId: run.taskId, model: r.model, tokensInput: r.usage.inputTokens, tokensOutput: r.usage.outputTokens, costUsd: cost, simulated: r.simulated });
@@ -130,6 +132,8 @@ export async function executeRun(handle: DbHandle, env: WorkerEnv, jobs: JobBack
       if (++guard > 50) throw new RunFailure("bug", "flow exceeded 50 steps");
       const step = flow.steps[checkpoint.step];
       if (!step) throw new RunFailure("bug", `unknown step ${checkpoint.step} in flow ${flow.key}`);
+      const consumed = await handle.withContext(ctx, (tx) => consumePendingInstructions(tx, { tenantId, runId, step: checkpoint.step }));
+      operatorInstructions.push(...consumed);
       const outcome = await step(rt, checkpoint);
       checkpoint = outcome.checkpoint;
       await rt.saveCheckpoint(checkpoint, `step ${checkpoint.step}`);

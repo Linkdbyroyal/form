@@ -180,6 +180,8 @@ export const agentRuns = pgTable(
     taskId: uuid("task_id").references(() => agentTasks.id, { onDelete: "set null" }),
     scheduleId: uuid("schedule_id").references(() => schedules.id, { onDelete: "set null" }),
     skillVersionId: uuid("skill_version_id").references(() => skillVersions.id),
+    /** Delegation lineage (ADR-024): the run that spawned this one, when a flow delegates to a sub-agent. */
+    parentRunId: uuid("parent_run_id"),
     trigger: runTrigger("trigger").notNull(),
     triggerRef: text("trigger_ref"),
     state: runState("state").notNull().default("queued"),
@@ -418,4 +420,21 @@ export const vaultRevisions = pgTable(
     createdAt: createdAt()
   },
   (t) => [uniqueIndex("vault_revisions_doc_version_idx").on(t.documentId, t.version)]
+);
+
+/** Operator instructions for a run, applied at its next checkpoint (ADR-024). Agents never write them. */
+export const runInstructions = pgTable(
+  "run_instructions",
+  {
+    id: id(),
+    tenantId: tenantId(),
+    runId: uuid("run_id").notNull().references(() => agentRuns.id, { onDelete: "cascade" }),
+    text: text("text").notNull(),
+    createdByActorType: actorType("created_by_actor_type").notNull(),
+    createdByActorId: text("created_by_actor_id").notNull(),
+    createdAt: createdAt(),
+    consumedAt: timestamp("consumed_at", { withTimezone: true }),
+    consumedAtStep: text("consumed_at_step")
+  },
+  (t) => [index("run_instructions_run_idx").on(t.runId, t.createdAt)]
 );

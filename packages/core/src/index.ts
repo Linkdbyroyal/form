@@ -16,3 +16,4 @@ export * from "./agency-knowledge";
 export * from "./integrations";
 export * from "./tech-intelligence";
 export * from "./retention";
+export * from "./instructions";
