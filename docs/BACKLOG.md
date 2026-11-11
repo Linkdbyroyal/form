@@ -31,5 +31,13 @@ See `docs/milestones/M1.md` tickets M1-01 … M1-15, including the autonomous wo
 ## M6 Hardening + Tech Intelligence + pilot (delivered except go-live)
 - Done: Technology Intelligence Center (backend and UI), retention and deletion requests (backend and UI), security evaluation suite with agent boundary hardening (migration 0010), notification delivery fix, review and go-live checklists. Open: staging deploy and pilot go-live (needs Railway, API key, M5 owner decisions), reviewer-only deletion queue, Technology Intelligence agent for automatic assessment, pagination.
 
+## Live Agent Mission Control (ADR-024, in progress)
+- Done: research of four repositories, three proposals and the approved composite D, migration 0011, core instruction service, worker consumption at checkpoints.
+- Slice 1 (web): LISTEN client, SSE route with snapshot-then-stream, snapshot API, client hook with backoff and polling fallback, `/mission-control/live` Queue tab, instruct action, nav entry, pure-helper tests.
+- Slice 2: Run Inspector tab (run list plus detail drawer with steps, tool and model events, instructions, controls).
+- Slice 3: Flight Map tab (React Flow 12 plus dagre, pinned; conductor layout with license notice; delegation edges from `parent_run_id`).
+- Slice 4: Operations Deck tab (dense table, event ticker, workers and schedules), filters by workflow and department across tabs, reassign task.
+- Later: redaction rules per `run_event_kind` payload documented in `docs/SECURITY.md`; load test of the stream with two web replicas.
+
 ## Parking lot
 - Graph view for the vault; Papiamentu locale; mobile layouts; CopilotKit Intelligence (paid) evaluation; Trigger.dev migration if pg-boss limits are hit; Paperclip re-assessment after code audit.

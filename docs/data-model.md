@@ -53,6 +53,10 @@ RLS summary: `tenants` readable by members and agency roles; all other tenant ta
 
 0008: `connection_phase_changes`, `sync_runs`, `webhook_endpoints`, lineage column on `kpi_observations`, phase trigger on `connections` (one step at a time, consent and security review before read_only, write refused). 0009: `tech_sources`, `tech_updates` (UpgradeProposal fields, lifecycle trigger), `tech_update_transitions`, `tech_watch_runs`, `retention_policies` (platform default and tenant override, floors), `retention_sweeps`, `deletion_requests` (reviewer decision, worker execution), restrictive DELETE policies on audit-class tables, operator UPDATE on notification delivery columns.
 
+## Migration 0011 (Live Agent Mission Control, ADR-024, delivered backend)
+
+`agent_runs.parent_run_id` (delegation lineage, nullable, index), `run_instructions` (`tenant_id`, `run_id`, `text` 1 to 2000 characters, `created_by_actor_type/_id`, `consumed_at`, `consumed_at_step`; RLS forced; INSERT refused for agents and for terminal runs by trigger `enforce_run_instruction`; UPDATE may only set the consumption fields, once; operator role may SELECT). Trigger `notify_live_change()` on `agent_runs`, `run_events`, `approvals`, `incidents`, `questions`, `agent_instances`, `sync_runs`, `run_instructions`, `agent_tasks` sends `pg_notify('sbos_live', {table, op, id, tenantId, at})`, identifiers only; the web stream re-reads through RLS.
+
 ## Identity columns on every relevant action (spec 6B)
 
 `workspace_id` is `tenant_id`; actions carry `tenant_id`, `user_id` or `agent_id`, `run_id`, `source_id` where applicable. These are present in `audit_events.metadata` and in `run_events` as columns.
