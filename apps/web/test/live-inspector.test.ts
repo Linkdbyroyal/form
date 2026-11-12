@@ -121,18 +121,18 @@ describe("run list", () => {
   };
 
   it("lists alive runs first (newest start first), then finished runs (newest finish first), without failures by default", () => {
-    const rows = buildRunList(snapshot, { tenantId: null, definitionKey: null, state: null });
+    const rows = buildRunList(snapshot, { tenantId: null, definitionKey: null, state: null, department: null });
     expect(rows.map((r) => r.id)).toEqual(["r2", "r1", "d2", "d1"]);
     expect(rows[0]).toMatchObject({ sortAt: "2026-11-11T10:50:00.000Z", finishedAt: null, errorCode: null, toolCalls: 3, modelCalls: 2, costUsd: 0.5 });
     expect(rows[2]).toMatchObject({ trigger: "command", startedAt: "2026-11-11T10:20:00.000Z", finishedAt: "2026-11-11T10:40:00.000Z" });
   });
 
   it("adds the failed lane when the state filter asks for failures, and applies the shared filters", () => {
-    expect(buildRunList(snapshot, { tenantId: null, definitionKey: null, state: "failed" }).map((r) => r.id)).toEqual(["f1"]);
-    expect(buildRunList(snapshot, { tenantId: null, definitionKey: null, state: "timed_out" })).toMatchObject([{ id: "f2", errorCode: "budget_exceeded", simulated: true }]);
-    expect(buildRunList(snapshot, { tenantId: "t2", definitionKey: null, state: null }).map((r) => r.id)).toEqual(["r2"]);
-    expect(buildRunList(snapshot, { tenantId: null, definitionKey: "kpi", state: null }).map((r) => r.id)).toEqual(["d2"]);
-    expect(buildRunList(snapshot, { tenantId: null, definitionKey: null, state: "succeeded" }).map((r) => r.id)).toEqual(["d1"]);
+    expect(buildRunList(snapshot, { tenantId: null, definitionKey: null, state: "failed", department: null }).map((r) => r.id)).toEqual(["f1"]);
+    expect(buildRunList(snapshot, { tenantId: null, definitionKey: null, state: "timed_out", department: null })).toMatchObject([{ id: "f2", errorCode: "budget_exceeded", simulated: true }]);
+    expect(buildRunList(snapshot, { tenantId: "t2", definitionKey: null, state: null, department: null }).map((r) => r.id)).toEqual(["r2"]);
+    expect(buildRunList(snapshot, { tenantId: null, definitionKey: "kpi", state: null, department: null }).map((r) => r.id)).toEqual(["d2"]);
+    expect(buildRunList(snapshot, { tenantId: null, definitionKey: null, state: "succeeded", department: null }).map((r) => r.id)).toEqual(["d1"]);
   });
 
   it("sorts without mutating the input", () => {

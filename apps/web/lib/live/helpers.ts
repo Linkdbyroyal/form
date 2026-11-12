@@ -26,6 +26,8 @@ export interface LiveApproval {
   blocking: boolean;
   createdAt: string;
   operatorMayDecide: boolean;
+  /** Agent instance behind the approval's run; null when the approval has no run. Lets the department filter apply (slice 4). */
+  agentInstanceId: string | null;
 }
 
 export interface LiveIncident {
@@ -121,6 +123,53 @@ export interface LiveAgent {
   state: string;
   currentRunId: string | null;
   lastActivityAt: string | null;
+  /** Operations Deck (slice 4): definition metadata and month cost. */
+  definitionName: string;
+  /** `agent_definitions.authority` (t1, t2, t3). */
+  tier: string;
+  department: string | null;
+  /** Sum of cost_events this calendar month (UTC) for this instance; cost_events is granted to the operator role. */
+  monthCostUsd: number;
+  /** Runs created in the last 24 hours. */
+  runsToday: number;
+}
+
+/** One row of the Deck's live event ticker: run_events metadata (summary, never the payload), classification public or internal only. */
+export interface LiveEvent {
+  id: string;
+  seq: number;
+  runId: string;
+  agentInstanceId: string;
+  agentName: string;
+  tenantId: string;
+  tenantName: string;
+  kind: string;
+  summary: string;
+  classification: string;
+  costUsd: number;
+  tokens: number;
+  occurredAt: string;
+}
+
+export const WORKER_QUEUES = ["agent.run", "agent.resume", "schedule.tick", "connector.sync", "notify.send", "tech.watch", "retention.sweep"] as const;
+export type WorkerQueue = (typeof WORKER_QUEUES)[number];
+
+/**
+ * Background worker row (Deck). pg-boss keeps its own tables in a schema the operator role cannot read, so every count is
+ * derived from domain tables the operator may read; `null` means the source does not track that number. `readable`
+ * is false when the source table is not granted to the operator role, with the reason in `note`.
+ */
+export interface LiveWorker {
+  queue: WorkerQueue;
+  label: string;
+  source: string;
+  active: number | null;
+  queued: number | null;
+  done24h: number | null;
+  failed24h: number | null;
+  lastAt: string | null;
+  readable: boolean;
+  note: string | null;
 }
 
 export interface LiveStateChange {
@@ -136,6 +185,7 @@ export interface LiveStateChange {
 
 export interface LiveSchedule {
   id: string;
+  tenantId: string;
   tenantName: string;
   agentName: string;
   definitionKey: string;
@@ -177,6 +227,9 @@ export interface LiveSnapshot {
   /** Flight Map (slice 3): run_events of the last 20 minutes mapped to communication targets, newest last, capped at 400. */
   communications: LiveCommunication[];
   connectors: LiveConnector[];
+  /** Operations Deck (slice 4): newest 120 run_events across tenants (newest first) and the derived worker rows. */
+  events: LiveEvent[];
+  workers: LiveWorker[];
 }
 
 export function emptyRunCounts(): Record<LiveRunState, number> {
@@ -222,22 +275,42 @@ export interface LaneFilters {
   tenantId: string | null;
   definitionKey: string | null;
   state: LiveRunState | null;
+  /** Department of the agent definition (slice 4); applies on every tab. */
+  department: string | null;
 }
 
-export const EMPTY_FILTERS: LaneFilters = { tenantId: null, definitionKey: null, state: null };
+export const EMPTY_FILTERS: LaneFilters = { tenantId: null, definitionKey: null, state: null, department: null };
 
-export function runMatches(run: { tenantId: string; definitionKey: string; state: LiveRunState }, f: LaneFilters): boolean {
+/** Department per agent definition key, read from the agents in the snapshot (the operator role is granted agent_definitions). */
+export type DepartmentMap = ReadonlyMap<string, string | null>;
+
+export function departmentByDefinition(agents: ReadonlyArray<Pick<LiveAgent, "definitionKey" | "department">>): DepartmentMap {
+  const out = new Map<string, string | null>();
+  for (const a of agents) if (!out.has(a.definitionKey)) out.set(a.definitionKey, a.department);
+  return out;
+}
+
+/**
+ * Whether a run passes the filters. The department filter resolves through the run's definition key; without a
+ * department map (or for an unknown definition) a department filter hides the run, so a filtered view never shows a
+ * run whose department is unknown as if it matched.
+ */
+export function runMatches(run: { tenantId: string; definitionKey: string; state: LiveRunState }, f: LaneFilters, departments?: DepartmentMap): boolean {
   if (f.tenantId && run.tenantId !== f.tenantId) return false;
   if (f.definitionKey && run.definitionKey !== f.definitionKey) return false;
   if (f.state && run.state !== f.state) return false;
+  if (f.department && (departments?.get(run.definitionKey) ?? null) !== f.department) return false;
   return true;
 }
 
+type RunsSnapshot = Pick<LiveSnapshot, "running" | "done" | "needsYou"> & Partial<Pick<LiveSnapshot, "agents">>;
+
 /** Groups the snapshot's runs into the three lanes with the filters applied. Running first by start time (newest first). */
-export function groupRuns(snapshot: Pick<LiveSnapshot, "running" | "done" | "needsYou">, f: LaneFilters): { running: LiveRun[]; done: LiveDoneRun[]; failed: LiveFailedRun[] } {
-  const running = snapshot.running.filter((r) => laneForRunState(r.state) === "running" && runMatches(r, f)).sort((a, b) => (b.startedAt ?? b.createdAt).localeCompare(a.startedAt ?? a.createdAt));
-  const done = snapshot.done.filter((r) => laneForRunState(r.state) === "done" && runMatches(r, f)).sort((a, b) => (b.finishedAt ?? "").localeCompare(a.finishedAt ?? ""));
-  const failed = snapshot.needsYou.failedRuns.filter((r) => laneForRunState(r.state) === "needs_you" && (!f.tenantId || r.tenantId === f.tenantId) && (!f.state || r.state === f.state));
+export function groupRuns(snapshot: RunsSnapshot, f: LaneFilters): { running: LiveRun[]; done: LiveDoneRun[]; failed: LiveFailedRun[] } {
+  const departments = departmentByDefinition(snapshot.agents ?? []);
+  const running = snapshot.running.filter((r) => laneForRunState(r.state) === "running" && runMatches(r, f, departments)).sort((a, b) => (b.startedAt ?? b.createdAt).localeCompare(a.startedAt ?? a.createdAt));
+  const done = snapshot.done.filter((r) => laneForRunState(r.state) === "done" && runMatches(r, f, departments)).sort((a, b) => (b.finishedAt ?? "").localeCompare(a.finishedAt ?? ""));
+  const failed = snapshot.needsYou.failedRuns.filter((r) => laneForRunState(r.state) === "needs_you" && runMatches(r, { ...f, definitionKey: null }, departments));
   return { running, done, failed };
 }
 
@@ -424,14 +497,16 @@ export function fmtClock(iso: string): string {
 }
 
 /** Options for the filter selects, derived from the snapshot (no extra query). */
-export function filterOptions(snapshot: Pick<LiveSnapshot, "agents">): { tenants: Array<{ id: string; name: string }>; definitions: string[] } {
+export function filterOptions(snapshot: Pick<LiveSnapshot, "agents">): { tenants: Array<{ id: string; name: string }>; definitions: string[]; departments: string[] } {
   const tenants = new Map<string, string>();
   const definitions = new Set<string>();
+  const departments = new Set<string>();
   for (const a of snapshot.agents) {
     tenants.set(a.tenantId, a.tenantName);
     definitions.add(a.definitionKey);
+    if (a.department) departments.add(a.department);
   }
-  return { tenants: [...tenants].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name)), definitions: [...definitions].sort() };
+  return { tenants: [...tenants].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name)), definitions: [...definitions].sort(), departments: [...departments].sort() };
 }
 
 // Run Inspector (slice 2) --------------------------------------------------------------------
@@ -629,19 +704,20 @@ export interface RunListRow {
  * filters applied. Failed and timed out runs live in the "needs you" lane; they join the list when the state filter
  * asks for them. Alive runs first (newest start first), then terminal runs (newest finish first).
  */
-export function buildRunList(snapshot: Pick<LiveSnapshot, "running" | "done" | "needsYou">, f: LaneFilters): RunListRow[] {
+export function buildRunList(snapshot: RunsSnapshot, f: LaneFilters): RunListRow[] {
+  const departments = departmentByDefinition(snapshot.agents ?? []);
   const rows: RunListRow[] = [];
   for (const r of snapshot.running) {
-    if (!runMatches(r, f)) continue;
+    if (!runMatches(r, f, departments)) continue;
     rows.push({ id: r.id, tenantId: r.tenantId, tenantName: r.tenantName, agentName: r.agentName, definitionKey: r.definitionKey, trigger: r.trigger, state: r.state, startedAt: r.startedAt, finishedAt: null, sortAt: r.startedAt ?? r.createdAt, costUsd: r.costUsd, toolCalls: r.toolCalls, modelCalls: r.modelCalls, simulated: r.simulated, errorCode: null });
   }
   for (const r of snapshot.done) {
-    if (!runMatches(r, f)) continue;
+    if (!runMatches(r, f, departments)) continue;
     rows.push({ id: r.id, tenantId: r.tenantId, tenantName: r.tenantName, agentName: r.agentName, definitionKey: r.definitionKey, trigger: r.trigger, state: r.state, startedAt: r.startedAt, finishedAt: r.finishedAt, sortAt: r.finishedAt ?? r.startedAt ?? "", costUsd: r.costUsd, toolCalls: r.toolCalls, modelCalls: r.modelCalls, simulated: r.simulated, errorCode: null });
   }
   if (f.state === "failed" || f.state === "timed_out") {
     for (const r of snapshot.needsYou.failedRuns) {
-      if (!runMatches(r, f)) continue;
+      if (!runMatches(r, f, departments)) continue;
       rows.push({ id: r.id, tenantId: r.tenantId, tenantName: r.tenantName, agentName: r.agentName, definitionKey: r.definitionKey, trigger: r.trigger, state: r.state, startedAt: r.startedAt, finishedAt: r.finishedAt, sortAt: r.finishedAt ?? r.startedAt ?? "", costUsd: r.costUsd, toolCalls: r.toolCalls, modelCalls: r.modelCalls, simulated: true, errorCode: r.errorCode });
     }
   }
@@ -669,13 +745,15 @@ export function parseLiveTab(value: string | null | undefined): LiveTab {
 }
 
 /**
- * Path the board lives at for a tab and selection. Server actions redirect back here with `?ok=` or `?error=`
- * appended by `withNotice`, which keeps these parameters, so the drawer stays open after Stop, Instruct or Approve.
+ * Path the board lives at for a tab, selection and department filter. Server actions redirect back here with `?ok=` or
+ * `?error=` appended by `withNotice`, which keeps these parameters, so the drawer and the filter survive Stop, Instruct,
+ * Approve or a schedule toggle.
  */
-export function liveReturnTo(tab: LiveTab, runId: string | null): string {
+export function liveReturnTo(tab: LiveTab, runId: string | null, department: string | null = null): string {
   const params = new URLSearchParams();
   if (tab !== "queue") params.set("tab", tab);
   if (runId) params.set("run", runId);
+  if (department) params.set("department", department);
   const qs = params.toString();
   return qs ? `/mission-control/live?${qs}` : "/mission-control/live";
 }

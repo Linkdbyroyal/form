@@ -81,32 +81,32 @@ describe("lanes", () => {
   });
 
   it("groups runs into lanes, newest first, with no filters", () => {
-    const lanes = groupRuns(snapshotBase(), { tenantId: null, definitionKey: null, state: null });
+    const lanes = groupRuns(snapshotBase(), { tenantId: null, definitionKey: null, state: null, department: null });
     expect(lanes.running.map((r) => r.id)).toEqual(["r2", "r1", "r3"]);
     expect(lanes.done.map((r) => r.id)).toEqual(["d2", "d1"]);
     expect(lanes.failed.map((r) => r.id)).toEqual(["f1", "f2"]);
   });
 
   it("applies client, definition and state filters", () => {
-    const byTenant = groupRuns(snapshotBase(), { tenantId: "t2", definitionKey: null, state: null });
+    const byTenant = groupRuns(snapshotBase(), { tenantId: "t2", definitionKey: null, state: null, department: null });
     expect(byTenant.running.map((r) => r.id)).toEqual(["r2"]);
     expect(byTenant.done.map((r) => r.id)).toEqual(["d2"]);
     expect(byTenant.failed.map((r) => r.id)).toEqual(["f2"]);
-    const byDefinition = groupRuns(snapshotBase(), { tenantId: null, definitionKey: "discovery", state: null });
+    const byDefinition = groupRuns(snapshotBase(), { tenantId: null, definitionKey: "discovery", state: null, department: null });
     expect(byDefinition.running.map((r) => r.id)).toEqual(["r1", "r3"]);
-    const byState = groupRuns(snapshotBase(), { tenantId: null, definitionKey: null, state: "queued" });
+    const byState = groupRuns(snapshotBase(), { tenantId: null, definitionKey: null, state: "queued", department: null });
     expect(byState.running.map((r) => r.id)).toEqual(["r3"]);
     expect(byState.done).toEqual([]);
     expect(byState.failed).toEqual([]);
-    expect(runMatches({ tenantId: "t1", definitionKey: "x", state: "running" }, { tenantId: null, definitionKey: "y", state: null })).toBe(false);
+    expect(runMatches({ tenantId: "t1", definitionKey: "x", state: "running" }, { tenantId: null, definitionKey: "y", state: null, department: null })).toBe(false);
   });
 
   it("derives filter options from the agents list", () => {
     const options = filterOptions({
       agents: [
-        { id: "a", tenantId: "t2", tenantSlug: "zed", tenantName: "Zed", definitionKey: "kpi", name: "K", state: "idle", currentRunId: null, lastActivityAt: null },
-        { id: "b", tenantId: "t1", tenantSlug: "acme", tenantName: "Acme", definitionKey: "discovery", name: "D", state: "idle", currentRunId: null, lastActivityAt: null },
-        { id: "c", tenantId: "t1", tenantSlug: "acme", tenantName: "Acme", definitionKey: "kpi", name: "K2", state: "idle", currentRunId: null, lastActivityAt: null }
+        { id: "a", tenantId: "t2", tenantSlug: "zed", tenantName: "Zed", definitionKey: "kpi", name: "K", state: "idle", currentRunId: null, lastActivityAt: null, definitionName: "Definition", tier: "t1", department: null, monthCostUsd: 0, runsToday: 0 },
+        { id: "b", tenantId: "t1", tenantSlug: "acme", tenantName: "Acme", definitionKey: "discovery", name: "D", state: "idle", currentRunId: null, lastActivityAt: null, definitionName: "Definition", tier: "t1", department: null, monthCostUsd: 0, runsToday: 0 },
+        { id: "c", tenantId: "t1", tenantSlug: "acme", tenantName: "Acme", definitionKey: "kpi", name: "K2", state: "idle", currentRunId: null, lastActivityAt: null, definitionName: "Definition", tier: "t1", department: null, monthCostUsd: 0, runsToday: 0 }
       ]
     });
     expect(options.tenants).toEqual([{ id: "t1", name: "Acme" }, { id: "t2", name: "Zed" }]);
@@ -205,7 +205,9 @@ describe("stream client", () => {
       timeline: [],
       schedules: [],
       communications: [],
-      connectors: []
+      connectors: [],
+      events: [],
+      workers: []
     };
     expect(parseSnapshotEvent(JSON.stringify(snapshot))).toEqual(snapshot);
     expect(parseSnapshotEvent("not json")).toBeNull();

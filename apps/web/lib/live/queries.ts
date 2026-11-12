@@ -3,6 +3,7 @@ import { schema, type OperatorContext, type Tx } from "@sbos/db";
 import { getDb } from "../db";
 import { operatorMayDecide } from "../mission-control/queries";
 import { targetFromSummary, type LiveCommunication } from "./graph";
+import { buildWorkerRows, type WorkerCounts } from "./deck";
 import {
   ACTIVE_RUN_STATES,
   emptyRunCounts,
@@ -13,6 +14,7 @@ import {
   type LiveApproval,
   type LiveConnector,
   type LiveDoneRun,
+  type LiveEvent,
   type LiveFailedRun,
   type LiveIncident,
   type LiveOpenQuestions,
@@ -20,7 +22,8 @@ import {
   type LiveRunState,
   type LiveSchedule,
   type LiveSnapshot,
-  type LiveStateChange
+  type LiveStateChange,
+  type LiveWorker
 } from "./helpers";
 
 /**
@@ -32,7 +35,7 @@ import {
  *
  * The snapshot is plain JSON (dates as ISO strings) so the SSE route can send it as is.
  */
-const { tenants, agentInstances, agentDefinitions, agentRuns, runEvents, approvals, incidents, questions, schedules, connections, syncRuns } = schema;
+const { tenants, agentInstances, agentDefinitions, agentRuns, runEvents, approvals, incidents, questions, schedules, connections, syncRuns, notifications, techWatchRuns, retentionSweeps } = schema;
 
 const num = (expr: ReturnType<typeof sql>) => sql<number>`${expr}`.mapWith(Number);
 const iso = (d: Date | string | null | undefined): string | null => (d ? new Date(d).toISOString() : null);
@@ -45,7 +48,7 @@ export async function operatorRead<T>(ctx: OperatorContext, fn: (tx: Tx) => Prom
 
 export async function getLiveSnapshot(ctx: OperatorContext): Promise<LiveSnapshot> {
   return operatorRead(ctx, async (tx) => {
-    const [summary, approvalRows, incidentRows, failedRows, questionRows, runningRows, doneRows, agentRows, timelineRows, scheduleRows, communicationRows, connectorRows, latest] = await Promise.all([
+    const [summary, approvalRows, incidentRows, failedRows, questionRows, runningRows, doneRows, agentRows, timelineRows, scheduleRows, communicationRows, connectorRows, eventRows, workerRows, latest] = await Promise.all([
       readSummary(tx),
       readApprovals(tx),
       readIncidents(tx),
@@ -58,6 +61,8 @@ export async function getLiveSnapshot(ctx: OperatorContext): Promise<LiveSnapsho
       readSchedules(tx),
       readCommunications(tx),
       readConnectors(tx),
+      readEvents(tx),
+      readWorkers(tx),
       tx.select({ simulated: agentRuns.simulated }).from(agentRuns).orderBy(desc(agentRuns.createdAt)).limit(1)
     ]);
     const mode: "live" | "simulated" = latest[0] && latest[0].simulated === false ? "live" : "simulated";
@@ -72,7 +77,9 @@ export async function getLiveSnapshot(ctx: OperatorContext): Promise<LiveSnapsho
       timeline: timelineRows,
       schedules: scheduleRows,
       communications: communicationRows,
-      connectors: connectorRows
+      connectors: connectorRows,
+      events: eventRows,
+      workers: workerRows
     };
   });
 }
@@ -105,7 +112,8 @@ async function readApprovals(tx: Tx): Promise<LiveApproval[]> {
       approverRole: approvals.approverRole,
       summary: approvals.summary,
       blocking: approvals.blocking,
-      createdAt: approvals.createdAt
+      createdAt: approvals.createdAt,
+      agentInstanceId: agentRuns.agentInstanceId
     })
     .from(approvals)
     .innerJoin(tenants, eq(tenants.id, approvals.tenantId))
@@ -114,7 +122,7 @@ async function readApprovals(tx: Tx): Promise<LiveApproval[]> {
     .where(eq(approvals.state, "pending"))
     .orderBy(approvals.createdAt)
     .limit(100);
-  return rows.map((r) => ({ ...r, agentName: r.agentName ?? null, createdAt: iso(r.createdAt)!, operatorMayDecide: operatorMayDecide(r.approverRole) }));
+  return rows.map((r) => ({ ...r, agentName: r.agentName ?? null, agentInstanceId: r.agentInstanceId ?? null, createdAt: iso(r.createdAt)!, operatorMayDecide: operatorMayDecide(r.approverRole) }));
 }
 
 async function readIncidents(tx: Tx): Promise<LiveIncident[]> {
@@ -288,16 +296,22 @@ async function readAgents(tx: Tx): Promise<LiveAgent[]> {
       tenantSlug: tenants.slug,
       tenantName: tenants.name,
       definitionKey: agentDefinitions.key,
+      definitionName: agentDefinitions.name,
+      tier: agentDefinitions.authority,
+      department: agentDefinitions.department,
       name: agentInstances.name,
       state: agentInstances.state,
       currentRunId: sql<string | null>`(select r.id from agent_runs r where r.agent_instance_id = ${agentInstances.id} and r.state in ('queued','running','waiting_for_input','waiting_for_approval','paused','interrupted') order by r.created_at desc limit 1)`,
-      lastActivityAt: sql<string | null>`greatest(${agentInstances.lastRunAt}, (select max(coalesce(r.finished_at, r.started_at, r.created_at)) from agent_runs r where r.agent_instance_id = ${agentInstances.id}))`
+      lastActivityAt: sql<string | null>`greatest(${agentInstances.lastRunAt}, (select max(coalesce(r.finished_at, r.started_at, r.created_at)) from agent_runs r where r.agent_instance_id = ${agentInstances.id}))`,
+      // cost_events is granted to the operator role (migration 0002); the month starts at the UTC calendar month.
+      monthCostUsd: num(sql`coalesce((select sum(c.cost_usd) from cost_events c where c.agent_instance_id = ${agentInstances.id} and c.occurred_at >= date_trunc('month', now() at time zone 'utc') at time zone 'utc'), 0)`),
+      runsToday: num(sql`(select count(*) from agent_runs r where r.agent_instance_id = ${agentInstances.id} and r.created_at > now() - interval '24 hours')`)
     })
     .from(agentInstances)
     .innerJoin(tenants, eq(tenants.id, agentInstances.tenantId))
     .innerJoin(agentDefinitions, eq(agentDefinitions.id, agentInstances.definitionId))
     .orderBy(tenants.name, agentInstances.name);
-  return rows.map((r) => ({ ...r, currentRunId: r.currentRunId ?? null, lastActivityAt: iso(r.lastActivityAt) }));
+  return rows.map((r) => ({ ...r, tier: String(r.tier), department: r.department ?? null, currentRunId: r.currentRunId ?? null, lastActivityAt: iso(r.lastActivityAt) }));
 }
 
 async function readTimeline(tx: Tx): Promise<LiveStateChange[]> {
@@ -343,6 +357,7 @@ async function readSchedules(tx: Tx): Promise<LiveSchedule[]> {
   const rows = await tx
     .select({
       id: schedules.id,
+      tenantId: schedules.tenantId,
       tenantName: tenants.name,
       agentName: agentInstances.name,
       definitionKey: agentDefinitions.key,
@@ -419,4 +434,146 @@ async function readConnectors(tx: Tx): Promise<LiveConnector[]> {
     else byKey.set(key, { tenantId: r.tenantId, provider: r.provider, live });
   }
   return [...byKey.values()];
+}
+
+// Operations Deck (slice 4) -----------------------------------------------------------------------
+
+export const EVENTS_TICKER_CAP = 120;
+
+/**
+ * Live event ticker: the newest 120 run_events across tenants with classification public or internal (the operator may
+ * know that confidential events exist, through the per-run counts, but never reads their summaries). Granted columns
+ * only; the payload is never selected. Newest first.
+ */
+async function readEvents(tx: Tx): Promise<LiveEvent[]> {
+  const rows = await tx
+    .select({
+      id: runEvents.id,
+      seq: runEvents.seq,
+      runId: runEvents.runId,
+      agentInstanceId: agentRuns.agentInstanceId,
+      agentName: agentInstances.name,
+      tenantId: agentRuns.tenantId,
+      tenantName: tenants.name,
+      kind: runEvents.kind,
+      summary: runEvents.summary,
+      classification: runEvents.classification,
+      costUsd: num(sql`coalesce(${runEvents.costUsd}, 0)`),
+      tokens: num(sql`coalesce(${runEvents.tokensInput}, 0) + coalesce(${runEvents.tokensOutput}, 0)`),
+      occurredAt: runEvents.occurredAt
+    })
+    .from(runEvents)
+    .innerJoin(agentRuns, eq(agentRuns.id, runEvents.runId))
+    .innerJoin(agentInstances, eq(agentInstances.id, agentRuns.agentInstanceId))
+    .innerJoin(tenants, eq(tenants.id, agentRuns.tenantId))
+    .where(inArray(runEvents.classification, ["public", "internal"]))
+    .orderBy(desc(runEvents.occurredAt), desc(runEvents.seq))
+    .limit(EVENTS_TICKER_CAP);
+  return rows.map((r) => ({ ...r, kind: String(r.kind), classification: String(r.classification), occurredAt: iso(r.occurredAt)! }));
+}
+
+/**
+ * Whether the current role (sbos_operator inside `withContext`) may SELECT a table. A plain catalog function, so a
+ * missing grant never aborts the snapshot transaction; the UI then shows "not readable by the operator role".
+ */
+async function operatorMayRead(tx: Tx, table: string): Promise<boolean> {
+  const res = await tx.execute<{ ok: boolean }>(sql`select has_table_privilege(current_user, ${`public.${table}`}, 'select') as ok`);
+  return res.rows[0]?.ok === true;
+}
+
+const DAY = sql`now() - interval '24 hours'`;
+
+/**
+ * Background worker rows. pg-boss keeps its queue tables in its own schema, which the operator role cannot read, so the
+ * counts are derived from the domain tables the worker writes: agent_runs for agent.run and agent.resume, schedules and
+ * agent_runs for schedule.tick, sync_runs for connector.sync, notifications for notify.send, and the agency tables
+ * tech_watch_runs and retention_sweeps. Each agency table is read only when the role holds SELECT on it.
+ */
+async function readWorkers(tx: Tx): Promise<LiveWorker[]> {
+  const runCounts = async (resume: boolean) => {
+    const trig = resume ? sql`${agentRuns.trigger} = 'resume'` : sql`${agentRuns.trigger} <> 'resume'`;
+    const [r] = await tx
+      .select({
+        queued: num(sql`count(*) filter (where ${agentRuns.state} = 'queued')`),
+        running: num(sql`count(*) filter (where ${agentRuns.state} = 'running')`),
+        interrupted: num(sql`count(*) filter (where ${agentRuns.state} = 'interrupted')`),
+        succeeded24h: num(sql`count(*) filter (where ${agentRuns.state} = 'succeeded' and ${agentRuns.finishedAt} > ${DAY})`),
+        failed24h: num(sql`count(*) filter (where ${agentRuns.state} in ('failed','timed_out') and coalesce(${agentRuns.finishedAt}, ${agentRuns.updatedAt}) > ${DAY})`),
+        lastAt: sql<string | null>`max(coalesce(${agentRuns.startedAt}, ${agentRuns.createdAt}))`
+      })
+      .from(agentRuns)
+      .where(trig);
+    return r ? { ...r, lastAt: iso(r.lastAt) } : null;
+  };
+  const scheduleCounts = async () => {
+    const [sch] = await tx
+      .select({
+        enabled: num(sql`count(*) filter (where ${schedules.enabled})`),
+        dueWithinHour: num(sql`count(*) filter (where ${schedules.enabled} and ${schedules.nextRunAt} <= now() + interval '1 hour')`),
+        lastAt: sql<string | null>`max(${schedules.lastRunAt})`
+      })
+      .from(schedules);
+    const [runs] = await tx
+      .select({
+        runs24h: num(sql`count(*)`),
+        failed24h: num(sql`count(*) filter (where ${agentRuns.state} in ('failed','timed_out'))`)
+      })
+      .from(agentRuns)
+      .where(and(eq(agentRuns.trigger, "schedule"), sql`${agentRuns.createdAt} > ${DAY}`));
+    return sch ? { enabled: sch.enabled, dueWithinHour: sch.dueWithinHour, runs24h: runs?.runs24h ?? 0, failed24h: runs?.failed24h ?? 0, lastAt: iso(sch.lastAt) } : null;
+  };
+  const syncCounts = async () => {
+    const [r] = await tx
+      .select({
+        running: num(sql`count(*) filter (where ${syncRuns.status} = 'running')`),
+        succeeded24h: num(sql`count(*) filter (where ${syncRuns.status} = 'succeeded' and ${syncRuns.startedAt} > ${DAY})`),
+        failed24h: num(sql`count(*) filter (where ${syncRuns.status} = 'failed' and ${syncRuns.startedAt} > ${DAY})`),
+        lastAt: sql<string | null>`max(${syncRuns.startedAt})`
+      })
+      .from(syncRuns);
+    return r ? { ...r, lastAt: iso(r.lastAt) } : null;
+  };
+  const notificationCounts = async () => {
+    if (!(await operatorMayRead(tx, "notifications"))) return null;
+    const [r] = await tx
+      .select({
+        queued: num(sql`count(*) filter (where ${notifications.state} = 'queued')`),
+        sent24h: num(sql`count(*) filter (where ${notifications.state} = 'sent' and ${notifications.sentAt} > ${DAY})`),
+        failed24h: num(sql`count(*) filter (where ${notifications.state} = 'failed' and ${notifications.createdAt} > ${DAY})`),
+        lastAt: sql<string | null>`max(coalesce(${notifications.sentAt}, ${notifications.createdAt}))`
+      })
+      .from(notifications);
+    return r ? { ...r, lastAt: iso(r.lastAt) } : null;
+  };
+  const techWatchCounts = async () => {
+    if (!(await operatorMayRead(tx, "tech_watch_runs"))) return null;
+    const [r] = await tx
+      .select({
+        succeeded24h: num(sql`count(*) filter (where ${techWatchRuns.status} = 'succeeded' and ${techWatchRuns.startedAt} > ${DAY})`),
+        failed24h: num(sql`count(*) filter (where ${techWatchRuns.status} = 'failed' and ${techWatchRuns.startedAt} > ${DAY})`),
+        lastAt: sql<string | null>`max(${techWatchRuns.startedAt})`
+      })
+      .from(techWatchRuns);
+    return r ? { ...r, lastAt: iso(r.lastAt) } : null;
+  };
+  const retentionCounts = async () => {
+    if (!(await operatorMayRead(tx, "retention_sweeps"))) return null;
+    const [r] = await tx
+      .select({
+        sweeps24h: num(sql`count(*) filter (where ${retentionSweeps.ranAt} > ${DAY})`),
+        lastAt: sql<string | null>`max(${retentionSweeps.ranAt})`
+      })
+      .from(retentionSweeps);
+    return r ? { ...r, lastAt: iso(r.lastAt) } : null;
+  };
+  const counts: WorkerCounts = {
+    runs: await runCounts(false),
+    resumes: await runCounts(true),
+    schedules: await scheduleCounts(),
+    syncs: await syncCounts(),
+    notifications: await notificationCounts(),
+    techWatch: await techWatchCounts(),
+    retention: await retentionCounts()
+  };
+  return buildWorkerRows(counts);
 }

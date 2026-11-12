@@ -35,8 +35,9 @@ See `docs/milestones/M1.md` tickets M1-01 … M1-15, including the autonomous wo
 - Done: research of four repositories, three proposals and the approved composite D, migration 0011, core instruction service, worker consumption at checkpoints.
 - Done (slice 1, 2026-11-11): LISTEN client, SSE route with snapshot-then-stream, snapshot API, client hook with backoff and polling fallback, `/mission-control/live` Queue tab, instruct action, nav entry, tests.
 - Done (slice 2, 2026-11-12): Runs tab and Run Inspector drawer (run detail API, steps from checkpoint events, event feed with filter, instructions, approvals, incidents, controls through the audited actions, tab and selection in the URL).
-- Slice 3 (in progress): Flight Map tab as inline SVG on the pure model in `apps/web/lib/live/graph.ts` (sector layout like the approved composite); React Flow plus dagre deferred until pan, zoom or 50+ agents are needed; delegation edges from `parent_run_id`.
-- Slice 4: Operations Deck tab (dense table, event ticker, workers and schedules), filters by workflow and department across tabs, reassign task.
+- Done (slice 3, 2026-11-12): Flight Map tab as inline SVG on the pure model in `apps/web/lib/live/graph.ts` (sector layout like the approved composite, communications and connectors from event summaries, recent communications list). React Flow plus dagre deferred until pan, zoom or 50+ agents are needed.
+- Done (slice 4, 2026-11-12): Operations Deck tab (agents table with Run now and Pause/Resume, live event ticker, pg-boss queue counts derived from the domain tables, schedules with Enable/Disable) and the department filter across all tabs.
+- Open: reassign task from the Live board (exists on Agent Detail as assign), delegation edges once a flow sets `parent_run_id`, pan and zoom on the map, staging smoke test with a live run.
 - Later: redaction rules per `run_event_kind` payload documented in `docs/SECURITY.md`; load test of the stream with two web replicas.
 
 ## Parking lot

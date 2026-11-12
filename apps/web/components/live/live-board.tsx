@@ -31,14 +31,17 @@ import {
 } from "@/lib/live/helpers";
 import type { GraphNode } from "@/lib/live/graph";
 import { communicationRows, latestRunForAgent, mapCounts } from "@/lib/live/map";
+import { agentsForDepartment, approvalMatchesDepartment } from "@/lib/live/deck";
 import { useLiveSnapshot } from "@/lib/live/use-live";
 import { FlightMap, FlightMapLegend, useFlightMapModel } from "./flight-map";
+import { OperationsDeck } from "./operations-deck";
 import { RunInspector } from "./run-inspector";
 
 /**
  * Live board (ADR-024 composite D). Tab 1 Command Queue (slice 1): three lanes, a per-agent timeline and a status
- * strip. Tab 2 Flight Map (slice 3): the agent graph with the same drawer. Tab 4 Runs (slice 2): run list plus the
- * shared inspector drawer. Deck (slice 4) is planned.
+ * strip. Tab 2 Flight Map (slice 3): the agent graph with the same drawer. Tab 3 Operations Deck (slice 4): agents
+ * table, event ticker, workers and schedules. Tab 4 Runs (slice 2): run list plus the shared inspector drawer. The
+ * filter strip (client, department, definition, state) applies on every tab; the department travels in the URL.
  * Every control posts to an existing audited server action; the board itself only reads the operator snapshot.
  * Cyan = live activity, amber (warning) = needs a human, indigo = structure and selection.
  */
@@ -61,7 +64,8 @@ export function LiveBoard({
   error,
   operatorRoles,
   initialTab = "queue",
-  initialRunId = null
+  initialRunId = null,
+  initialDepartment = null
 }: {
   initial: LiveSnapshot;
   ok: string | null;
@@ -69,9 +73,10 @@ export function LiveBoard({
   operatorRoles: string[];
   initialTab?: LiveTab;
   initialRunId?: string | null;
+  initialDepartment?: string | null;
 }) {
   const { snapshot, connection, lastUpdate, retryInMs } = useLiveSnapshot(initial);
-  const [filters, setFilters] = useState<LaneFilters>(EMPTY_FILTERS);
+  const [filters, setFilters] = useState<LaneFilters>({ ...EMPTY_FILTERS, department: initialDepartment });
   const [tab, setTab] = useState<LiveTab>(initialTab);
   const [selectedRunId, setSelectedRunId] = useState<string | null>(initialRunId);
   // "now" is the snapshot time, so server and client render the same relative times (no hydration drift).
@@ -80,14 +85,19 @@ export function LiveBoard({
   const lanes = useMemo(() => groupRuns(snapshot, filters), [snapshot, filters]);
   const runList = useMemo(() => buildRunList(snapshot, filters), [snapshot, filters]);
   const timeline = useMemo(() => buildTimeline(snapshot.timeline, now), [snapshot.timeline, now]);
-  const approvals = snapshot.needsYou.approvals.filter((a) => !filters.tenantId || a.tenantId === filters.tenantId);
+  const approvals = snapshot.needsYou.approvals.filter((a) => (!filters.tenantId || a.tenantId === filters.tenantId) && approvalMatchesDepartment(a, filters.department, snapshot.agents));
   const incidents = snapshot.needsYou.incidents;
-  const questions = snapshot.needsYou.questions.filter((q) => !filters.tenantId || q.tenantId === filters.tenantId);
+  // Questions carry their own department (granted column); the filter narrows the per-department counts.
+  const questions = snapshot.needsYou.questions
+    .filter((q) => !filters.tenantId || q.tenantId === filters.tenantId)
+    .map((q) => (filters.department ? { ...q, byDepartment: q.byDepartment.filter((d) => d.department === filters.department), count: q.byDepartment.filter((d) => d.department === filters.department).reduce((n, d) => n + d.count, 0) } : q))
+    .filter((q) => q.count > 0);
   const needsCount = approvals.length + incidents.length + lanes.failed.length + questions.length;
   const s = snapshot.summary.runs;
   const waiting = s.waiting_for_approval + s.waiting_for_input;
-  const filtered = filters.tenantId !== null || filters.definitionKey !== null || filters.state !== null;
-  const returnTo = liveReturnTo(tab, selectedRunId);
+  const filtered = filters.tenantId !== null || filters.definitionKey !== null || filters.state !== null || filters.department !== null;
+  const deckAgents = agentsForDepartment(snapshot.agents, filters.department).filter((a) => (!filters.tenantId || a.tenantId === filters.tenantId) && (!filters.definitionKey || a.definitionKey === filters.definitionKey)).length;
+  const returnTo = liveReturnTo(tab, selectedRunId, filters.department);
   const drawerOpen = selectedRunId !== null || tab === "runs";
 
   // `#runs` in the address bar (the composite's deep link) selects the tab on first paint.
@@ -101,10 +111,10 @@ export function LiveBoard({
   // Keep the address bar in step with the tab and the open drawer, so a reload or a server action redirect lands here again.
   // A notice (`ok=`, `error=`) is dropped from the URL on purpose: it is already rendered and should not survive a reload.
   useEffect(() => {
-    const target = liveReturnTo(tab, selectedRunId);
+    const target = liveReturnTo(tab, selectedRunId, filters.department);
     const current = `${window.location.pathname}${window.location.search}`;
     if (current !== target) window.history.replaceState(window.history.state, "", target);
-  }, [tab, selectedRunId]);
+  }, [tab, selectedRunId, filters.department]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -139,7 +149,7 @@ export function LiveBoard({
           Map {s.running > 0 ? <span className="ml-1 font-mono text-[11px] text-cyan">{s.running}</span> : null}
         </TabButton>
         <TabButton active={tab === "deck"} onClick={() => setTab("deck")}>
-          Deck <span className="ml-1 text-[10px] uppercase tracking-wide text-faint">planned (slice 4)</span>
+          Deck <span className="ml-1 font-mono text-[11px] text-muted">{deckAgents}</span>
         </TabButton>
         <TabButton active={tab === "runs"} onClick={() => setTab("runs")}>
           Runs <span className="ml-1 font-mono text-[11px] text-muted">{runList.length}</span>
@@ -169,6 +179,12 @@ export function LiveBoard({
             ))}
           </select>
         </label>
+        <select aria-label="Department" className={selectClass} value={filters.department ?? ""} onChange={(e) => setFilters({ ...filters, department: e.target.value || null })}>
+          <option value="">All departments</option>
+          {options.departments.map((d) => (
+            <option key={d} value={d}>{d}</option>
+          ))}
+        </select>
         <select aria-label="Agent definition" className={selectClass} value={filters.definitionKey ?? ""} onChange={(e) => setFilters({ ...filters, definitionKey: e.target.value || null })}>
           <option value="">All agent definitions</option>
           {options.definitions.map((d) => (
@@ -184,7 +200,7 @@ export function LiveBoard({
         {filtered ? (
           <button type="button" className={smallButtonClass} onClick={() => setFilters(EMPTY_FILTERS)}>Clear filters</button>
         ) : null}
-        <span className="text-faint">Filters apply to runs on every tab; incidents are platform-wide.</span>
+        <span className="text-faint">Filters apply on every tab: runs and schedules through the agent definition's department, approvals through their run's agent; incidents are platform-wide.</span>
       </div>
 
       <div className={drawerOpen ? "grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px]" : ""}>
@@ -311,11 +327,7 @@ export function LiveBoard({
           {tab === "runs" ? <RunsPanel rows={runList} now={now} selectedRunId={selectedRunId} onSelect={openRun} filtered={filtered} stateFilter={filters.state} /> : null}
 
           {tab === "map" ? <MapPanel snapshot={snapshot} filters={filters} now={now} selectedRunId={selectedRunId} onSelect={openRun} /> : null}
-          {tab === "deck" ? (
-            <PlannedPanel title="Operations Deck" slice="slice 4">
-              Dense fleet table, event ticker, workers and schedules. Schedules are already in the snapshot ({snapshot.schedules.length}); the table and ticker follow in slice 4.
-            </PlannedPanel>
-          ) : null}
+          {tab === "deck" ? <OperationsDeck snapshot={snapshot} filters={filters} now={now} selectedRunId={selectedRunId} onSelect={openRun} returnTo={returnTo} /> : null}
         </div>
 
         {drawerOpen ? (
@@ -327,7 +339,7 @@ export function LiveBoard({
                 <h2 className="text-sm font-semibold">Inspector</h2>
                 <Status state="implemented" />
               </header>
-              <p className="text-sm text-muted">Click a run in the list, an Inspect button on the Queue, a timeline segment or an agent on the Map to open it here: steps, metadata, controls, instructions and the event feed.</p>
+              <p className="text-sm text-muted">Click a run in the list, an Inspect button on the Queue, a timeline segment, an agent on the Map or a run or event on the Deck to open it here: steps, metadata, controls, instructions and the event feed.</p>
               <p className="mt-2 text-[11px] text-faint">The drawer re-reads the run whenever a new snapshot arrives. Escape closes it.</p>
             </aside>
           )
@@ -432,7 +444,7 @@ function RunsPanel({ rows, now, selectedRunId, onSelect, filtered, stateFilter }
 function MapPanel({ snapshot, filters, now, selectedRunId, onSelect }: { snapshot: LiveSnapshot; filters: LaneFilters; now: Date; selectedRunId: string | null; onSelect: (id: string) => void }) {
   const [hint, setHint] = useState<{ agentId: string; name: string } | null>(null);
   // The client filter decides the sectors; the definition filter narrows the agents inside them. The state filter is a run filter and does not hide agents.
-  const agents = useMemo(() => snapshot.agents.filter((a) => !filters.definitionKey || a.definitionKey === filters.definitionKey), [snapshot.agents, filters.definitionKey]);
+  const agents = useMemo(() => agentsForDepartment(snapshot.agents, filters.department).filter((a) => !filters.definitionKey || a.definitionKey === filters.definitionKey), [snapshot.agents, filters.definitionKey, filters.department]);
   const model = useFlightMapModel({ agents, runs: snapshot.running, communications: snapshot.communications, connectors: snapshot.connectors, tenantFilter: filters.tenantId, now });
   const counts = useMemo(() => mapCounts(model), [model]);
   const agentIds = useMemo(() => new Set(agents.filter((a) => !filters.tenantId || a.tenantId === filters.tenantId).map((a) => a.id)), [agents, filters.tenantId]);
@@ -518,20 +530,6 @@ function MapPanel({ snapshot, filters, now, selectedRunId, onSelect }: { snapsho
         )}
       </section>
     </>
-  );
-}
-
-function PlannedPanel({ title, slice, children }: { title: string; slice: string; children: ReactNode }) {
-  return (
-    <section className="sb-card p-4" aria-label={title}>
-      <header className="mb-2 flex items-center gap-2">
-        <h2 className="text-sm font-semibold">{title}</h2>
-        <span className="text-[11px] uppercase tracking-wide text-faint">{slice}</span>
-        <span className="ml-auto"><Status state="planned" /></span>
-      </header>
-      <p className="text-sm text-muted">{children}</p>
-      <p className="mt-2 text-xs text-faint">Design reference: composite D under docs/proposals/live-mission-control. Nothing here is simulated as if it worked.</p>
-    </section>
   );
 }
 

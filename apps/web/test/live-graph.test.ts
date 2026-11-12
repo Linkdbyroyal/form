@@ -3,7 +3,7 @@ import { buildGraph, edgePath, targetFromSummary, type LiveCommunication } from 
 import type { LiveAgent, LiveRun } from "../lib/live/helpers";
 
 /** Flight Map model (slice 3): pure layout and aggregation, no database. */
-const agent = (id: string, tenantId: string, tenantName: string, definitionKey: string, state = "idle"): LiveAgent => ({ id, tenantId, tenantSlug: tenantName.toLowerCase(), tenantName, definitionKey, name: definitionKey, state, currentRunId: null, lastActivityAt: null });
+const agent = (id: string, tenantId: string, tenantName: string, definitionKey: string, state = "idle"): LiveAgent => ({ id, tenantId, tenantSlug: tenantName.toLowerCase(), tenantName, definitionKey, name: definitionKey, state, currentRunId: null, lastActivityAt: null, definitionName: "Definition", tier: "t1", department: null, monthCostUsd: 0, runsToday: 0 });
 const run = (id: string, agentInstanceId: string, tenantId: string, state: LiveRun["state"]): LiveRun => ({ id, tenantId, tenantSlug: "t", tenantName: "T", agentInstanceId, agentName: "a", definitionKey: "d", trigger: "command", state, attempt: 1, startedAt: null, createdAt: "2026-11-12T10:00:00Z", step: null, steps: [], tokensInput: 0, tokensOutput: 0, costUsd: 0, toolCalls: 0, modelCalls: 0, simulated: false, lastEventAt: null, lastEventSummary: null, lastEventKind: null } as LiveRun);
 const now = new Date("2026-11-12T10:30:00Z");
 const comm = (agentInstanceId: string, kind: LiveCommunication["kind"], target: string, minutesAgo: number, tenantId = "t1"): LiveCommunication => ({ runId: "r", agentInstanceId, tenantId, kind, target, label: kind, at: new Date(now.getTime() - minutesAgo * 60000).toISOString() });
