@@ -42,10 +42,16 @@ export interface LiveFailedRun {
   tenantId: string;
   tenantName: string;
   agentName: string;
+  definitionKey: string;
+  trigger: string;
   state: LiveRunState;
   errorCode: string | null;
   summary: string | null;
+  startedAt: string | null;
   finishedAt: string | null;
+  costUsd: number;
+  toolCalls: number;
+  modelCalls: number;
 }
 
 export interface LiveOpenQuestions {
@@ -77,6 +83,9 @@ export interface LiveRun {
   tokensInput: number;
   tokensOutput: number;
   costUsd: number;
+  /** Counts of run_events by kind (slice 2); cheap subselects on the indexed (run_id, seq) pair. */
+  toolCalls: number;
+  modelCalls: number;
   simulated: boolean;
   lastEventAt: string | null;
   lastEventSummary: string | null;
@@ -89,10 +98,14 @@ export interface LiveDoneRun {
   tenantName: string;
   agentName: string;
   definitionKey: string;
+  trigger: string;
   state: LiveRunState;
   summary: string | null;
   costUsd: number;
+  toolCalls: number;
+  modelCalls: number;
   simulated: boolean;
+  startedAt: string | null;
   finishedAt: string | null;
 }
 
@@ -407,4 +420,265 @@ export function filterOptions(snapshot: Pick<LiveSnapshot, "agents">): { tenants
     definitions.add(a.definitionKey);
   }
   return { tenants: [...tenants].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name)), definitions: [...definitions].sort() };
+}
+
+// Run Inspector (slice 2) --------------------------------------------------------------------
+
+export function isTerminalRunState(state: string): boolean {
+  return (TERMINAL_RUN_STATES as readonly string[]).includes(state);
+}
+
+export interface LiveRunHeader {
+  id: string;
+  tenantId: string;
+  tenantSlug: string;
+  tenantName: string;
+  agentInstanceId: string;
+  agentName: string;
+  definitionKey: string;
+  trigger: string;
+  triggerRef: string | null;
+  state: LiveRunState;
+  attempt: number;
+  createdAt: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+  tokensInput: number;
+  tokensOutput: number;
+  costUsd: number;
+  toolCalls: number;
+  modelCalls: number;
+  simulated: boolean;
+  summary: string | null;
+  /** `agent_runs.error ->> 'code'` (metadata column, granted); null when the run did not fail. */
+  errorCode: string | null;
+  parentRunId: string | null;
+}
+
+export type StepStatus = "done" | "now" | "pending";
+
+export interface LiveRunStep {
+  name: string;
+  status: StepStatus;
+}
+
+export interface LiveRunEvent {
+  id: string;
+  seq: number;
+  kind: string;
+  classification: string;
+  summary: string;
+  tokensInput: number;
+  tokensOutput: number;
+  costUsd: number;
+  durationMs: number | null;
+  occurredAt: string;
+}
+
+export interface LiveRunInstruction {
+  id: string;
+  text: string;
+  createdByActorId: string;
+  createdAt: string;
+  consumedAt: string | null;
+  consumedAtStep: string | null;
+}
+
+export interface LiveRunDetail {
+  run: LiveRunHeader;
+  steps: LiveRunStep[];
+  /** Newest first, capped at EVENTS_CAP. */
+  events: LiveRunEvent[];
+  eventsTotal: number;
+  instructions: LiveRunInstruction[];
+  approvals: Array<{ id: string; state: string; risk: string; approverRole: string; summary: string; createdAt: string; operatorMayDecide: boolean }>;
+  incidents: Array<{ id: string; kind: string; severity: string; title: string; state: string; createdAt: string }>;
+  task: { id: string; title: string; priority: string; state: string } | null;
+  childRuns: Array<{ id: string; agentName: string; state: LiveRunState }>;
+}
+
+export const EVENTS_CAP = 300;
+
+/**
+ * Step pills from checkpoint event summaries ("step <name>", in seq order). Names are de-duplicated keeping the first
+ * occurrence (a run that resumes re-checkpoints the same step). While the run is alive the latest checkpoint is "now"
+ * and a trailing "next" placeholder is "pending": the worker checkpoints the step it will resume at, and the names of
+ * later steps are not knowable from summaries. A terminal run has only "done" steps.
+ */
+export function buildSteps(checkpointSummaries: ReadonlyArray<string | null | undefined>, state: LiveRunState): LiveRunStep[] {
+  const names: string[] = [];
+  for (const s of checkpointSummaries) {
+    const name = parseStepFromSummary(s);
+    if (name && !names.includes(name)) names.push(name);
+  }
+  if (isTerminalRunState(state)) return names.map((name) => ({ name, status: "done" as const }));
+  const steps: LiveRunStep[] = names.map((name, i) => ({ name, status: i === names.length - 1 ? "now" : "done" }));
+  if (names[names.length - 1] !== "done") steps.push({ name: "next", status: "pending" });
+  return steps;
+}
+
+export const EVENT_FILTERS = ["all", "tools", "model", "state", "approvals", "errors"] as const;
+export type EventFilter = (typeof EVENT_FILTERS)[number];
+
+export function isEventFilter(value: string): value is EventFilter {
+  return (EVENT_FILTERS as readonly string[]).includes(value);
+}
+
+/** Kind groups behind the inspector's event filter. "errors" includes tool_denied, which also shows under "tools". */
+export function eventMatchesFilter(kind: string, filter: EventFilter): boolean {
+  switch (filter) {
+    case "all":
+      return true;
+    case "tools":
+      return kind === "tool_call" || kind === "tool_denied";
+    case "model":
+      return kind === "model_call";
+    case "state":
+      return kind === "state_change" || kind === "checkpoint" || kind === "step_started" || kind === "step_finished";
+    case "approvals":
+      return kind === "approval_requested" || kind === "approval_decided" || kind === "question_created" || kind === "help_request";
+    case "errors":
+      return kind === "error" || kind === "tool_denied";
+    default:
+      return false;
+  }
+}
+
+export type EventTone = "cyan" | "indigo" | "warning" | "danger" | "neutral";
+
+/** Composite D colours: cyan tool_call, indigo model_call, amber approval_requested and question_created, red error and tool_denied. */
+export function eventKindTone(kind: string): EventTone {
+  switch (kind) {
+    case "tool_call":
+      return "cyan";
+    case "model_call":
+      return "indigo";
+    case "approval_requested":
+    case "question_created":
+      return "warning";
+    case "error":
+    case "tool_denied":
+      return "danger";
+    default:
+      return "neutral";
+  }
+}
+
+/**
+ * Duration of a run: from startedAt to finishedAt, or to `now` while it is alive. "n/a" before the run started.
+ * "850 ms", "12 s", "3 min 05 s", "2 h 07 min".
+ */
+export function fmtRunDuration(startedAt: string | null | undefined, finishedAt: string | null | undefined, now: Date): string {
+  if (!startedAt) return "n/a";
+  const start = Date.parse(startedAt);
+  if (Number.isNaN(start)) return "n/a";
+  const end = finishedAt ? Date.parse(finishedAt) : now.getTime();
+  if (Number.isNaN(end)) return "n/a";
+  const ms = Math.max(0, end - start);
+  if (ms < 1000) return `${ms} ms`;
+  const totalSeconds = Math.floor(ms / 1000);
+  if (totalSeconds < 60) return `${totalSeconds} s`;
+  const minutes = Math.floor(totalSeconds / 60);
+  if (minutes < 60) return `${minutes} min ${String(totalSeconds % 60).padStart(2, "0")} s`;
+  const hours = Math.floor(minutes / 60);
+  return `${hours} h ${String(minutes % 60).padStart(2, "0")} min`;
+}
+
+/** Clock label "HH:MM:SS" in UTC for the event feed. */
+export function fmtClockSeconds(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return `${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}:${String(d.getUTCSeconds()).padStart(2, "0")}Z`;
+}
+
+// Run list (Runs tab) ---------------------------------------------------------------------------
+
+export interface RunListRow {
+  id: string;
+  tenantId: string;
+  tenantName: string;
+  agentName: string;
+  definitionKey: string;
+  trigger: string;
+  state: LiveRunState;
+  startedAt: string | null;
+  finishedAt: string | null;
+  /** Sort key: start time for alive runs, finish time for terminal ones (falls back to creation time). */
+  sortAt: string;
+  costUsd: number;
+  toolCalls: number;
+  modelCalls: number;
+  simulated: boolean;
+  errorCode: string | null;
+}
+
+/**
+ * Rows for the Runs tab: the snapshot's alive runs and the runs finished in the last 24 hours, with the shared
+ * filters applied. Failed and timed out runs live in the "needs you" lane; they join the list when the state filter
+ * asks for them. Alive runs first (newest start first), then terminal runs (newest finish first).
+ */
+export function buildRunList(snapshot: Pick<LiveSnapshot, "running" | "done" | "needsYou">, f: LaneFilters): RunListRow[] {
+  const rows: RunListRow[] = [];
+  for (const r of snapshot.running) {
+    if (!runMatches(r, f)) continue;
+    rows.push({ id: r.id, tenantId: r.tenantId, tenantName: r.tenantName, agentName: r.agentName, definitionKey: r.definitionKey, trigger: r.trigger, state: r.state, startedAt: r.startedAt, finishedAt: null, sortAt: r.startedAt ?? r.createdAt, costUsd: r.costUsd, toolCalls: r.toolCalls, modelCalls: r.modelCalls, simulated: r.simulated, errorCode: null });
+  }
+  for (const r of snapshot.done) {
+    if (!runMatches(r, f)) continue;
+    rows.push({ id: r.id, tenantId: r.tenantId, tenantName: r.tenantName, agentName: r.agentName, definitionKey: r.definitionKey, trigger: r.trigger, state: r.state, startedAt: r.startedAt, finishedAt: r.finishedAt, sortAt: r.finishedAt ?? r.startedAt ?? "", costUsd: r.costUsd, toolCalls: r.toolCalls, modelCalls: r.modelCalls, simulated: r.simulated, errorCode: null });
+  }
+  if (f.state === "failed" || f.state === "timed_out") {
+    for (const r of snapshot.needsYou.failedRuns) {
+      if (!runMatches(r, f)) continue;
+      rows.push({ id: r.id, tenantId: r.tenantId, tenantName: r.tenantName, agentName: r.agentName, definitionKey: r.definitionKey, trigger: r.trigger, state: r.state, startedAt: r.startedAt, finishedAt: r.finishedAt, sortAt: r.finishedAt ?? r.startedAt ?? "", costUsd: r.costUsd, toolCalls: r.toolCalls, modelCalls: r.modelCalls, simulated: true, errorCode: r.errorCode });
+    }
+  }
+  return sortRunRows(rows);
+}
+
+export function sortRunRows(rows: RunListRow[]): RunListRow[] {
+  return [...rows].sort((a, b) => {
+    const aAlive = isTerminalRunState(a.state) ? 1 : 0;
+    const bAlive = isTerminalRunState(b.state) ? 1 : 0;
+    if (aAlive !== bAlive) return aAlive - bAlive;
+    return b.sortAt.localeCompare(a.sortAt);
+  });
+}
+
+// Tabs and return paths -------------------------------------------------------------------------
+
+export const LIVE_TABS = ["queue", "map", "deck", "runs"] as const;
+export type LiveTab = (typeof LIVE_TABS)[number];
+
+/** Accepts "runs", "#runs" or null; anything unknown is the Queue. */
+export function parseLiveTab(value: string | null | undefined): LiveTab {
+  const v = (value ?? "").replace(/^#/, "").toLowerCase();
+  return (LIVE_TABS as readonly string[]).includes(v) ? (v as LiveTab) : "queue";
+}
+
+/**
+ * Path the board lives at for a tab and selection. Server actions redirect back here with `?ok=` or `?error=`
+ * appended by `withNotice`, which keeps these parameters, so the drawer stays open after Stop, Instruct or Approve.
+ */
+export function liveReturnTo(tab: LiveTab, runId: string | null): string {
+  const params = new URLSearchParams();
+  if (tab !== "queue") params.set("tab", tab);
+  if (runId) params.set("run", runId);
+  const qs = params.toString();
+  return qs ? `/mission-control/live?${qs}` : "/mission-control/live";
+}
+
+export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function isUuid(value: string | null | undefined): value is string {
+  return typeof value === "string" && UUID_RE.test(value);
+}
+
+/** Parses the JSON body of the run detail endpoint. Null for anything that is not a detail object. */
+export function parseRunDetail(data: unknown): LiveRunDetail | null {
+  if (!data || typeof data !== "object") return null;
+  const o = data as Record<string, unknown>;
+  const run = o.run as Record<string, unknown> | undefined;
+  if (!run || typeof run.id !== "string" || !Array.isArray(o.events) || !Array.isArray(o.steps) || !Array.isArray(o.instructions)) return null;
+  return data as LiveRunDetail;
 }

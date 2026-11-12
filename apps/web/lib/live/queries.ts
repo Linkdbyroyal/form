@@ -37,7 +37,7 @@ const iso = (d: Date | string | null | undefined): string | null => (d ? new Dat
 
 const ACTIVE = [...ACTIVE_RUN_STATES] as LiveRunState[];
 
-async function operatorRead<T>(ctx: OperatorContext, fn: (tx: Tx) => Promise<T>): Promise<T> {
+export async function operatorRead<T>(ctx: OperatorContext, fn: (tx: Tx) => Promise<T>): Promise<T> {
   return getDb().withContext(ctx, fn);
 }
 
@@ -129,18 +129,25 @@ async function readFailedRuns(tx: Tx): Promise<LiveFailedRun[]> {
       tenantId: agentRuns.tenantId,
       tenantName: tenants.name,
       agentName: agentInstances.name,
+      definitionKey: agentDefinitions.key,
+      trigger: agentRuns.trigger,
       state: agentRuns.state,
       errorCode: sql<string | null>`coalesce(${agentRuns.error}->>'code', ${agentRuns.error}->>'class')`,
       summary: agentRuns.summary,
-      finishedAt: agentRuns.finishedAt
+      startedAt: agentRuns.startedAt,
+      finishedAt: agentRuns.finishedAt,
+      costUsd: num(sql`${agentRuns.costUsd}`),
+      toolCalls: eventCounts.toolCalls,
+      modelCalls: eventCounts.modelCalls
     })
     .from(agentRuns)
     .innerJoin(tenants, eq(tenants.id, agentRuns.tenantId))
     .innerJoin(agentInstances, eq(agentInstances.id, agentRuns.agentInstanceId))
+    .innerJoin(agentDefinitions, eq(agentDefinitions.id, agentInstances.definitionId))
     .where(and(inArray(agentRuns.state, ["failed", "timed_out"]), sql`coalesce(${agentRuns.finishedAt}, ${agentRuns.updatedAt}) > now() - interval '24 hours'`))
     .orderBy(desc(agentRuns.finishedAt))
     .limit(50);
-  return rows.map((r) => ({ ...r, state: r.state as LiveRunState, errorCode: r.errorCode ?? null, finishedAt: iso(r.finishedAt) }));
+  return rows.map((r) => ({ ...r, state: r.state as LiveRunState, errorCode: r.errorCode ?? null, startedAt: iso(r.startedAt), finishedAt: iso(r.finishedAt) }));
 }
 
 async function readOpenQuestions(tx: Tx): Promise<LiveOpenQuestions[]> {
@@ -170,6 +177,12 @@ const lastEvent = {
   checkpoints: sql<string[]>`(select coalesce(array_agg(e.summary order by e.seq), '{}'::text[]) from run_events e where e.run_id = ${agentRuns.id} and e.kind = 'checkpoint')`
 };
 
+/** Event counts per run for the Runs tab (slice 2): the (run_id, seq) index makes these cheap. */
+const eventCounts = {
+  toolCalls: num(sql`(select count(*) from run_events e where e.run_id = ${agentRuns.id} and e.kind = 'tool_call')`),
+  modelCalls: num(sql`(select count(*) from run_events e where e.run_id = ${agentRuns.id} and e.kind = 'model_call')`)
+};
+
 async function readRunning(tx: Tx): Promise<LiveRun[]> {
   const rows = await tx
     .select({
@@ -188,6 +201,8 @@ async function readRunning(tx: Tx): Promise<LiveRun[]> {
       tokensInput: agentRuns.tokensInput,
       tokensOutput: agentRuns.tokensOutput,
       costUsd: num(sql`${agentRuns.costUsd}`),
+      toolCalls: eventCounts.toolCalls,
+      modelCalls: eventCounts.modelCalls,
       simulated: agentRuns.simulated,
       lastSummary: lastEvent.summary,
       lastKind: lastEvent.kind,
@@ -221,6 +236,8 @@ async function readRunning(tx: Tx): Promise<LiveRun[]> {
       tokensInput: r.tokensInput,
       tokensOutput: r.tokensOutput,
       costUsd: r.costUsd,
+      toolCalls: r.toolCalls,
+      modelCalls: r.modelCalls,
       simulated: r.simulated,
       lastEventAt: iso(r.lastAt),
       lastEventSummary: r.lastSummary ?? null,
@@ -237,10 +254,14 @@ async function readDone(tx: Tx): Promise<LiveDoneRun[]> {
       tenantName: tenants.name,
       agentName: agentInstances.name,
       definitionKey: agentDefinitions.key,
+      trigger: agentRuns.trigger,
       state: agentRuns.state,
       summary: agentRuns.summary,
       costUsd: num(sql`${agentRuns.costUsd}`),
+      toolCalls: eventCounts.toolCalls,
+      modelCalls: eventCounts.modelCalls,
       simulated: agentRuns.simulated,
+      startedAt: agentRuns.startedAt,
       finishedAt: agentRuns.finishedAt
     })
     .from(agentRuns)
@@ -250,7 +271,7 @@ async function readDone(tx: Tx): Promise<LiveDoneRun[]> {
     .where(and(inArray(agentRuns.state, ["succeeded", "cancelled"]), sql`coalesce(${agentRuns.finishedAt}, ${agentRuns.updatedAt}) > now() - interval '24 hours'`))
     .orderBy(desc(agentRuns.finishedAt))
     .limit(50);
-  return rows.map((r) => ({ ...r, state: r.state as LiveRunState, finishedAt: iso(r.finishedAt) }));
+  return rows.map((r) => ({ ...r, state: r.state as LiveRunState, startedAt: iso(r.startedAt), finishedAt: iso(r.finishedAt) }));
 }
 
 async function readAgents(tx: Tx): Promise<LiveAgent[]> {

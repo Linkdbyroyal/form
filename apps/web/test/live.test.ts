@@ -39,6 +39,8 @@ function run(partial: Partial<LiveRun> & Pick<LiveRun, "id" | "state">): LiveRun
     tokensInput: 0,
     tokensOutput: 0,
     costUsd: 0,
+    toolCalls: 0,
+    modelCalls: 0,
     simulated: true,
     lastEventAt: null,
     lastEventSummary: null,
@@ -48,11 +50,11 @@ function run(partial: Partial<LiveRun> & Pick<LiveRun, "id" | "state">): LiveRun
 }
 
 function done(partial: Partial<LiveDoneRun> & Pick<LiveDoneRun, "id" | "state">): LiveDoneRun {
-  return { tenantId: "t1", tenantName: "Acme", agentName: "Discovery", definitionKey: "discovery", summary: null, costUsd: 0, simulated: true, finishedAt: "2026-11-11T10:30:00.000Z", ...partial };
+  return { tenantId: "t1", tenantName: "Acme", agentName: "Discovery", definitionKey: "discovery", trigger: "schedule", summary: null, costUsd: 0, toolCalls: 0, modelCalls: 0, simulated: true, startedAt: "2026-11-11T10:20:00.000Z", finishedAt: "2026-11-11T10:30:00.000Z", ...partial };
 }
 
 function failed(partial: Partial<LiveFailedRun> & Pick<LiveFailedRun, "id">): LiveFailedRun {
-  return { tenantId: "t1", tenantName: "Acme", agentName: "Discovery", state: "failed", errorCode: "model", summary: null, finishedAt: "2026-11-11T10:20:00.000Z", ...partial };
+  return { tenantId: "t1", tenantName: "Acme", agentName: "Discovery", definitionKey: "discovery", trigger: "command", state: "failed", errorCode: "model", summary: null, startedAt: "2026-11-11T10:19:00.000Z", finishedAt: "2026-11-11T10:20:00.000Z", costUsd: 0, toolCalls: 0, modelCalls: 0, ...partial };
 }
 
 const snapshotBase = (): Pick<LiveSnapshot, "running" | "done" | "needsYou"> => ({

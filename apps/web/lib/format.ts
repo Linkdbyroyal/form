@@ -36,11 +36,18 @@ export function monthStartUtc(): Date {
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1));
 }
 
-/** Builds `path?key=value` for the redirect after a server action. Only same-origin paths are accepted. */
+/**
+ * Builds `path?key=value` for the redirect after a server action. Only same-origin paths are accepted. Query parameters
+ * already on the path (for example the Live board's `tab` and `run`) are kept; a previous `ok` or `error` is replaced.
+ * A fragment is dropped: the server cannot redirect to one reliably.
+ */
 export function withNotice(returnTo: string, notice: { ok?: string; error?: string }): string {
   const path = returnTo.startsWith("/") && !returnTo.startsWith("//") ? returnTo : "/mission-control";
-  const base = path.split("?")[0] ?? path;
-  const params = new URLSearchParams();
+  const withoutHash = path.split("#")[0] ?? path;
+  const [base, query = ""] = withoutHash.split("?", 2) as [string, string?];
+  const params = new URLSearchParams(query);
+  params.delete("ok");
+  params.delete("error");
   if (notice.ok) params.set("ok", notice.ok);
   if (notice.error) params.set("error", notice.error);
   const qs = params.toString();
