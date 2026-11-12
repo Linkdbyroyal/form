@@ -203,7 +203,9 @@ describe("stream client", () => {
       done: [],
       agents: [],
       timeline: [],
-      schedules: []
+      schedules: [],
+      communications: [],
+      connectors: []
     };
     expect(parseSnapshotEvent(JSON.stringify(snapshot))).toEqual(snapshot);
     expect(parseSnapshotEvent("not json")).toBeNull();

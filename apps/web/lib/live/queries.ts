@@ -2,6 +2,7 @@ import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { schema, type OperatorContext, type Tx } from "@sbos/db";
 import { getDb } from "../db";
 import { operatorMayDecide } from "../mission-control/queries";
+import { targetFromSummary, type LiveCommunication } from "./graph";
 import {
   ACTIVE_RUN_STATES,
   emptyRunCounts,
@@ -10,6 +11,7 @@ import {
   parseStepFromSummary,
   type LiveAgent,
   type LiveApproval,
+  type LiveConnector,
   type LiveDoneRun,
   type LiveFailedRun,
   type LiveIncident,
@@ -30,7 +32,7 @@ import {
  *
  * The snapshot is plain JSON (dates as ISO strings) so the SSE route can send it as is.
  */
-const { tenants, agentInstances, agentDefinitions, agentRuns, runEvents, approvals, incidents, questions, schedules } = schema;
+const { tenants, agentInstances, agentDefinitions, agentRuns, runEvents, approvals, incidents, questions, schedules, connections, syncRuns } = schema;
 
 const num = (expr: ReturnType<typeof sql>) => sql<number>`${expr}`.mapWith(Number);
 const iso = (d: Date | string | null | undefined): string | null => (d ? new Date(d).toISOString() : null);
@@ -43,7 +45,7 @@ export async function operatorRead<T>(ctx: OperatorContext, fn: (tx: Tx) => Prom
 
 export async function getLiveSnapshot(ctx: OperatorContext): Promise<LiveSnapshot> {
   return operatorRead(ctx, async (tx) => {
-    const [summary, approvalRows, incidentRows, failedRows, questionRows, runningRows, doneRows, agentRows, timelineRows, scheduleRows, latest] = await Promise.all([
+    const [summary, approvalRows, incidentRows, failedRows, questionRows, runningRows, doneRows, agentRows, timelineRows, scheduleRows, communicationRows, connectorRows, latest] = await Promise.all([
       readSummary(tx),
       readApprovals(tx),
       readIncidents(tx),
@@ -54,6 +56,8 @@ export async function getLiveSnapshot(ctx: OperatorContext): Promise<LiveSnapsho
       readAgents(tx),
       readTimeline(tx),
       readSchedules(tx),
+      readCommunications(tx),
+      readConnectors(tx),
       tx.select({ simulated: agentRuns.simulated }).from(agentRuns).orderBy(desc(agentRuns.createdAt)).limit(1)
     ]);
     const mode: "live" | "simulated" = latest[0] && latest[0].simulated === false ? "live" : "simulated";
@@ -66,7 +70,9 @@ export async function getLiveSnapshot(ctx: OperatorContext): Promise<LiveSnapsho
       done: doneRows,
       agents: agentRows,
       timeline: timelineRows,
-      schedules: scheduleRows
+      schedules: scheduleRows,
+      communications: communicationRows,
+      connectors: connectorRows
     };
   });
 }
@@ -353,4 +359,64 @@ async function readSchedules(tx: Tx): Promise<LiveSchedule[]> {
     .innerJoin(agentDefinitions, eq(agentDefinitions.id, agentInstances.definitionId))
     .orderBy(tenants.name, agentInstances.name);
   return rows.map((r) => ({ ...r, nextRunAt: iso(r.nextRunAt), lastRunAt: iso(r.lastRunAt), lastOutcome: r.lastOutcome ?? null }));
+}
+
+/** Event kinds the Flight Map turns into edges; `targetFromSummary` decides the target from the summary vocabulary. */
+const COMMUNICATION_KINDS = ["tool_call", "model_call", "approval_requested", "approval_decided", "question_created", "note", "state_change"] as const;
+const COMMUNICATIONS_WINDOW_MINUTES = 20;
+export const COMMUNICATIONS_CAP = 400;
+
+/**
+ * Communications for the Flight Map (slice 3): run_events of the last 20 minutes with a public or internal
+ * classification (the same rule as the last-event column), joined to agent_runs for the agent and tenant. The
+ * payload column is not granted to the operator role, so the target is derived from the summary only; events
+ * without a recognisable target are dropped. Newest 400 rows are read, returned oldest first (newest last).
+ */
+async function readCommunications(tx: Tx): Promise<LiveCommunication[]> {
+  const rows = await tx
+    .select({ runId: runEvents.runId, kind: runEvents.kind, summary: runEvents.summary, occurredAt: runEvents.occurredAt, agentInstanceId: agentRuns.agentInstanceId, tenantId: agentRuns.tenantId })
+    .from(runEvents)
+    .innerJoin(agentRuns, eq(agentRuns.id, runEvents.runId))
+    .where(
+      and(
+        inArray(runEvents.kind, [...COMMUNICATION_KINDS]),
+        inArray(runEvents.classification, ["public", "internal"]),
+        sql`${runEvents.occurredAt} > now() - make_interval(mins => ${COMMUNICATIONS_WINDOW_MINUTES})`
+      )
+    )
+    .orderBy(desc(runEvents.occurredAt), desc(runEvents.seq))
+    .limit(COMMUNICATIONS_CAP);
+  const out: LiveCommunication[] = [];
+  for (const r of rows) {
+    const mapped = targetFromSummary(r.kind, r.summary);
+    if (!mapped) continue;
+    out.push({ runId: r.runId, agentInstanceId: r.agentInstanceId, tenantId: r.tenantId, kind: mapped.kind, target: mapped.target, label: mapped.label, at: iso(r.occurredAt)! });
+  }
+  return out.reverse();
+}
+
+/**
+ * Connectors for the Flight Map: connections in phase read_only or sandbox, one entry per (tenant, provider); `live`
+ * when the latest sync run of any such connection ran in live mode. Metadata columns only (provider, phase and
+ * sync_runs.mode are granted to the operator role; `config` is never selected).
+ */
+async function readConnectors(tx: Tx): Promise<LiveConnector[]> {
+  const rows = await tx
+    .select({
+      tenantId: connections.tenantId,
+      provider: connections.provider,
+      latestMode: sql<string | null>`(select s.mode from ${syncRuns} s where s.connection_id = ${connections.id} order by s.started_at desc limit 1)`
+    })
+    .from(connections)
+    .where(inArray(connections.phase, ["read_only", "sandbox"]))
+    .orderBy(connections.tenantId, connections.provider);
+  const byKey = new Map<string, LiveConnector>();
+  for (const r of rows) {
+    const key = `${r.tenantId}:${r.provider}`;
+    const prev = byKey.get(key);
+    const live = r.latestMode === "live";
+    if (prev) prev.live = prev.live || live;
+    else byKey.set(key, { tenantId: r.tenantId, provider: r.provider, live });
+  }
+  return [...byKey.values()];
 }

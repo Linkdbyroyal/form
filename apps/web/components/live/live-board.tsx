@@ -16,6 +16,7 @@ import {
   filterOptions,
   fmtAgo,
   fmtClock,
+  fmtClockSeconds,
   fmtRunDuration,
   groupRuns,
   isRunState,
@@ -28,12 +29,16 @@ import {
   type LiveTab,
   type RunListRow
 } from "@/lib/live/helpers";
+import type { GraphNode } from "@/lib/live/graph";
+import { communicationRows, latestRunForAgent, mapCounts } from "@/lib/live/map";
 import { useLiveSnapshot } from "@/lib/live/use-live";
+import { FlightMap, FlightMapLegend, useFlightMapModel } from "./flight-map";
 import { RunInspector } from "./run-inspector";
 
 /**
  * Live board (ADR-024 composite D). Tab 1 Command Queue (slice 1): three lanes, a per-agent timeline and a status
- * strip. Tab 4 Runs (slice 2): run list plus the shared inspector drawer. Map (slice 3) and Deck (slice 4) are planned.
+ * strip. Tab 2 Flight Map (slice 3): the agent graph with the same drawer. Tab 4 Runs (slice 2): run list plus the
+ * shared inspector drawer. Deck (slice 4) is planned.
  * Every control posts to an existing audited server action; the board itself only reads the operator snapshot.
  * Cyan = live activity, amber (warning) = needs a human, indigo = structure and selection.
  */
@@ -131,7 +136,7 @@ export function LiveBoard({
           Queue {needsCount > 0 ? <span className="ml-1 font-mono text-[11px] text-warning">{needsCount}</span> : null}
         </TabButton>
         <TabButton active={tab === "map"} onClick={() => setTab("map")}>
-          Map <span className="ml-1 text-[10px] uppercase tracking-wide text-faint">planned (slice 3)</span>
+          Map {s.running > 0 ? <span className="ml-1 font-mono text-[11px] text-cyan">{s.running}</span> : null}
         </TabButton>
         <TabButton active={tab === "deck"} onClick={() => setTab("deck")}>
           Deck <span className="ml-1 text-[10px] uppercase tracking-wide text-faint">planned (slice 4)</span>
@@ -305,11 +310,7 @@ export function LiveBoard({
 
           {tab === "runs" ? <RunsPanel rows={runList} now={now} selectedRunId={selectedRunId} onSelect={openRun} filtered={filtered} stateFilter={filters.state} /> : null}
 
-          {tab === "map" ? (
-            <PlannedPanel title="Flight Map" slice="slice 3">
-              Orchestrator, agents per client, services and humans as a graph (React Flow 12 plus dagre, conductor layout with its licence notice), with the same inspector drawer. Until then the Queue and Runs tabs show the same runs as lists.
-            </PlannedPanel>
-          ) : null}
+          {tab === "map" ? <MapPanel snapshot={snapshot} filters={filters} now={now} selectedRunId={selectedRunId} onSelect={openRun} /> : null}
           {tab === "deck" ? (
             <PlannedPanel title="Operations Deck" slice="slice 4">
               Dense fleet table, event ticker, workers and schedules. Schedules are already in the snapshot ({snapshot.schedules.length}); the table and ticker follow in slice 4.
@@ -326,7 +327,7 @@ export function LiveBoard({
                 <h2 className="text-sm font-semibold">Inspector</h2>
                 <Status state="implemented" />
               </header>
-              <p className="text-sm text-muted">Click a run in the list, an Inspect button on the Queue, or a timeline segment to open it here: steps, metadata, controls, instructions and the event feed.</p>
+              <p className="text-sm text-muted">Click a run in the list, an Inspect button on the Queue, a timeline segment or an agent on the Map to open it here: steps, metadata, controls, instructions and the event feed.</p>
               <p className="mt-2 text-[11px] text-faint">The drawer re-reads the run whenever a new snapshot arrives. Escape closes it.</p>
             </aside>
           )
@@ -423,6 +424,100 @@ function RunsPanel({ rows, now, selectedRunId, onSelect, filtered, stateFilter }
       )}
       <p className="border-t border-border px-4 py-2 text-[11px] text-faint">Tools and model columns count run_events of kind tool_call and model_call; cost and tokens come from the run row. Up to 100 alive and 50 finished runs; the full history is on Runs & Traces.</p>
     </section>
+  );
+}
+
+// Map tab -------------------------------------------------------------------------------------
+
+function MapPanel({ snapshot, filters, now, selectedRunId, onSelect }: { snapshot: LiveSnapshot; filters: LaneFilters; now: Date; selectedRunId: string | null; onSelect: (id: string) => void }) {
+  const [hint, setHint] = useState<{ agentId: string; name: string } | null>(null);
+  // The client filter decides the sectors; the definition filter narrows the agents inside them. The state filter is a run filter and does not hide agents.
+  const agents = useMemo(() => snapshot.agents.filter((a) => !filters.definitionKey || a.definitionKey === filters.definitionKey), [snapshot.agents, filters.definitionKey]);
+  const model = useFlightMapModel({ agents, runs: snapshot.running, communications: snapshot.communications, connectors: snapshot.connectors, tenantFilter: filters.tenantId, now });
+  const counts = useMemo(() => mapCounts(model), [model]);
+  const agentIds = useMemo(() => new Set(agents.filter((a) => !filters.tenantId || a.tenantId === filters.tenantId).map((a) => a.id)), [agents, filters.tenantId]);
+  const rows = useMemo(() => communicationRows(snapshot.communications.filter((c) => !c.agentInstanceId || agentIds.has(c.agentInstanceId)), snapshot.agents, { limit: 30, tenantFilter: filters.tenantId }), [snapshot.communications, snapshot.agents, agentIds, filters.tenantId]);
+
+  const selectAgent = useCallback(
+    (node: GraphNode) => {
+      const runId = latestRunForAgent(snapshot, node.id, node.runId);
+      if (runId) {
+        setHint(null);
+        onSelect(runId);
+      } else {
+        setHint({ agentId: node.id, name: node.label });
+      }
+    },
+    [snapshot, onSelect]
+  );
+
+  return (
+    <>
+      <section className="sb-card min-w-0 overflow-hidden" aria-label="Flight Map">
+        <header className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-2.5">
+          <h2 className="text-sm font-semibold">Flight Map</h2>
+          <span className="rounded-full border border-border px-2 py-0.5 font-mono text-[11px]"><b className="text-cyan">{fmtInt(counts.running)}</b> <span className="text-muted">running</span></span>
+          <span className="rounded-full border border-border px-2 py-0.5 font-mono text-[11px]"><b className={counts.waiting > 0 ? "text-warning" : "text-fg"}>{fmtInt(counts.waiting)}</b> <span className="text-muted">waiting</span></span>
+          <span className="rounded-full border border-border px-2 py-0.5 font-mono text-[11px]"><b className={counts.hotEdges > 0 ? "text-cyan" : "text-fg"}>{fmtInt(counts.hotEdges)}</b> <span className="text-muted">edges, last 2 min</span></span>
+          <span className="hidden text-[11px] text-faint sm:inline">{fmtInt(counts.agents)} agents · {fmtInt(counts.edges)} edges in 20 min</span>
+          <span className="ml-auto"><Status state="implemented" /></span>
+        </header>
+        {counts.agents === 0 ? (
+          <div className="p-3"><Empty>No agents match the filters.</Empty></div>
+        ) : (
+          <FlightMap model={model} now={now} selectedRunId={selectedRunId} onSelectAgent={selectAgent} />
+        )}
+        <div className="space-y-2 border-t border-border px-4 py-2.5">
+          {hint ? (
+            <p className="text-xs text-warning" role="status">
+              {hint.name} has no run in this snapshot. <Link href={`/mission-control/agents/${hint.agentId}`} className="underline">Open the agent</Link> to run it now or see its history.
+            </p>
+          ) : null}
+          <FlightMapLegend />
+          <p className="text-[11px] text-faint">Edges come from run_events summaries of the last 20 minutes (tool calls, model calls, approvals, questions, operator instructions and dispatches); event payloads are content the operator role cannot read. Connectors show connections in read_only or sandbox phase; a sector reads "live" when its latest sync ran in live mode. Click an agent to open its run.</p>
+        </div>
+      </section>
+
+      <section className="sb-card min-w-0 overflow-hidden" aria-label="Recent communications">
+        <header className="flex items-center gap-2 border-b border-border px-4 py-2.5">
+          <h2 className="text-sm font-semibold">Recent communications</h2>
+          <span className="rounded-full border border-border px-2 py-0.5 font-mono text-[11px] text-muted">{rows.length}</span>
+          <span className="hidden text-[11px] text-faint sm:inline">newest first, last 20 minutes, up to 30 rows</span>
+          <span className="ml-auto"><Status state="implemented" /></span>
+        </header>
+        {rows.length === 0 ? (
+          <div className="p-3"><Empty>No communications in the last 20 minutes{filters.tenantId ? " for this client" : ""}. Start a run (Run now on an agent, or Run again in the inspector) to see edges appear.</Empty></div>
+        ) : (
+          <ul className="divide-y divide-border text-xs" aria-label="Communications">
+            {rows.map((r) => {
+              const tone = r.human ? "text-warning" : r.kind === "model_call" ? "text-indigo" : r.kind === "dispatch" ? "text-muted" : "text-cyan";
+              const inner = (
+                <>
+                  <span className="w-20 shrink-0 font-mono tabular-nums text-faint" title={r.at}>{fmtClockSeconds(r.at)}</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="font-medium text-fg">{r.from}</span> <span className="text-faint">→</span> <span className="font-medium text-fg">{r.to}</span>
+                    <span className={`ml-2 ${tone}`}>{r.kind.replaceAll("_", " ")}</span>
+                    <span className="ml-2 text-muted">{r.label}</span>
+                  </span>
+                  <span className="hidden shrink-0 font-mono text-[11px] text-faint sm:inline">{fmtAgo(r.at, now)}</span>
+                </>
+              );
+              return (
+                <li key={r.key}>
+                  {r.runId ? (
+                    <button type="button" onClick={() => onSelect(r.runId!)} aria-pressed={selectedRunId === r.runId} className={`flex w-full items-baseline gap-2 px-4 py-1.5 text-left hover:bg-cyan/5 focus-visible:bg-cyan/10 focus-visible:outline-none ${selectedRunId === r.runId ? "bg-indigo/20" : ""}`}>
+                      {inner}
+                    </button>
+                  ) : (
+                    <div className="flex items-baseline gap-2 px-4 py-1.5">{inner}</div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
+    </>
   );
 }
 

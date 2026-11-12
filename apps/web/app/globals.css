@@ -80,3 +80,28 @@ html, body {
 .sb-prose th, .sb-prose td { border: 1px solid var(--sb-border); padding: 0.3em 0.5em; text-align: left; }
 .sb-prose hr { border: 0; border-top: 1px solid var(--sb-border); margin: 1em 0; }
 .sb-prose img { max-width: 100%; }
+
+/* Flight Map (ADR-024 slice 3, components/live/flight-map.tsx). SVG colours through the theme tokens only. */
+.sb-map text { font-size: 11px; fill: var(--sb-text-muted); pointer-events: none; }
+.sb-map .lbl { fill: var(--sb-text); font-weight: 600; }
+.sb-map .name { fill: var(--sb-text-muted); }
+.sb-map .code { fill: var(--sb-text); font-size: 9px; font-weight: 700; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.sb-map .sector { fill: color-mix(in srgb, var(--sb-indigo) 8%, transparent); stroke: color-mix(in srgb, var(--sb-indigo) 35%, transparent); }
+.sb-map .edge { stroke: var(--sb-border); stroke-width: 1.5; fill: none; }
+.sb-map .edge.hot { stroke: var(--sb-cyan); stroke-width: 2.2; filter: drop-shadow(0 0 4px var(--sb-cyan)); }
+.sb-map .edge.human { stroke: var(--sb-warning); }
+.sb-map .node circle { fill: var(--sb-surface-2); stroke: var(--sb-border); stroke-width: 2; }
+.sb-map .node.agent { cursor: pointer; outline: none; }
+.sb-map .node.agent.running circle { stroke: var(--sb-cyan); filter: drop-shadow(0 0 8px color-mix(in srgb, var(--sb-cyan) 70%, transparent)); }
+.sb-map .node.agent.blocked circle, .sb-map .node.agent.paused circle { stroke: var(--sb-warning); }
+.sb-map .node.agent.error circle { stroke: var(--sb-danger); }
+.sb-map .node.orchestrator circle { fill: color-mix(in srgb, var(--sb-indigo) 45%, var(--sb-surface-2)); stroke: var(--sb-indigo); }
+.sb-map .node.human circle { fill: color-mix(in srgb, var(--sb-warning) 25%, var(--sb-surface-2)); stroke: var(--sb-warning); }
+.sb-map .node.service circle, .sb-map .node.connector circle { fill: var(--sb-surface); }
+.sb-map .node.sel circle, .sb-map .node.agent:focus-visible circle { stroke-width: 4; }
+.sb-map .node.agent:focus-visible circle { stroke: var(--sb-indigo); }
+.sb-map .node.agent:hover circle { fill: color-mix(in srgb, var(--sb-indigo) 20%, var(--sb-surface-2)); }
+@media (prefers-reduced-motion: no-preference) {
+  .sb-map .edge.hot { stroke-dasharray: 6 6; animation: sb-map-flow 1.2s linear infinite; }
+  @keyframes sb-map-flow { to { stroke-dashoffset: -12; } }
+}

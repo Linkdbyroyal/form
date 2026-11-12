@@ -109,9 +109,10 @@ export function buildGraph(input: GraphInput): GraphModel {
     const agents = input.agents.filter((a) => a.tenantId === t.id).sort((a, b) => a.definitionKey.localeCompare(b.definitionKey));
     agents.forEach((a, j) => {
       const ang = -Math.PI / 2 + (j / Math.max(1, agents.length)) * Math.PI * 2;
+      const spread = agents.length === 1 ? 0 : 1; // a lone agent sits in the centre of its sector
       const run = runByAgent.get(a.id);
       const state = run ? (["running", "queued"].includes(run.state) ? "running" : ["waiting_for_approval", "waiting_for_input"].includes(run.state) ? "blocked" : run.state === "paused" ? "paused" : a.state) : a.state;
-      nodes.push({ id: a.id, type: "agent", label: a.name, tenantId: t.id, state, runId: run?.id ?? null, x: Math.round(sx + Math.cos(ang) * 96), y: Math.round(sy + Math.sin(ang) * 60), r: 18 });
+      nodes.push({ id: a.id, type: "agent", label: a.name, tenantId: t.id, state, runId: run?.id ?? null, x: Math.round(sx + Math.cos(ang) * 96 * spread), y: Math.round(sy + Math.sin(ang) * 60 * spread), r: 18 });
     });
   });
   // Services and connectors along the top, in a stable order.

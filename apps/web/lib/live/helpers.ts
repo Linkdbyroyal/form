@@ -5,6 +5,8 @@
  * Dates travel as ISO strings so the snapshot is plain JSON for the server-sent event stream.
  */
 
+import type { LiveCommunication } from "./graph";
+
 export const RUN_STATES = ["queued", "running", "waiting_for_input", "waiting_for_approval", "paused", "succeeded", "failed", "cancelled", "timed_out", "interrupted"] as const;
 export type LiveRunState = (typeof RUN_STATES)[number];
 
@@ -145,6 +147,13 @@ export interface LiveSchedule {
   lastOutcome: string | null;
 }
 
+/** A client connection the Flight Map draws along the top (slice 3): read_only or sandbox phase; `live` when its latest sync run ran in live mode. */
+export interface LiveConnector {
+  tenantId: string;
+  provider: string;
+  live: boolean;
+}
+
 export interface LiveSnapshot {
   generatedAt: string;
   platform: { mode: "live" | "simulated" };
@@ -165,6 +174,9 @@ export interface LiveSnapshot {
   agents: LiveAgent[];
   timeline: LiveStateChange[];
   schedules: LiveSchedule[];
+  /** Flight Map (slice 3): run_events of the last 20 minutes mapped to communication targets, newest last, capped at 400. */
+  communications: LiveCommunication[];
+  connectors: LiveConnector[];
 }
 
 export function emptyRunCounts(): Record<LiveRunState, number> {
