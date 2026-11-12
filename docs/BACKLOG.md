@@ -33,9 +33,9 @@ See `docs/milestones/M1.md` tickets M1-01 … M1-15, including the autonomous wo
 
 ## Live Agent Mission Control (ADR-024, in progress)
 - Done: research of four repositories, three proposals and the approved composite D, migration 0011, core instruction service, worker consumption at checkpoints.
-- Slice 1 (web): LISTEN client, SSE route with snapshot-then-stream, snapshot API, client hook with backoff and polling fallback, `/mission-control/live` Queue tab, instruct action, nav entry, pure-helper tests.
-- Slice 2: Run Inspector tab (run list plus detail drawer with steps, tool and model events, instructions, controls).
-- Slice 3: Flight Map tab (React Flow 12 plus dagre, pinned; conductor layout with license notice; delegation edges from `parent_run_id`).
+- Done (slice 1, 2026-11-11): LISTEN client, SSE route with snapshot-then-stream, snapshot API, client hook with backoff and polling fallback, `/mission-control/live` Queue tab, instruct action, nav entry, tests.
+- Done (slice 2, 2026-11-12): Runs tab and Run Inspector drawer (run detail API, steps from checkpoint events, event feed with filter, instructions, approvals, incidents, controls through the audited actions, tab and selection in the URL).
+- Slice 3 (in progress): Flight Map tab as inline SVG on the pure model in `apps/web/lib/live/graph.ts` (sector layout like the approved composite); React Flow plus dagre deferred until pan, zoom or 50+ agents are needed; delegation edges from `parent_run_id`.
 - Slice 4: Operations Deck tab (dense table, event ticker, workers and schedules), filters by workflow and department across tabs, reassign task.
 - Later: redaction rules per `run_event_kind` payload documented in `docs/SECURITY.md`; load test of the stream with two web replicas.
 
