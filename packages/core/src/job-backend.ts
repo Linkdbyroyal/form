@@ -48,7 +48,7 @@ export interface AgentRunJob {
 export interface AgentResumeJob {
   tenantId: string;
   runId: string;
-  reason: "approval_decided" | "question_answered" | "operator_resume" | "recovery";
+  reason: "approval_decided" | "question_answered" | "operator_resume" | "recovery" | "child_finished";
 }
 
 export interface ScheduleTickJob {

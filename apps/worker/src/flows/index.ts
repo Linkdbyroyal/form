@@ -5,6 +5,8 @@ import { processRedesignFlow } from "./process-redesign";
 import { ceoIntelligenceFlow } from "./ceo-intelligence";
 import { executiveBriefingFlow } from "./executive-briefing";
 import { actionVerificationFlow } from "./action-verification";
+import { ventureLabFlow } from "./venture-lab";
+import { ventureAnalystFlow } from "./venture-analyst";
 
 /** Agent definition key -> flow. Definitions for Finance and Operations map to the shared department review flow. */
 const FLOWS: Record<string, Flow<BaseCheckpoint>> = {
@@ -14,7 +16,10 @@ const FLOWS: Record<string, Flow<BaseCheckpoint>> = {
   "process-redesign": processRedesignFlow as unknown as Flow<BaseCheckpoint>,
   "ceo-intelligence": ceoIntelligenceFlow as unknown as Flow<BaseCheckpoint>,
   "executive-briefing": executiveBriefingFlow as unknown as Flow<BaseCheckpoint>,
-  "performance-agent": actionVerificationFlow as unknown as Flow<BaseCheckpoint>
+  "performance-agent": actionVerificationFlow as unknown as Flow<BaseCheckpoint>,
+  // Venture Lab (ADR-025): agency-only orchestrator and its delegated analysts.
+  "venture-lab": ventureLabFlow as unknown as Flow<BaseCheckpoint>,
+  "venture-analyst": ventureAnalystFlow as unknown as Flow<BaseCheckpoint>
 };
 
 export function flowFor(definitionKey: string): Flow<BaseCheckpoint> | null {

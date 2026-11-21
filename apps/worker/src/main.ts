@@ -1,6 +1,6 @@
 import { createServer } from "node:http";
 import { PgBoss } from "pg-boss";
-import { createDb, seed, tenantContext } from "@sbos/db";
+import { createDb, ensureAgencyAgents, seed, tenantContext } from "@sbos/db";
 import { raiseIncident } from "@sbos/core";
 import { runConnectionSync } from "@sbos/connectors";
 import { enqueueDueSyncs, markStale } from "./connectors";
@@ -33,6 +33,11 @@ async function main(): Promise<void> {
     log("warn", "seed on start executed (SBOS_SEED_ON_START=1); remove the variable", { tenants: Object.keys(seeded.tenantIds) });
   }
 
+  // Catalogue reconcile (ADR-025): agency-only definitions and the Venture Lab instances are inserted when missing.
+  // Idempotent and agency scoped; existing rows, demo tenants and client pools are never touched.
+  const ensured = await ensureAgencyAgents(handle);
+  log("info", "agency agent catalogue ensured", { agencyTenant: ensured.agencyTenantId ? "present" : "missing" });
+
   boss.on("error", (err) => log("error", "pg-boss error", { error: (err as Error).message }));
   await boss.start();
   await ensureQueues(boss);
@@ -42,23 +47,26 @@ async function main(): Promise<void> {
   const recovered = await recoverExpiredLeases(handle, jobs);
   if (recovered > 0) log("warn", "recovered interrupted runs", { count: recovered });
 
-  await boss.work<{ tenantId: string; runId: string }>("agent.run", { batchSize: 1, pollingIntervalSeconds: 2 }, async ([job]) => {
-    if (!job) return;
-    state.runsStarted += 1;
-    const platform = await platformBudget(handle);
-    try {
-      await executeRun(handle, env, jobs, platform, { tenantId: job.data.tenantId, runId: job.data.runId, resume: false });
-    } catch (err) {
-      state.runsFailed += 1;
-      throw err;
-    }
-  });
+  // SBOS_WORKER_CONCURRENCY workers per run queue: delegated runs (ADR-025) execute in parallel up to this number.
+  for (let i = 0; i < Math.max(1, env.concurrency); i++) {
+    await boss.work<{ tenantId: string; runId: string }>("agent.run", { batchSize: 1, pollingIntervalSeconds: 2 }, async ([job]) => {
+      if (!job) return;
+      state.runsStarted += 1;
+      const platform = await platformBudget(handle);
+      try {
+        await executeRun(handle, env, jobs, platform, { tenantId: job.data.tenantId, runId: job.data.runId, resume: false });
+      } catch (err) {
+        state.runsFailed += 1;
+        throw err;
+      }
+    });
 
-  await boss.work<{ tenantId: string; runId: string; reason: string }>("agent.resume", { batchSize: 1, pollingIntervalSeconds: 2 }, async ([job]) => {
-    if (!job) return;
-    const platform = await platformBudget(handle);
-    await executeRun(handle, env, jobs, platform, { tenantId: job.data.tenantId, runId: job.data.runId, resume: true });
-  });
+    await boss.work<{ tenantId: string; runId: string; reason: string }>("agent.resume", { batchSize: 1, pollingIntervalSeconds: 2 }, async ([job]) => {
+      if (!job) return;
+      const platform = await platformBudget(handle);
+      await executeRun(handle, env, jobs, platform, { tenantId: job.data.tenantId, runId: job.data.runId, resume: true, reason: job.data.reason });
+    });
+  }
 
   await boss.work<{ tenantId: string; scheduleId: string }>("schedule.tick", { batchSize: 1, pollingIntervalSeconds: 5 }, async ([job]) => {
     if (!job) return;

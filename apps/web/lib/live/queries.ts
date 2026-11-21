@@ -218,6 +218,7 @@ async function readRunning(tx: Tx): Promise<LiveRun[]> {
       toolCalls: eventCounts.toolCalls,
       modelCalls: eventCounts.modelCalls,
       simulated: agentRuns.simulated,
+      parentRunId: agentRuns.parentRunId,
       lastSummary: lastEvent.summary,
       lastKind: lastEvent.kind,
       lastAt: lastEvent.at,
@@ -255,7 +256,8 @@ async function readRunning(tx: Tx): Promise<LiveRun[]> {
       simulated: r.simulated,
       lastEventAt: iso(r.lastAt),
       lastEventSummary: r.lastSummary ?? null,
-      lastEventKind: r.lastKind ?? null
+      lastEventKind: r.lastKind ?? null,
+      parentRunId: r.parentRunId ?? null
     };
   });
 }

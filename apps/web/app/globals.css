@@ -90,6 +90,7 @@ html, body {
 .sb-map .edge { stroke: var(--sb-border); stroke-width: 1.5; fill: none; }
 .sb-map .edge.hot { stroke: var(--sb-cyan); stroke-width: 2.2; filter: drop-shadow(0 0 4px var(--sb-cyan)); }
 .sb-map .edge.human { stroke: var(--sb-warning); }
+.sb-map .edge.delegation { stroke: var(--sb-indigo); stroke-width: 2; filter: none; }
 .sb-map .node circle { fill: var(--sb-surface-2); stroke: var(--sb-border); stroke-width: 2; }
 .sb-map .node.agent { cursor: pointer; outline: none; }
 .sb-map .node.agent.running circle { stroke: var(--sb-cyan); filter: drop-shadow(0 0 8px color-mix(in srgb, var(--sb-cyan) 70%, transparent)); }

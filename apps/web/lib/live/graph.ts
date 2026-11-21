@@ -7,7 +7,7 @@
  */
 import type { LiveAgent, LiveRun } from "./helpers";
 
-export type CommunicationKind = "tool_call" | "model_call" | "approval_requested" | "approval_decided" | "question_created" | "instruction" | "dispatch" | "sync";
+export type CommunicationKind = "tool_call" | "model_call" | "approval_requested" | "approval_decided" | "question_created" | "instruction" | "dispatch" | "sync" | "delegation";
 
 /** One recent communication, derived from run_events summaries the operator may read (identifiers and targets only). */
 export interface LiveCommunication {
@@ -43,6 +43,8 @@ export interface GraphEdge {
   lastAt: string;
   hot: boolean;
   human: boolean;
+  /** Delegation edge (ADR-025): parent agent to child agent, derived from `parent_run_id`, not from events. */
+  delegation?: boolean;
 }
 
 export interface GraphModel {
@@ -138,7 +140,21 @@ export function buildGraph(input: GraphInput): GraphModel {
     if (prev) { prev.count += 1; if (c.at > prev.lastAt) { prev.lastAt = c.at; prev.label = c.label; } }
     else edgeMap.set(key, { id: key, from, to, kind: c.kind, label: c.label, count: 1, lastAt: c.at, hot: false, human });
   }
-  const edges = [...edgeMap.values()].map((e) => ({ ...e, hot: now.getTime() - new Date(e.lastAt).getTime() < hotMs })).sort((a, b) => a.lastAt.localeCompare(b.lastAt));
+  // Delegation edges (ADR-025): every alive child run draws parent agent -> child agent; hot while the child is alive.
+  const runById = new Map(input.runs.map((r) => [r.id, r]));
+  for (const r of input.runs) {
+    if (!r.parentRunId) continue;
+    if (input.tenantFilter && r.tenantId !== input.tenantFilter) continue;
+    const parent = runById.get(r.parentRunId);
+    const from = parent?.agentInstanceId ?? "orchestrator";
+    if (!nodeIds.has(from) || !nodeIds.has(r.agentInstanceId) || from === r.agentInstanceId) continue;
+    const key = `${from}>${r.agentInstanceId}>delegation`;
+    const at = r.startedAt ?? r.createdAt;
+    const prev = edgeMap.get(key);
+    if (prev) { prev.count += 1; if (at > prev.lastAt) prev.lastAt = at; }
+    else edgeMap.set(key, { id: key, from, to: r.agentInstanceId, kind: "delegation", label: `delegated run ${r.id.slice(0, 8)}`, count: 1, lastAt: at, hot: true, human: false, delegation: true });
+  }
+  const edges = [...edgeMap.values()].map((e) => ({ ...e, hot: e.delegation ? true : now.getTime() - new Date(e.lastAt).getTime() < hotMs })).sort((a, b) => a.lastAt.localeCompare(b.lastAt));
   return { width: W, height: H, nodes, edges, sectors };
 }
 

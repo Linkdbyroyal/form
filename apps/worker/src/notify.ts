@@ -69,6 +69,8 @@ function deepLink(template: string, payload: Record<string, unknown>): string {
       return `/c/${String(payload.tenantSlug ?? "")}/inbox`;
     case "incident.raised":
       return `/mission-control/errors`;
+    case "venture_lab.scorecard":
+      return `/mission-control/approvals`;
     default:
       return "/mission-control";
   }

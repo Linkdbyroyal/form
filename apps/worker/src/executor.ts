@@ -1,6 +1,6 @@
 import { and, eq, sql } from "drizzle-orm";
 import { schema, tenantContext, type DbHandle, type TenantContext, type Tx } from "@sbos/db";
-import { RunFailure, appendRunEvent, consumePendingInstructions, formatInstructionsForPrompt, assertWithinRunCap, checkBudget, estimateCostUsd, raiseIncident, recordCost, saveCheckpoint, setTaskState, transitionRun, type JobBackend } from "@sbos/core";
+import { RunFailure, appendRunEvent, consumePendingInstructions, formatInstructionsForPrompt, assertWithinRunCap, checkBudget, estimateCostUsd, raiseIncident, recordCost, saveCheckpoint, setTaskState, transitionRun, wakeParentRun, type JobBackend } from "@sbos/core";
 import { MastraAgentRuntime, SimulatedRuntime, ToolGateway, type AgentRuntime, type TenantSnapshot } from "@sbos/agents";
 import type { WorkerEnv } from "./env";
 import { log } from "./log";
@@ -15,6 +15,8 @@ export interface ExecuteInput {
   tenantId: string;
   runId: string;
   resume: boolean;
+  /** Resume reason from the job payload; `child_finished` resumes a delegating parent (ADR-025). */
+  reason?: string;
 }
 
 export interface PlatformBudget {
@@ -50,6 +52,9 @@ export async function executeRun(handle: DbHandle, env: WorkerEnv, jobs: JobBack
 
   const ctx: TenantContext = tenantContext({ tenantId, actorType: "agent", actorId: instance.serviceIdentity, roles: ["agent_service"] });
   if (TERMINAL.includes(run.state)) return log("info", "run already terminal, skipping", { runId, state: run.state });
+  // A delegating parent is re-queued by the child's transaction right before its resume job is enqueued; if the job
+  // arrives first, fail the job so pg-boss retries it instead of silently skipping the parent.
+  if (run.state === "waiting_for_input" && input.reason === "child_finished") throw new Error(`parent run ${runId} is not re-queued yet; retrying the resume job`);
   if (run.state === "paused" || run.state === "waiting_for_approval" || run.state === "waiting_for_input") return log("info", "run not runnable in its current state, skipping", { runId, state: run.state });
 
   if (instance.state === "paused" || instance.state === "disabled") {
@@ -161,6 +166,9 @@ export async function executeRun(handle: DbHandle, env: WorkerEnv, jobs: JobBack
       };
       await transitionRun(tx, { tenantId, runId, to: "succeeded", summary: final.summary, patch: { result, summary: final.summary } });
       if (run.taskId) await setTaskState(tx, tenantId, run.taskId, "done");
+      // Delegation (ADR-025): a finished child wakes its waiting parent in the same transaction.
+      const woke = await wakeParentRun(tx, jobs, { tenantId, childRunId: runId });
+      if (woke.woke) log("info", "parent run re-queued after delegated run finished", { runId, parentRunId: woke.parentRunId });
     });
     log("info", "run succeeded", { runId, tenantId, flow: flow.key, simulated });
   } catch (err) {
@@ -174,6 +182,7 @@ export async function executeRun(handle: DbHandle, env: WorkerEnv, jobs: JobBack
         await transitionRun(tx, { tenantId, runId, to: "failed", summary: `failed: ${failure.failureClass}`, patch: { error: { code: failure.failureClass, message: failure.message, details: failure.details } } });
         await raiseIncident(tx, jobs, { tenantId, kind: failure.failureClass === "credential" ? "credential_invalid" : failure.failureClass === "policy" ? "tool_denied" : "run_failed", severity: "high", title: `Run failed (${failure.failureClass})`, details: { runId, class: failure.failureClass }, runId, agentInstanceId: instance.id });
         if (run.taskId) await setTaskState(tx, tenantId, run.taskId, "failed");
+        await wakeParentRun(tx, jobs, { tenantId, childRunId: runId });
       }
     });
     log("error", "run failed", { runId, tenantId, class: failure.failureClass, retryable: failure.retryable });
@@ -215,5 +224,6 @@ export async function failRunFromDeadLetter(handle: DbHandle, jobs: JobBackend, 
     await transitionRun(tx, { tenantId, runId, to: "failed", summary: "dead-letter: retries exhausted", patch: { error: { code: "dead_letter", message: reason.slice(0, 500) } } });
     await raiseIncident(tx, jobs, { tenantId, kind: "dead_letter", severity: "high", title: "Run moved to dead-letter after retries", details: { runId }, runId, agentInstanceId: run.agentInstanceId });
     if (run.taskId) await setTaskState(tx, tenantId, run.taskId, "failed");
+    await wakeParentRun(tx, jobs, { tenantId, childRunId: runId });
   });
 }

@@ -40,7 +40,7 @@ Service column: `web`, `worker`, `migrate` (the migration command, which runs in
 | `ANTHROPIC_API_KEY` | worker | yes | Model calls. Never set on web (ADR-016). |
 | `SBOS_DEFAULT_MODEL` | worker | no | Default model id (`claude-sonnet-5-5`). |
 | `SBOS_PLATFORM_BUDGET_USD_MONTH` | worker | no | Platform-wide monthly spend cap, default 25 (ADR-016). |
-| `SBOS_WORKER_CONCURRENCY` | worker | no | pg-boss jobs handled concurrently per process, default 2. |
+| `SBOS_WORKER_CONCURRENCY` | worker | no | Workers per run queue (`agent.run`, `agent.resume`), default 2: delegated runs (Venture Lab, ADR-025) execute in parallel up to this number. Staging runs 3 for six analysts in two waves. |
 | `RESEND_API_KEY` | worker, web | yes | Formal e-mail (ADR-018) from the worker; the web service uses it for Better Auth's own mail (verification, password reset, invitations), a recorded deviation from ADR-018. Staging: sending-only key restricted to the domain `sbaa.io`, created 2026-11-10. |
 | `RESEND_FROM_EMAIL` | worker | no | Verified sender, for example `Second Brain OS <noreply@yourdomain>`. |
 | `MAIL_FROM` | web | no | Verified sender for Better Auth mail (same value as `RESEND_FROM_EMAIL`). Required when `RESEND_API_KEY` is set on web. |

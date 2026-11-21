@@ -111,7 +111,7 @@ export function agentLabelPlacement(node: { x: number; y: number; r: number }, s
 }
 
 function edgeClass(e: GraphEdge): string {
-  return ["edge", e.hot ? "hot" : "", e.human ? "human" : ""].filter(Boolean).join(" ");
+  return ["edge", e.hot ? "hot" : "", e.human ? "human" : "", e.delegation ? "delegation" : ""].filter(Boolean).join(" ");
 }
 
 function edgeTitle(e: GraphEdge, a: GraphNode, b: GraphNode, now: Date): string {
@@ -129,6 +129,7 @@ export function FlightMapLegend() {
       <li><i className="mr-1 inline-block h-2.5 w-2.5 rounded-full border-2 border-border align-middle" aria-hidden /> agent idle</li>
       <li><i className="mr-1 inline-block h-0.5 w-4 bg-cyan align-middle shadow-[0_0_4px_var(--sb-cyan)]" aria-hidden /> activity in the last 2 minutes</li>
       <li><i className="mr-1 inline-block h-0.5 w-4 bg-warning align-middle" aria-hidden /> human interaction</li>
+      <li><i className="mr-1 inline-block h-0.5 w-4 bg-indigo align-middle" aria-hidden /> delegation (parent run to child run)</li>
       <li><i className="mr-1 inline-block h-0.5 w-4 bg-border align-middle" aria-hidden /> older activity (20 minutes)</li>
       <li>sectors: one per client; top: services and connectors; bottom left: humans</li>
     </ul>

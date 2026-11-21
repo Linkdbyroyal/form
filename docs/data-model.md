@@ -57,6 +57,10 @@ RLS summary: `tenants` readable by members and agency roles; all other tenant ta
 
 `agent_runs.parent_run_id` (delegation lineage, nullable, index), `run_instructions` (`tenant_id`, `run_id`, `text` 1 to 2000 characters, `created_by_actor_type/_id`, `consumed_at`, `consumed_at_step`; RLS forced; INSERT refused for agents and for terminal runs by trigger `enforce_run_instruction`; UPDATE may only set the consumption fields, once; operator role may SELECT). Trigger `notify_live_change()` on `agent_runs`, `run_events`, `approvals`, `incidents`, `questions`, `agent_instances`, `sync_runs`, `run_instructions`, `agent_tasks` sends `pg_notify('sbos_live', {table, op, id, tenantId, at})`, identifiers only; the web stream re-reads through RLS.
 
+### Delegation (ADR-025, no new migration)
+
+`agent_runs.parent_run_id` is set by the Venture Lab orchestrator for each analyst child run (trigger `event`, `trigger_ref = delegation:<parent>`); the child's task carries the brief in `agent_tasks.metadata.venture_brief` and `metadata.parent_run_id`. A parent waits in `waiting_for_input`; the child's terminal transaction locks the parent row (`SELECT ... FOR UPDATE`), re-queues it and enqueues `agent.resume` with reason `child_finished`. Venture opportunities are ordinary `opportunities` rows with `business_case.kind = 'venture'`, `business_case.analysis` (the validated analysis) and `business_case.lab_run_id`; their approvals name `approver_role = superadmin`. Sources: one `sources` row per analysis (`system = venture-lab`, `locator = run:<parent>`).
+
 ## Identity columns on every relevant action (spec 6B)
 
 `workspace_id` is `tenant_id`; actions carry `tenant_id`, `user_id` or `agent_id`, `run_id`, `source_id` where applicable. These are present in `audit_events.metadata` and in `run_events` as columns.

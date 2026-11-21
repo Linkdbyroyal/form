@@ -4,7 +4,7 @@ import type { LiveAgent, LiveRun } from "../lib/live/helpers";
 
 /** Flight Map model (slice 3): pure layout and aggregation, no database. */
 const agent = (id: string, tenantId: string, tenantName: string, definitionKey: string, state = "idle"): LiveAgent => ({ id, tenantId, tenantSlug: tenantName.toLowerCase(), tenantName, definitionKey, name: definitionKey, state, currentRunId: null, lastActivityAt: null, definitionName: "Definition", tier: "t1", department: null, monthCostUsd: 0, runsToday: 0 });
-const run = (id: string, agentInstanceId: string, tenantId: string, state: LiveRun["state"]): LiveRun => ({ id, tenantId, tenantSlug: "t", tenantName: "T", agentInstanceId, agentName: "a", definitionKey: "d", trigger: "command", state, attempt: 1, startedAt: null, createdAt: "2026-11-12T10:00:00Z", step: null, steps: [], tokensInput: 0, tokensOutput: 0, costUsd: 0, toolCalls: 0, modelCalls: 0, simulated: false, lastEventAt: null, lastEventSummary: null, lastEventKind: null } as LiveRun);
+const run = (id: string, agentInstanceId: string, tenantId: string, state: LiveRun["state"]): LiveRun => ({ id, tenantId, tenantSlug: "t", tenantName: "T", agentInstanceId, agentName: "a", definitionKey: "d", trigger: "command", state, attempt: 1, startedAt: null, createdAt: "2026-11-12T10:00:00Z", step: null, steps: [], tokensInput: 0, tokensOutput: 0, costUsd: 0, toolCalls: 0, modelCalls: 0, simulated: false, lastEventAt: null, lastEventSummary: null, lastEventKind: null, parentRunId: null } as LiveRun);
 const now = new Date("2026-11-12T10:30:00Z");
 const comm = (agentInstanceId: string, kind: LiveCommunication["kind"], target: string, minutesAgo: number, tenantId = "t1"): LiveCommunication => ({ runId: "r", agentInstanceId, tenantId, kind, target, label: kind, at: new Date(now.getTime() - minutesAgo * 60000).toISOString() });
 
@@ -35,6 +35,19 @@ describe("flight map model", () => {
     expect(g.edges.find((e) => e.kind === "dispatch")).toMatchObject({ from: "orchestrator", to: "a1" });
     // Agents stay inside their sector ellipse.
     for (const n of g.nodes.filter((n) => n.type === "agent")) { const s = g.sectors.find((x) => x.tenantId === n.tenantId)!; expect(Math.abs(n.x - s.x)).toBeLessThanOrEqual(s.rx); expect(Math.abs(n.y - s.y)).toBeLessThanOrEqual(s.ry); }
+  });
+  it("draws delegation edges from the parent run's agent to each child run's agent (ADR-025)", () => {
+    const agents = [agent("lab", "t1", "Agency", "venture-lab"), agent("an1", "t1", "Agency", "venture-analyst"), agent("an2", "t1", "Agency", "venture-analyst"), agent("b1", "t2", "Harbour", "discovery")];
+    const runs = [run("p", "lab", "t1", "waiting_for_input"), { ...run("c1", "an1", "t1", "running"), parentRunId: "p" }, { ...run("c2", "an2", "t1", "queued"), parentRunId: "p" }, { ...run("c3", "an2", "t1", "queued"), parentRunId: "p" }];
+    const g = buildGraph({ agents, runs, communications: [], now });
+    const del = g.edges.filter((e) => e.kind === "delegation");
+    expect(del.map((e) => [e.from, e.to, e.count])).toEqual([["lab", "an1", 1], ["lab", "an2", 2]]);
+    expect(del.every((e) => e.hot && !e.human && e.delegation)).toBe(true);
+    // An orphan child (parent not in the snapshot) hangs off the orchestrator; the tenant filter drops foreign runs.
+    const g2 = buildGraph({ agents, runs: [{ ...run("c9", "b1", "t2", "running"), parentRunId: "gone" }], communications: [], now, tenantFilter: "t1" });
+    expect(g2.edges).toHaveLength(0);
+    const g3 = buildGraph({ agents, runs: [{ ...run("c9", "b1", "t2", "running"), parentRunId: "gone" }], communications: [], now });
+    expect(g3.edges.find((e) => e.kind === "delegation")).toMatchObject({ from: "orchestrator", to: "b1" });
   });
   it("filters by tenant and draws a bowed path", () => {
     const g = buildGraph({ agents: [agent("a1", "t1", "N", "d"), agent("b1", "t2", "H", "d")], runs: [], communications: [comm("b1", "tool_call", "vault", 1, "t2")], now, tenantFilter: "t1" });

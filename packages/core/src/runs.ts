@@ -16,6 +16,8 @@ export interface StartRunInput {
   taskId?: string | null;
   scheduleId?: string | null;
   skillVersionId?: string | null;
+  /** Delegation (ADR-025): the run that spawned this one. The parent is woken when this run reaches a terminal state. */
+  parentRunId?: string | null;
 }
 
 /** Creates a queued run and enqueues its job in the same transaction. */
@@ -28,14 +30,15 @@ export async function createRun(tx: Tx, ctx: RequestContext, jobs: JobBackend, i
       taskId: input.taskId ?? null,
       scheduleId: input.scheduleId ?? null,
       skillVersionId: input.skillVersionId ?? null,
+      parentRunId: input.parentRunId ?? null,
       trigger: input.trigger,
       triggerRef: input.triggerRef ?? null,
       state: "queued"
     })
     .returning({ id: agentRuns.id });
   if (!run) throw new Error("run insert returned nothing");
-  await appendRunEvent(tx, { tenantId: input.tenantId, runId: run.id, kind: "state_change", summary: `queued (trigger: ${input.trigger})`, payload: { to: "queued", trigger: input.trigger, triggerRef: input.triggerRef ?? null } });
-  await writeAudit(tx, ctx, { action: "agent_run.created", entityType: "agent_run", entityId: run.id, after: { trigger: input.trigger, agentInstanceId: input.agentInstanceId } });
+  await appendRunEvent(tx, { tenantId: input.tenantId, runId: run.id, kind: "state_change", summary: input.parentRunId ? `queued (trigger: ${input.trigger}, delegated by run ${input.parentRunId.slice(0, 8)})` : `queued (trigger: ${input.trigger})`, payload: { to: "queued", trigger: input.trigger, triggerRef: input.triggerRef ?? null, parentRunId: input.parentRunId ?? null } });
+  await writeAudit(tx, ctx, { action: "agent_run.created", entityType: "agent_run", entityId: run.id, after: { trigger: input.trigger, agentInstanceId: input.agentInstanceId, parentRunId: input.parentRunId ?? null } });
   if (input.taskId) {
     await tx.update(agentTasks).set({ state: "in_progress" }).where(and(eq(agentTasks.id, input.taskId), eq(agentTasks.tenantId, input.tenantId)));
   }

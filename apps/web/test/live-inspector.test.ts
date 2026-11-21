@@ -106,7 +106,7 @@ describe("durations", () => {
 
 describe("run list", () => {
   function alive(partial: Partial<LiveRun> & Pick<LiveRun, "id" | "state">): LiveRun {
-    return { tenantId: "t1", tenantSlug: "acme", tenantName: "Acme", agentInstanceId: "a1", agentName: "Discovery", definitionKey: "discovery", trigger: "schedule", attempt: 1, startedAt: "2026-11-11T10:00:00.000Z", createdAt: "2026-11-11T09:59:00.000Z", step: null, steps: [], tokensInput: 0, tokensOutput: 0, costUsd: 0.5, toolCalls: 3, modelCalls: 2, simulated: true, lastEventAt: null, lastEventSummary: null, lastEventKind: null, ...partial };
+    return { tenantId: "t1", tenantSlug: "acme", tenantName: "Acme", agentInstanceId: "a1", agentName: "Discovery", definitionKey: "discovery", trigger: "schedule", attempt: 1, startedAt: "2026-11-11T10:00:00.000Z", createdAt: "2026-11-11T09:59:00.000Z", step: null, steps: [], tokensInput: 0, tokensOutput: 0, costUsd: 0.5, toolCalls: 3, modelCalls: 2, simulated: true, lastEventAt: null, lastEventSummary: null, lastEventKind: null, parentRunId: null, ...partial };
   }
   function done(partial: Partial<LiveDoneRun> & Pick<LiveDoneRun, "id" | "state">): LiveDoneRun {
     return { tenantId: "t1", tenantName: "Acme", agentName: "Discovery", definitionKey: "discovery", trigger: "command", summary: null, costUsd: 0.1, toolCalls: 1, modelCalls: 1, simulated: true, startedAt: "2026-11-11T10:20:00.000Z", finishedAt: "2026-11-11T10:30:00.000Z", ...partial };

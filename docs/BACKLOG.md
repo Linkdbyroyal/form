@@ -37,8 +37,13 @@ See `docs/milestones/M1.md` tickets M1-01 … M1-15, including the autonomous wo
 - Done (slice 2, 2026-11-12): Runs tab and Run Inspector drawer (run detail API, steps from checkpoint events, event feed with filter, instructions, approvals, incidents, controls through the audited actions, tab and selection in the URL).
 - Done (slice 3, 2026-11-12): Flight Map tab as inline SVG on the pure model in `apps/web/lib/live/graph.ts` (sector layout like the approved composite, communications and connectors from event summaries, recent communications list). React Flow plus dagre deferred until pan, zoom or 50+ agents are needed.
 - Done (slice 4, 2026-11-12): Operations Deck tab (agents table with Run now and Pause/Resume, live event ticker, pg-boss queue counts derived from the domain tables, schedules with Enable/Disable) and the department filter across all tabs.
-- Open: reassign task from the Live board (exists on Agent Detail as assign), delegation edges once a flow sets `parent_run_id`, pan and zoom on the map, staging smoke test with a live run.
+- Done (2026-11-21): delegation edges on the Flight Map from `parent_run_id` (first flow: Venture Lab, ADR-025).
+- Open: reassign task from the Live board (exists on Agent Detail as assign), pan and zoom on the map, staging smoke test with a live run.
 - Later: redaction rules per `run_event_kind` payload documented in `docs/SECURITY.md`; load test of the stream with two web replicas.
+
+## Venture Lab (ADR-025, slice 1 delivered 2026-11-21)
+- Done: agency-only definitions `venture-lab` and `venture-analyst` with skills, schemas, prompts and fixtures; delegation service (`createRun` with `parentRunId`, `wakeParentRun`, `lockRun`, `listChildRuns`); orchestrator and analyst flows; worker catalogue reconcile at start and concurrency per run queue; smoke test `apps/worker/src/cli/venture-lab-check.ts` (11 checks); delegation edges on the Live map.
+- Open (slice 2): Venture Lab page under `/agency` (latest scorecard, ranking, approve or reject per venture, start a lab run with a focus, enable the weekly schedule); link the scorecard note from the e-mail; a live run on staging with the real model and a cost report; `max_ventures` per instance exposed in the UI; a parent-side timeout when a child is stuck (today the operator cancels the child, which wakes the parent).
 
 ## Parking lot
 - Graph view for the vault; Papiamentu locale; mobile layouts; CopilotKit Intelligence (paid) evaluation; Trigger.dev migration if pg-boss limits are hit; Paperclip re-assessment after code audit.

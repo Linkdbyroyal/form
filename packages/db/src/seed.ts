@@ -86,6 +86,7 @@ export async function seed(handle: DbHandle): Promise<SeedResult> {
   const catalogue = await seedAgentCatalogue(handle);
   await seedTenantAgents(handle, ids.tenantIds["northline-events"]!, "northline", catalogue, true);
   await seedTenantAgents(handle, ids.tenantIds["harbour-view-hotel"]!, "harbourview", catalogue, false);
+  await seedAgencyAgents(handle, agencyTenantId, catalogue);
 
   // 5. Agency Intelligence Vault starter records (agency scope, own knowledge only).
   await seedAgencyKnowledge(handle);
@@ -304,15 +305,22 @@ function readSkillMd(key: string): { md: string; meta: SkillMeta } {
 }
 
 /** Agent catalogue: one definition per role, each pinned to an immutable skill version read from seed-data/skills. */
-const DEFINITIONS: Array<{ key: string; name: string; mission: string; department: string | null; authority: "t1" | "t2" | "t3"; cron: string | null; escalation: string; budget: string; runCap: string; outputs: string[]; quality: string[]; extraTools?: string[] }> = [
+const DEFINITIONS: Array<{ key: string; name: string; mission: string; department: string | null; authority: "t1" | "t2" | "t3"; cron: string | null; escalation: string; budget: string; runCap: string; outputs: string[]; quality: string[]; extraTools?: string[]; /** Agency-only definitions never join a client pool. */ scope?: "agency" }> = [
   { key: "discovery-interview", name: "Discovery & Interview Agent", mission: "Understand the business and ask adaptive, targeted questions that close evidence gaps.", department: "cross-functional", authority: "t1", cron: "0 7 * * 1-5", escalation: "client_admin", budget: "5.00", runCap: "0.25", outputs: ["QuestionRequest", "AgentRunResult"], quality: ["max 5 questions per round", "no re-asking answered questions", "reason and evidence_gap present"] },
   { key: "finance-agent", name: "CFO & Finance Agent", mission: "Review cash flow, invoicing, receivables, payables, costs and controls; state findings with claim types.", department: "finance", authority: "t1", cron: "30 7 * * 1-5", escalation: "department_manager", budget: "5.00", runCap: "0.25", outputs: ["Finding", "QuestionRequest"], quality: ["claim type on every finding", "no invented amounts", "max 2 questions per run"] },
   { key: "operations-agent", name: "COO & Operations Agent", mission: "Review planning, capacity, deliveries, returns and hand-offs; state findings with claim types.", department: "operations", authority: "t1", cron: "0 8 * * 1-5", escalation: "department_manager", budget: "5.00", runCap: "0.25", outputs: ["Finding", "QuestionRequest"], quality: ["claim type on every finding", "max 2 questions per run"] },
   { key: "process-redesign", name: "Process Redesign Agent", mission: "Reconstruct AS-IS from answers, design TO-BE with intervention labels, propose one opportunity for approval.", department: "cross-functional", authority: "t3", cron: null, escalation: "client_admin", budget: "5.00", runCap: "0.40", outputs: ["Opportunity"], quality: ["intervention label per changed step", "approval before any task"] },
   { key: "ceo-intelligence", name: "CEO Intelligence Agent", mission: "Discover decision needs, define KPIs with source and formula, produce a render-safe dashboard specification.", department: "management", authority: "t1", cron: null, escalation: "client_admin", budget: "5.00", runCap: "0.40", outputs: ["KpiDefinition", "DashboardSpecification"], quality: ["no KPI without source and formula", "widget whitelist only", "missing data shown as state"] },
   { key: "executive-briefing", name: "Executive Briefing Agent", mission: "Write the daily executive briefing with eight fixed sections and five to seven sourced priorities.", department: "management", authority: "t1", cron: "30 6 * * 1-5", escalation: "client_admin", budget: "5.00", runCap: "0.30", outputs: ["ExecutiveBriefing"], quality: ["exactly eight sections", "5 to 7 priorities", "every item sourced"] },
-  { key: "performance-agent", name: "Performance & Continuous Improvement Agent", mission: "Verify approved actions and their effect; ask the owner when evidence is missing; never assume completion.", department: "management", authority: "t1", cron: null, escalation: "client_admin", budget: "5.00", runCap: "0.25", outputs: ["QuestionRequest"], quality: ["verified only with evidence", "owner question when evidence missing"] }
+  { key: "performance-agent", name: "Performance & Continuous Improvement Agent", mission: "Verify approved actions and their effect; ask the owner when evidence is missing; never assume completion.", department: "management", authority: "t1", cron: null, escalation: "client_admin", budget: "5.00", runCap: "0.25", outputs: ["QuestionRequest"], quality: ["verified only with evidence", "owner question when evidence missing"] },
+  // Venture Lab (ADR-025): agency-only. The orchestrator delegates one analysis per idea to analyst child runs.
+  { key: "venture-lab", name: "Venture Lab Orchestrator", mission: "Generate venture and service ideas for the agency from its own knowledge and portfolio pattern, delegate one analysis per idea, synthesise a scorecard for the owner's decision.", department: "management", authority: "t1", cron: "0 2 * * 1", escalation: "superadmin", budget: "5.00", runCap: "0.60", outputs: ["Opportunity"], quality: ["agency tenant only", "distinct ideas across offer types", "one child run per selected idea", "scorecard ranks analysed ventures only"], scope: "agency" },
+  { key: "venture-analyst", name: "Venture Analyst", mission: "Test one venture idea overnight: hypothesis, customer, offer, pricing, estimated unit economics, first experiments, risks, scores, recommendation; propose it as an opportunity awaiting approval.", department: "management", authority: "t1", cron: null, escalation: "superadmin", budget: "5.00", runCap: "0.40", outputs: ["Opportunity"], quality: ["one falsifiable hypothesis", "evidence labelled by source", "money as estimate or absent", "opportunity waits for approval"], scope: "agency" }
 ];
+
+/** Number of Venture Analyst instances the agency tenant gets: the lab analyses this many ideas in parallel. */
+export const VENTURE_ANALYSTS = 6;
+export const AGENCY_SLUG_PART = "agency";
 
 async function seedAgentCatalogue(handle: DbHandle): Promise<Catalogue> {
   const ctx = agencyContext({ tenantId: null, ...SYSTEM_ACTOR });
@@ -343,7 +351,7 @@ async function seedAgentCatalogue(handle: DbHandle): Promise<Catalogue> {
 /** Activates agent instances for a tenant. The pilot tenant gets the full pool; others start with Discovery only. */
 async function seedTenantAgents(handle: DbHandle, tenantId: string, slugPart: string, catalogue: Catalogue, fullPool: boolean): Promise<void> {
   const ctx = tenantContext({ tenantId, ...SYSTEM_ACTOR });
-  const keys = fullPool ? DEFINITIONS.map((d) => d.key) : ["discovery-interview"];
+  const keys = fullPool ? DEFINITIONS.filter((d) => d.scope !== "agency").map((d) => d.key) : ["discovery-interview"];
   await handle.withContext(ctx, async (tx) => {
     await tx.insert(budgets).values({ tenantId, scope: "tenant", capUsdMonth: "10.00", runCapUsd: "0.50" }).onConflictDoNothing();
     for (const key of keys) {
@@ -362,6 +370,47 @@ async function seedTenantAgents(handle: DbHandle, tenantId: string, slugPart: st
       if (inst) await writeAudit(tx, ctx, { action: "agent_instance.activated", entityType: "agent_instance", entityId: instanceId, after: { definition: key } });
     }
   });
+}
+
+/**
+ * Venture Lab agents for the agency tenant (ADR-025): one orchestrator, VENTURE_ANALYSTS analysts, a tenant budget and
+ * a weekly overnight schedule that starts disabled. Idempotent: identities are unique per tenant, so re-running adds
+ * nothing. The worker calls `ensureAgencyAgents` at start so an existing database receives the catalogue entries
+ * without a full re-seed.
+ */
+async function seedAgencyAgents(handle: DbHandle, agencyTenantId: string, catalogue: Catalogue): Promise<void> {
+  const ctx = tenantContext({ tenantId: agencyTenantId, ...SYSTEM_ACTOR });
+  const lab = DEFINITIONS.find((d) => d.key === "venture-lab")!;
+  const analyst = DEFINITIONS.find((d) => d.key === "venture-analyst")!;
+  await handle.withContext(ctx, async (tx) => {
+    await tx.insert(budgets).values({ tenantId: agencyTenantId, scope: "tenant", capUsdMonth: "10.00", runCapUsd: "0.60" }).onConflictDoNothing();
+    const ensureInstance = async (def: typeof lab, name: string, serviceIdentity: string): Promise<{ id: string; created: boolean }> => {
+      const cat = catalogue.definitions[def.key]!;
+      const [inst] = await tx.insert(agentInstances).values({ tenantId: agencyTenantId, definitionId: cat.definitionId, skillVersionId: cat.skillVersionId, name, state: "idle", serviceIdentity }).onConflictDoNothing().returning({ id: agentInstances.id });
+      const id = inst?.id ?? (await tx.select({ id: agentInstances.id }).from(agentInstances).where(sql`service_identity = ${serviceIdentity}`))[0]!.id;
+      await tx.insert(budgets).values({ tenantId: agencyTenantId, scope: "agent_instance", agentInstanceId: id, capUsdMonth: def.budget, runCapUsd: def.runCap }).onConflictDoNothing();
+      if (inst) await writeAudit(tx, ctx, { action: "agent_instance.activated", entityType: "agent_instance", entityId: id, after: { definition: def.key } });
+      return { id, created: !!inst };
+    };
+    const orchestrator = await ensureInstance(lab, lab.name, `agent:${lab.key}:${AGENCY_SLUG_PART}`);
+    for (let i = 1; i <= VENTURE_ANALYSTS; i++) await ensureInstance(analyst, `${analyst.name} ${i}`, `agent:${analyst.key}:${AGENCY_SLUG_PART}:${i}`);
+    if (lab.cron) {
+      const existing = await tx.select({ id: schedules.id }).from(schedules).where(sql`agent_instance_id = ${orchestrator.id}`);
+      if (existing.length === 0) {
+        await tx.insert(schedules).values({ tenantId: agencyTenantId, agentInstanceId: orchestrator.id, name: "Venture Lab (overnight, weekly)", cron: lab.cron, timezone: "America/Curacao", enabled: false, expectedBySeconds: 1800, instruction: "Weekly Venture Lab: generate and test service and venture ideas for the agency; the owner decides in the morning." });
+      }
+    }
+  });
+}
+
+/** Catalogue and agency agents only (no demo tenants): safe to run at every worker start on an existing database. */
+export async function ensureAgencyAgents(handle: DbHandle): Promise<{ agencyTenantId: string | null }> {
+  const agencyCtx = agencyContext({ tenantId: null, ...SYSTEM_ACTOR });
+  const [agency] = await handle.withContext(agencyCtx, (tx) => tx.select({ id: tenants.id }).from(tenants).where(sql`kind = 'agency'`).limit(1));
+  if (!agency) return { agencyTenantId: null };
+  const catalogue = await seedAgentCatalogue(handle);
+  await seedAgencyAgents(handle, agency.id, catalogue);
+  return { agencyTenantId: agency.id };
 }
 
 const TECH_SOURCES: Array<{ key: string; name: string; kind: "github_releases" | "official_docs" | "security_advisory" | "standard"; fetchKind: "github_releases" | "manual"; url: string; agents: string[] }> = [

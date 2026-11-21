@@ -9,3 +9,4 @@ export * from "./process-redesign";
 export * from "./ceo-intelligence";
 export * from "./executive-briefing";
 export * from "./action-verification";
+export * from "./venture-lab";

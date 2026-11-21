@@ -94,6 +94,8 @@ export interface LiveRun {
   lastEventAt: string | null;
   lastEventSummary: string | null;
   lastEventKind: string | null;
+  /** Delegation (ADR-025): the run that spawned this one, when any. */
+  parentRunId: string | null;
 }
 
 export interface LiveDoneRun {

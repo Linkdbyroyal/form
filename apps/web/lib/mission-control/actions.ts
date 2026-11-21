@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { and, eq, inArray } from "drizzle-orm";
 import { agencyContext, operatorContext, schema, writeAudit, type AgencyContext, type Tx } from "@sbos/db";
-import { createRun, createTask, decideApproval, giveFeedback, queueRunInstruction, setTaskState, transitionRun, type JobBackend } from "@sbos/core";
+import { createRun, createTask, decideApproval, giveFeedback, queueRunInstruction, setTaskState, transitionRun, wakeParentRun, type JobBackend } from "@sbos/core";
 import { getDb } from "../db";
 import { getJobs } from "../jobs";
 import { errorMessage, withNotice } from "../format";
@@ -161,13 +161,15 @@ export async function stopRunAction(form: FormData): Promise<void> {
   try {
     const tenantId = uuidField(form, "tenantId");
     const runId = uuidField(form, "runId");
-    await tenantWrite(tenantId, async (tx, ctx) => {
+    await tenantWrite(tenantId, async (tx, ctx, jobs) => {
       const [run] = await tx.select({ state: agentRuns.state, taskId: agentRuns.taskId }).from(agentRuns).where(and(eq(agentRuns.id, runId), eq(agentRuns.tenantId, tenantId)));
       if (!run) throw new Error("run not found in this tenant");
       if (!(STOPPABLE_RUN_STATES as readonly string[]).includes(run.state)) throw new Error(`run is ${run.state} and cannot be stopped`);
       await transitionRun(tx, { tenantId, runId, to: "cancelled", summary: "cancelled by operator", payload: { by: ctx.actorId } });
       if (run.taskId) await setTaskState(tx, tenantId, run.taskId, "cancelled");
       await writeAudit(tx, ctx, { action: "agent_run.cancelled", entityType: "agent_run", entityId: runId, before: { state: run.state }, after: { state: "cancelled" } });
+      // A cancelled delegated run counts as finished for its parent (ADR-025).
+      await wakeParentRun(tx, jobs, { tenantId, childRunId: runId });
     });
     outcome = { ok: `Run ${runId.slice(0, 8)} cancelled. A worker already executing it stops at its next checkpoint.` };
   } catch (err) {
@@ -281,7 +283,7 @@ export async function cancelOpenRunsAction(form: FormData): Promise<void> {
   try {
     const tenantId = uuidField(form, "tenantId");
     const agentInstanceId = uuidField(form, "agentInstanceId");
-    const count = await tenantWrite(tenantId, async (tx, ctx) => {
+    const count = await tenantWrite(tenantId, async (tx, ctx, jobs) => {
       const open = await tx
         .select({ id: agentRuns.id, state: agentRuns.state, taskId: agentRuns.taskId })
         .from(agentRuns)
@@ -290,6 +292,7 @@ export async function cancelOpenRunsAction(form: FormData): Promise<void> {
         await transitionRun(tx, { tenantId, runId: r.id, to: "cancelled", summary: "cancelled by operator (bulk)", payload: { by: ctx.actorId } });
         if (r.taskId) await tx.update(agentTasks).set({ state: "cancelled" }).where(eq(agentTasks.id, r.taskId));
         await writeAudit(tx, ctx, { action: "agent_run.cancelled", entityType: "agent_run", entityId: r.id, before: { state: r.state }, after: { state: "cancelled" } });
+        await wakeParentRun(tx, jobs, { tenantId, childRunId: r.id });
       }
       return open.length;
     });

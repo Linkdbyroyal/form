@@ -45,6 +45,7 @@ function run(partial: Partial<LiveRun> & Pick<LiveRun, "id" | "state">): LiveRun
     lastEventAt: null,
     lastEventSummary: null,
     lastEventKind: null,
+    parentRunId: null,
     ...partial
   };
 }
